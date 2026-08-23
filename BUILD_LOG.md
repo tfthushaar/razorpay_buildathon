@@ -389,3 +389,37 @@ Format per entry: **date/phase — what was attempted — what happened — reso
   captures the pitch value without adding regression risk to a working, verified pipeline.
 
 ---
+
+## 2026-08-24 — Real Groq narrator results (main batch + full stress batch)
+
+First full run against the live API after the retry/fallback hardening above. Seed 42, main_n=120,
+stress_n=40, threshold=0.90, model `openai/gpt-oss-20b`. Raw result saved at
+[docs/evidence/real-groq-run-2026-08-24.json](docs/evidence/real-groq-run-2026-08-24.json).
+
+- **Elapsed: 665s (~11 minutes)** for 120 + 40 transactions, the large majority of that time spent
+  in rate-limit backoff sleeps, not model inference — worth stating plainly rather than implying
+  this is fast: a free-tier account processing a batch this size at this narration rate (~15% of
+  records reaching the LLM) takes real wall-clock time. A paid tier or a higher-TPM model would
+  remove almost all of it; the retry logic is what makes it *finish correctly* either way instead
+  of crashing partway through.
+- **Main batch (n=120):** 86.0% of batch value (Rs.11,21,046.35 of Rs.13,02,997.38) auto-reconciled
+  deterministically; 18 transactions escalated. Per-category real narrator accuracy:
+  **duplicate_refund 4/4 (100%), genuine_error 6/6 (100%), netting_trap 8/8 (100%)** — every
+  single narrator-classified transaction in this run was correct. All three still show
+  `decision: escalate` at the 90% threshold, and correctly so — Wilson lower bounds at n=4/6/8 are
+  51.0%/61.0%/67.6%, nowhere near clearing 90% regardless of the (real, not mocked) 100% point
+  accuracy. This is the exact "appropriately conservative by default" behavior documented in
+  calibration/history.py, now confirmed with real LLM output, not just mock output.
+- **Stress scorecard (100% adversarial batch, n=40): 37/37 narrator-classified cases correctly
+  handled, 0 wrongly auto-resolved.** This is the real number for the pitch's "break it" claim —
+  not the mock-mode number from earlier in this log, which was flagged at the time as not
+  representative of actual LLM judgment. This one is.
+- **Baseline comparison on the same batch:** naive baseline "clean" count 80/120 (66.7%) vs. this
+  system's 102/120 resolved (85.0%) — consistent with the mock-mode lift number reported earlier,
+  now confirmed with the real narrator in the loop. 8 false-negative timing_lag cases, 7
+  false-positive rounding cases, same blind spots documented earlier, now measured on a real run.
+- **Everything in the "v1.1 upgrades" and README's "what's real vs mock" caveats can now be updated
+  from "implemented but untested against the live API" to "tested against the live API, numbers
+  attached."**
+
+---

@@ -18,7 +18,7 @@ Status legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blo
 ## Agentic layer (needs GROQ_API_KEY — free tier, see BUILD_LOG for provider-switch rationale)
 
 - [x] Mock backend (zero-cost, deterministic, uses real tool functions) — 100% on narration queue across 99-seed fuzz, see BUILD_LOG for why that number needs an asterisk
-- [x] Groq backend implemented (Llama 3.3, OpenAI-compatible, tool-calling loop) — **not yet run for real, needs GROQ_API_KEY from the user**
+- [x] Groq backend (openai/gpt-oss-20b, OpenAI-compatible, tool-calling loop) — **run for real 2026-08-24: 100% accuracy on main batch (n=4/6/8 across 3 categories), 37/37 correct on stress batch, 0 wrongly auto-resolved.** Retry-with-backoff added after hitting a real rate limit. See docs/evidence/real-groq-run-2026-08-24.json
 - [x] Agentic discrepancy narrator + 4 tools (spec §6.4) — lookup_fee_schedule, check_sla_window, check_batch_anomalies (duplicate+netting, consolidated), recall_similar_resolutions
 - [x] `recall_similar_resolutions` retrieval over audit log (spec §7) — in-memory per-run, grows as batch is narrated
 

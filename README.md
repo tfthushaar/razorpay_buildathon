@@ -58,9 +58,11 @@ export GROQ_API_KEY=your-key-here   # free tier at console.groq.com
 export LLM_PROVIDER=groq
 ```
 
-(or pass `"provider": "groq"` per-request in the `/api/run` body — see BUILD_LOG.md for why Groq's
-Llama 3.3 was chosen over the originally-planned Claude API: it's free-tier, OpenAI-tool-call
-compatible, and this build is optimized to minimize running cost.)
+(or pass `"provider": "groq"` per-request in the `/api/run` body — see BUILD_LOG.md for why Groq
+was chosen over the originally-planned Claude API: it's free-tier, OpenAI-tool-call compatible,
+and this build is optimized to minimize running cost. Default model is `openai/gpt-oss-20b` —
+verified tool-calling support and the cheapest of the candidates tested. Free-tier accounts have a
+real per-minute token limit; the narrator retries rate limits with backoff automatically.)
 
 ### Frontend
 
@@ -81,18 +83,25 @@ cd backend
 python -m pytest tests/ -v
 ```
 
-34 tests covering the data generator's arithmetic invariants, the matching engine's deterministic
-resolution paths, the narrator's tool-based detection, the calibration layer's statistical
-behavior, the full pipeline, and the API layer.
+45 tests covering the data generator's arithmetic invariants, the matching engine's deterministic
+resolution paths, the narrator's tool-based detection and retry/failure handling, the calibration
+layer's statistical behavior, the Merkle-tree divergence pre-filter, the full pipeline, and the API
+layer.
 
-## What's real vs. what needs a key
+## What's real vs. mock
 
-Everything runs end-to-end today with `LLM_PROVIDER=mock` (the default) — synthetic data
-generation, causal chain matching, deterministic exception resolution, calibration, audit logging,
-and the full dashboard are all live with zero external dependencies. The agentic Groq-backed
-narrator is implemented and unit-tested against the same tool interface, but has not yet been run
-against the live Groq API in this environment (no key was available during this build session) —
-see BUILD_LOG.md's entry on the narrator for what's verified vs. what's pending a real key.
+Everything runs end-to-end with `LLM_PROVIDER=mock` (the default) — synthetic data generation,
+causal chain matching, deterministic exception resolution, calibration, audit logging, and the
+full dashboard are all live with zero external dependencies, and mock mode calls the exact same
+real tool functions the live narrator does (only the final synthesis step is a fixed rule).
+
+The agentic Groq-backed narrator has been run against the live API on a full batch (n=120) plus
+the full 100%-adversarial stress batch (n=40) — real results, not mocked: **100% narrator accuracy
+across all three categories (duplicate_refund, genuine_error, netting_trap) on the main batch, and
+37/37 correctly handled with 0 wrongly auto-resolved on the stress batch.** Raw output:
+[docs/evidence/real-groq-run-2026-08-24.json](docs/evidence/real-groq-run-2026-08-24.json); full
+narrative in BUILD_LOG.md, including the real rate-limit hit mid-batch and how it's handled (retry
+with backoff, honoring the API's own `retry-after` header, failing safe rather than crashing).
 
 ## Honest exceptions
 
