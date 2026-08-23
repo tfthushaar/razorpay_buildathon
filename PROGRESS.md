@@ -46,7 +46,7 @@ Status legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blo
 - [x] Audit log view (collapsible)
 - [x] Full stack verified end-to-end in a real headless browser (Playwright): run → tiles → baseline → stress → calibration dial → resolve escalation → audit log. Zero console/network errors.
 - [x] Random-reshuffle path — "Randomize" button next to the seed field picks a fresh random seed, proving the demo isn't replaying 4 hardcoded cases
-- [ ] Judge-submitted single-transaction upload — bigger lift, not yet built (would need a one-off evaluate endpoint + form); randomize covers the "not scripted" claim more cheaply for now
+- [x] Judge-submitted scenario evaluation — `POST /api/transactions/evaluate` + "Break it" panel (3 presets: duplicate refund, netting-trap pair, clean control), editable JSON, goes through the same calibration gate as a batch run. Verified live in browser, all 3 presets correct, 0 console errors.
 
 ## Submission checklist (spec §10)
 

@@ -1,4 +1,4 @@
-import type { AuditEntry, BatchRunResult, CalibrationReport, ResolveResponse } from "./types";
+import type { AuditEntry, BatchRunResult, CalibrationReport, EvaluateResponse, ResolveResponse } from "./types";
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
 
@@ -39,3 +39,9 @@ export const resolveEscalation = (transaction_id: string) =>
 
 export const getAudit = (runId?: string) =>
   request<AuditEntry[]>(runId ? `/api/audit?run_id=${runId}` : "/api/audit");
+
+export const evaluateScenario = (scenarioJson: object) =>
+  request<EvaluateResponse>("/api/transactions/evaluate", {
+    method: "POST",
+    body: JSON.stringify(scenarioJson),
+  });

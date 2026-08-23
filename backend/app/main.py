@@ -16,11 +16,18 @@ from pydantic import BaseModel
 
 load_dotenv()  # so LLM_PROVIDER / GROQ_API_KEY in backend/.env reach os.environ before any request
 
+import os
+
 from app.audit.logger import AuditLogger
 from app.calibration.calibrator import CalibrationReport
 from app.calibration.history import CalibrationHistory
+from app.chain.builder import build_all_chains
 from app.data_gen.generate import generate
-from app.pipeline import BatchRunResult, run_batch
+from app.data_gen.schemas import LedgerEntry, Order, Payment, Refund, Settlement, SyntheticBatch
+from app.matching.engine import run_matching_engine
+from app.narrator.agent import narrate
+from app.narrator.tools import build_tool_context
+from app.pipeline import BatchRunResult, _final_decision, run_batch
 
 DATA_DIR = Path(__file__).resolve().parents[1] / "data"
 
@@ -142,6 +149,88 @@ def api_audit(run_id: str | None = None) -> list[dict]:
     if run_id is None:
         raise HTTPException(404, "no run yet")
     return audit_logger.entries_for_run(run_id)
+
+
+class TransactionScenario(BaseModel):
+    """A judge-submitted (or hand-crafted) scenario — one or more transactions, evaluated live
+    against the real pipeline instead of a pre-generated batch. This is the 'break it' demo path
+    (spec §6.10): submit a duplicate-refund-shaped or netting-trap-shaped case and watch the system
+    correctly escalate instead of guessing. Never scored against ground truth (there isn't any) —
+    this is "what would the system do", not a calibration input.
+
+    Note: duplicate-refund and genuine-error detection work on a single submitted transaction
+    (they only need that transaction's own records). Netting-trap detection needs a *pair* — submit
+    two transactions with offsetting deltas in the same settlement_batch_id to see it caught.
+    """
+
+    orders: list[Order]
+    payments: list[Payment]
+    refunds: list[Refund] = []
+    settlements: list[Settlement]
+    ledger_entries: list[LedgerEntry]
+    provider: str | None = None
+
+
+class EvaluatedTransaction(BaseModel):
+    transaction_id: str
+    resolution: str
+    category: str | None
+    confidence: float | None
+    reasoning: str | None
+    tool_calls: list[dict] = []
+
+
+class EvaluateResponse(BaseModel):
+    results: list[EvaluatedTransaction]
+
+
+@app.post("/api/transactions/evaluate")
+def api_evaluate_transactions(scenario: TransactionScenario) -> EvaluateResponse:
+    batch = SyntheticBatch(
+        orders=scenario.orders,
+        payments=scenario.payments,
+        refunds=scenario.refunds,
+        settlements=scenario.settlements,
+        ledger_entries=scenario.ledger_entries,
+        ground_truth=[],
+    )
+    chains = build_all_chains(batch)
+    match_results = run_matching_engine(chains)
+    context = build_tool_context(batch, chains)
+    provider = scenario.provider or os.environ.get("LLM_PROVIDER", "mock")
+
+    threshold = state.latest_result.threshold if state.latest_result else 0.90
+    # a judge-submitted transaction goes through the exact same calibration gate as a batch one —
+    # accumulated trust decides auto-resolve vs. escalate here too, not a special-cased raw dump
+    # of whatever the narrator said.
+    auto_resolve_categories = set(calibration_history.report(threshold=threshold).auto_resolve_categories)
+
+    results: list[EvaluatedTransaction] = []
+    for txn_id, result in match_results.items():
+        if result.resolution == "needs_narration":
+            output = narrate(chains[txn_id], context, provider=provider)
+            decision = _final_decision(result, output.category, auto_resolve_categories)
+            results.append(
+                EvaluatedTransaction(
+                    transaction_id=txn_id,
+                    resolution=decision,
+                    category=output.category,
+                    confidence=output.confidence,
+                    reasoning=output.reasoning,
+                    tool_calls=[tc.model_dump() for tc in output.tool_calls],
+                )
+            )
+        else:
+            results.append(
+                EvaluatedTransaction(
+                    transaction_id=txn_id,
+                    resolution=result.resolution,
+                    category=result.category,
+                    confidence=result.confidence,
+                    reasoning=result.reasoning,
+                )
+            )
+    return EvaluateResponse(results=results)
 
 
 @app.get("/api/health")

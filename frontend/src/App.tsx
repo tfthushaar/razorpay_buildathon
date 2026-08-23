@@ -9,6 +9,7 @@ import { CalibrationPanel } from "./components/CalibrationPanel";
 import { EscalationQueue } from "./components/EscalationQueue";
 import { StressScorecard } from "./components/StressScorecard";
 import { AuditLogView } from "./components/AuditLogView";
+import { BreakItPanel } from "./components/BreakItPanel";
 import "./App.css";
 
 function App() {
@@ -46,6 +47,7 @@ function App() {
       </header>
 
       <RunControls onRun={handleRun} loading={loading} error={error} />
+      <BreakItPanel />
 
       {result && (
         <>

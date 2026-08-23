@@ -72,6 +72,19 @@ export interface ResolveResponse {
   updated_calibration: CalibrationReport;
 }
 
+export interface EvaluatedTransaction {
+  transaction_id: string;
+  resolution: string;
+  category: string | null;
+  confidence: number | null;
+  reasoning: string | null;
+  tool_calls: Record<string, unknown>[];
+}
+
+export interface EvaluateResponse {
+  results: EvaluatedTransaction[];
+}
+
 export interface AuditEntry {
   id: number;
   run_id: string;

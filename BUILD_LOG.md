@@ -295,3 +295,33 @@ Format per entry: **date/phase — what was attempted — what happened — reso
   app/main.py. Re-ran the full suite (34/34 still passing).
 
 ---
+
+## 2026-08-23 — Live "break it" evaluation path (spec's most-emphasized demo moment)
+
+- **Built:** `POST /api/transactions/evaluate` — accepts a hand-crafted or judge-submitted
+  scenario (one or more transactions, not a pre-generated batch), runs it through the exact same
+  causal chain builder, matching engine, agentic narrator, *and* the same calibration gate a
+  batch-derived transaction goes through (reused `pipeline._final_decision` rather than special-
+  casing this path). A "Randomize" control was also added next to the seed field so a full batch
+  run can be shown as provably unscripted too, not just single transactions.
+- **Frontend:** a "Break it" panel with three hand-built presets (duplicate refund, a netting-trap
+  *pair*, and a clean control) loaded into an editable JSON textarea — load a preset, tweak a
+  number, resubmit, live.
+- **Verified in a real browser, all three presets, in one pass:** duplicate refund correctly
+  escalated as `duplicate_refund` (confidence 0.90); the netting-trap pair correctly identified
+  *both* transactions as `netting_trap`, each one's reasoning naming the other transaction_id by
+  ID — this is the strongest available proof that causal-chain matching is really per-transaction,
+  not batch-aggregate; the clean control resolved as `clean_match` at Pass 1 with no false alarm.
+  Zero console errors across all three.
+- **Visual bug found from actually looking at the screenshot:** the decision badge used a single
+  fixed amber "warning" color for every resolution label, so "Clean (exact match)" rendered
+  visually identical to "Escalated" — backwards for a demo meant to show the system distinguishing
+  good outcomes from bad ones. Fixed by coloring the badge green for clean/auto-resolved
+  outcomes and amber only for escalated/needs-narration, and moved the category name to a neutral
+  badge instead of overloading the same green as a second signal. Re-verified visually.
+- **This is the single feature most directly aligned with spec §10's pitch-video instruction**
+  ("lead with a live break it moment... show the system correctly escalate instead of guessing")
+  — it's no longer something to stage by re-running a fixed generated batch, it's a live,
+  editable, resubmittable input.
+
+---

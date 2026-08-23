@@ -465,6 +465,33 @@ button:disabled {
   color: var(--muted);
 }
 
+/* Break it panel */
+
+.preset-buttons {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.scenario-textarea {
+  width: 100%;
+  min-height: 220px;
+  font-family: ui-monospace, monospace;
+  font-size: 0.78rem;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--ink);
+  margin-bottom: 12px;
+  resize: vertical;
+}
+
+.break-it-results {
+  margin-top: 18px;
+}
+
 .empty-state {
   color: var(--muted);
   text-align: center;
