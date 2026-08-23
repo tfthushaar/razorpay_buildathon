@@ -73,7 +73,10 @@ export function CalibrationPanel({ initialReport, refreshKey, onReportChange }: 
           {report.categories.map((c) => (
             <tr key={c.category} className={c.decision === "auto_resolve" ? "row-auto-resolve" : "row-escalate"}>
               <td>{categoryLabel(c.category)}</td>
-              <td>{c.n}</td>
+              <td>
+                {c.n}
+                {c.mock_n > 0 && <span className="mock-n-note"> (+{c.mock_n} mock, not counted)</span>}
+              </td>
               <td>{pct(c.accuracy)}</td>
               <td>
                 <div className="ci-bar-track" title={c.reason}>

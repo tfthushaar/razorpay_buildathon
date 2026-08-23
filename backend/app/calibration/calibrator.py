@@ -11,6 +11,15 @@ The threshold is checked against the CI *lower bound*, not the raw accuracy, and
 function is cheap enough to re-run on every threshold change (spec's "live dial" — see
 docs/track04-settlement-reconciliation-copilot.md §6.5) since it's just a re-aggregation over
 already-scored decisions, not a re-run of the pipeline.
+
+IMPORTANT — provider-aware gating (added 2026-08-24, after an external audit caught this): only
+decisions from a real LLM provider (`provider != "mock"`) count toward accuracy/CI/the auto-resolve
+decision. Mock mode is a deterministic rule-based stand-in for zero-cost pipeline testing (see
+narrator/agent.py) — it is not AI judgment, and letting it accumulate toward "the AI has proven
+itself accurate on this category" would make the auto-resolve gate satisfiable with zero real
+model involvement. This was caught empirically: 6 consecutive mock-mode batch runs alone crossed
+the 90% Wilson-lower-bound threshold for netting_trap with no LLM ever having been called. Mock
+decisions are still recorded and reported (`mock_n`) for transparency, but never gate autonomy.
 """
 
 from typing import Literal
@@ -32,19 +41,21 @@ class ScoredDecision(BaseModel):
     predicted_category: str
     true_label: str  # scoring-only; never influences the predicted_category itself
     amount: int  # settlement amount in the smallest currency unit
+    provider: str  # "mock" | "groq" | ... -- only non-mock decisions count toward the auto-resolve gate
 
 
 class CategoryCalibration(BaseModel):
     category: str
-    n: int
-    correct: int
+    n: int  # real-provider (non-mock) decisions only -- this is what accuracy/CI/decision are based on
+    correct: int  # correct among the real-provider decisions counted in n
     accuracy: float
     ci_lower: float
     ci_upper: float
     decision: Literal["auto_resolve", "escalate"]
     reason: str
-    amount_total: int
+    amount_total: int  # total amount across ALL decisions (real + mock), for reporting
     amount_at_risk: int  # expected wrongly-auto-resolved amount at this threshold; 0 if escalated
+    mock_n: int  # mock-mode decisions seen for this category -- tracked, never counted toward the gate
 
 
 class CalibrationReport(BaseModel):
@@ -67,8 +78,10 @@ def calibrate(decisions: list[ScoredDecision], threshold: float = DEFAULT_THRESH
 
     categories: list[CategoryCalibration] = []
     for category, items in sorted(by_category.items()):
-        n = len(items)
-        correct = sum(1 for d in items if d.predicted_category == d.true_label)
+        real_items = [d for d in items if d.provider != "mock"]
+        mock_n = len(items) - len(real_items)
+        n = len(real_items)
+        correct = sum(1 for d in real_items if d.predicted_category == d.true_label)
         accuracy = correct / n if n else 0.0
         ci_lower, ci_upper = wilson_score_interval(correct, n)
         amount_total = sum(d.amount for d in items)
@@ -76,12 +89,15 @@ def calibrate(decisions: list[ScoredDecision], threshold: float = DEFAULT_THRESH
         if category in NEVER_AUTO_RESOLVE:
             decision: Literal["auto_resolve", "escalate"] = "escalate"
             reason = "escalation is the correct resolution for this category by definition, regardless of measured accuracy"
+        elif n == 0:
+            decision = "escalate"
+            reason = f"no real-provider decisions yet for this category (mock_n={mock_n}) — mock-mode never counts toward auto-resolve"
         elif ci_lower >= threshold:
             decision = "auto_resolve"
-            reason = f"95% CI lower bound {ci_lower:.1%} clears the {threshold:.0%} threshold (n={n})"
+            reason = f"95% CI lower bound {ci_lower:.1%} clears the {threshold:.0%} threshold (n={n} real-provider decisions)"
         else:
             decision = "escalate"
-            reason = f"95% CI lower bound {ci_lower:.1%} has not cleared {threshold:.0%} yet (n={n})"
+            reason = f"95% CI lower bound {ci_lower:.1%} has not cleared {threshold:.0%} yet (n={n} real-provider decisions)"
 
         amount_at_risk = round((1 - accuracy) * amount_total) if decision == "auto_resolve" else 0
 
@@ -97,6 +113,7 @@ def calibrate(decisions: list[ScoredDecision], threshold: float = DEFAULT_THRESH
                 reason=reason,
                 amount_total=amount_total,
                 amount_at_risk=amount_at_risk,
+                mock_n=mock_n,
             )
         )
 

@@ -97,8 +97,10 @@ real tool functions the live narrator does (only the final synthesis step is a f
 
 The agentic Groq-backed narrator has been run against the live API on a full batch (n=120) plus
 the full 100%-adversarial stress batch (n=40) — real results, not mocked: **100% narrator accuracy
-across all three categories (duplicate_refund, genuine_error, netting_trap) on the main batch, and
-37/37 correctly handled with 0 wrongly auto-resolved on the stress batch.** Raw output:
+across all three categories (duplicate_refund, genuine_error, netting_trap) on the main batch
+(17/18 via genuine tool-informed reasoning, 1/18 via a safe "did not converge" fallback that
+happened to match ground truth), and 37/37 correctly handled with 0 wrongly auto-resolved on the
+stress batch.** Raw output:
 [docs/evidence/real-groq-run-2026-08-24.json](docs/evidence/real-groq-run-2026-08-24.json); full
 narrative in BUILD_LOG.md, including the real rate-limit hit mid-batch and how it's handled (retry
 with backoff, honoring the API's own `retry-after` header, failing safe rather than crashing).

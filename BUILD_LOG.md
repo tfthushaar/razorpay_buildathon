@@ -404,12 +404,18 @@ stress_n=40, threshold=0.90, model `openai/gpt-oss-20b`. Raw result saved at
   of crashing partway through.
 - **Main batch (n=120):** 86.0% of batch value (Rs.11,21,046.35 of Rs.13,02,997.38) auto-reconciled
   deterministically; 18 transactions escalated. Per-category real narrator accuracy:
-  **duplicate_refund 4/4 (100%), genuine_error 6/6 (100%), netting_trap 8/8 (100%)** — every
-  single narrator-classified transaction in this run was correct. All three still show
-  `decision: escalate` at the 90% threshold, and correctly so — Wilson lower bounds at n=4/6/8 are
-  51.0%/61.0%/67.6%, nowhere near clearing 90% regardless of the (real, not mocked) 100% point
-  accuracy. This is the exact "appropriately conservative by default" behavior documented in
-  calibration/history.py, now confirmed with real LLM output, not just mock output.
+  **duplicate_refund 4/4 (100%), genuine_error 6/6 (100%), netting_trap 8/8 (100%)**. All three
+  still show `decision: escalate` at the 90% threshold, and correctly so — Wilson lower bounds at
+  n=4/6/8 are 51.0%/61.0%/67.6%, nowhere near clearing 90% regardless of the (real, not mocked)
+  100% point accuracy. This is the exact "appropriately conservative by default" behavior
+  documented in calibration/history.py, now confirmed with real LLM output, not just mock output.
+  **Precision correction (caught by the external audit below, 2026-08-24):** 17 of these 18 were
+  classified via genuine tool-informed reasoning; one (`order_dfba37bc5ff7`, genuine_error,
+  confidence 0.0) hit the tool-call round budget and resolved via `_fail_safe`'s "did not converge"
+  fallback, which happened to match ground truth. It's correctly counted as accurate — the fallback
+  category was right — but the earlier phrasing here ("every single one was correct") implied all
+  18 were reasoned through by the model, which overstates the mechanism behind that one case. 17/18
+  reasoned, 1/18 safe-fallback-that-happened-to-be-right is the precise claim.
 - **Stress scorecard (100% adversarial batch, n=40): 37/37 narrator-classified cases correctly
   handled, 0 wrongly auto-resolved.** This is the real number for the pitch's "break it" claim —
   not the mock-mode number from earlier in this log, which was flagged at the time as not
@@ -421,5 +427,118 @@ stress_n=40, threshold=0.90, model `openai/gpt-oss-20b`. Raw result saved at
 - **Everything in the "v1.1 upgrades" and README's "what's real vs mock" caveats can now be updated
   from "implemented but untested against the live API" to "tested against the live API, numbers
   attached."**
+
+---
+
+## 2026-08-24 — External judge-agent audit, round 1: a serious gap found and closed
+
+At the user's request, spawned an independent agent to audit this entire project as a Razorpay
+buildathon judge would — reading the spec, README, BUILD_LOG, PROGRESS, every backend/frontend
+module, running the test suite itself, and cross-checking specific BUILD_LOG claims against actual
+code rather than trusting the narrative. Instructed explicitly to be adversarial: find overclaims
+and real gaps, don't rubber-stamp. Full findings below; only the fixes actually applied are
+narrated in detail.
+
+**Scores: AI Judgment 7/10, Failure Recovery 8/10, Measured Accuracy 8/10, Throughput 5/10, Bounded
+& Gated 5/10, Real Problem 8/10, Submission Readiness 8/10. Overall 71/100.**
+
+### Gap #1 (CRITICAL, fixed) — calibration couldn't tell mock decisions from real LLM decisions
+
+The audit empirically demonstrated the single most important finding of this build: 6-7
+consecutive **mock-mode** (default, zero-cost, zero-LLM) batch runs through `CalibrationHistory`
+crossed the 90% Wilson-lower-bound threshold for `netting_trap` — `auto_resolve` reached with no
+LLM ever having been called. `ScoredDecision` and the SQLite `scored_decisions` table carried no
+`provider` field, so a deterministic rule-based stand-in built purely for zero-cost testing could
+silently satisfy "the AI has proven itself accurate on this category" — directly defeating the
+exact claim behind the two most heavily-weighted criteria (AI Judgment, Bounded & Gated).
+
+- **Fix:** added `provider: str` to `ScoredDecision` (calibrator.py) and threaded it through
+  everywhere a decision is scored — `pipeline.py`'s `scored_decisions` list (from
+  `NarratorOutput.provider`, which already existed), `EscalationItem` (matching/escalation.py, so
+  the human-feedback loop knows what it's confirming), `CalibrationHistory`'s SQLite schema and
+  `confirm_human_resolution` (history.py), and the `/api/escalations/resolve` endpoint (main.py).
+  `calibrate()` now computes accuracy/CI/the auto-resolve decision from **real-provider decisions
+  only**; mock decisions are still recorded and reported (`CategoryCalibration.mock_n`) for
+  transparency, but categorically excluded from the gate. A category with real_n=0 always escalates
+  ("no real-provider decisions yet"), the same posture as insufficient evidence generally.
+- **Existing local dev databases were incompatible with the new schema and already contaminated**
+  (see Gap #2) — deleted `backend/data/{audit_log,calibration_history}.db` (gitignored, local-only,
+  not real demo history) rather than migrate them.
+- **Verified, not just implemented:** rewrote the test that used to prove "mock accumulation
+  crosses the threshold" (that was the bug) into
+  `test_accumulated_mock_history_never_clears_threshold_regardless_of_volume` — 7 accumulated mock
+  batches now correctly produce zero auto-resolve categories, with `n=0`/`mock_n>0` on every one.
+  Added `test_accumulated_real_provider_decisions_can_clear_threshold` to prove the gate still
+  works for genuine data (`provider="groq"`, directly constructed to avoid spending real API budget
+  on a unit test). Added `test_mock_decisions_never_count_toward_the_gate` at the calibrator-unit
+  level, including a mixed mock+real case. **Confirmed live in the browser**, not just in tests:
+  dragged the threshold dial to 1% with only mock data loaded — every category correctly stayed
+  "Escalate," showing "0 (+N mock, not counted)."
+
+### Gap #2 (HIGH, fixed) — the test suite was silently wiping the live demo's accumulated history
+
+`test_api.py` imported `app.main`'s live `calibration_history`/`audit_logger` singletons directly
+and called `.clear()` on them in 4 of 5 tests — the exact SQLite files a real dashboard session
+persists to. Running `pytest` (the README's own documented verification step) destroyed whatever
+accumulated trust or audit history existed from actual demo usage. Audit found 39 accumulated
+run_ids in the real DBs, all shaped like repeated test-batch sizes, with the actual Groq evidence
+run's `run_id` entirely absent — the tests had already erased it once.
+
+- **Fix:** added `tests/conftest.py` with an `isolated_app_state` fixture that monkeypatches
+  `app.main.audit_logger`/`calibration_history`/`state` to temp-file-backed instances for the
+  duration of each test, torn down after. Updated every stateful test in `test_api.py` to use it
+  instead of touching the live singletons.
+- **Verified:** ran the full suite before/after checking `backend/data/*.db` file size and mtime —
+  unchanged. The real Groq evidence data (regenerated after this fix) now survives running `pytest`.
+
+### Gap #3 (MEDIUM, fixed) — Throughput, the one criterion Razorpay names explicitly, had no instrumentation
+
+The 665s real-run figure existed only as hand-typed prose in this log; `BatchRunResult` never
+measured wall-clock time, and the evidence JSON had no timing field at all — the one number
+without a traceable artifact, for the one criterion literally named "Throughput."
+
+- **Fix:** added `elapsed_seconds` (measured via `time.monotonic()` around generation + chain
+  building + matching + narration, main batch only — the stress batch is deliberately excluded so
+  the number reflects what a merchant's actual reconciliation run would cost) and `narrated_count`
+  to `BatchRunResult`, plus a `transactions_per_second` computed field. Surfaced as a new tile on
+  the dashboard.
+- **Caught while wiring the computed field:** `@property` alone doesn't serialize on a pydantic
+  model — needed `@computed_field`, and the naive `total/elapsed` formula divides by zero when mock
+  mode completes in under a microsecond (real, observed: 0.0s on an 80-record batch — timer
+  resolution, not a bug). `float("inf")` is not valid JSON and would have broken the frontend's
+  `response.json()` parsing with a SyntaxError; floored the divisor at 1e-6 for the rate calculation
+  only, while `elapsed_seconds` itself still reports the true measured value including genuine 0.0.
+- **Verified:** `test_throughput_is_measured_not_estimated`, plus a direct JSON round-trip check
+  confirming no literal `Infinity` token in the serialized response.
+
+### Gap #4 (trivial, fixed) — stale UI copy
+
+`RunControls.tsx` still said "groq (Llama 3.3...)" after the model was switched to
+`openai/gpt-oss-20b` earlier the same day. A judge cross-referencing BUILD_LOG against the live
+dashboard would have hit a contradiction in the one artifact they touch directly. One-line fix.
+
+### Gap #5 (MEDIUM, fixed) — an overclaim of precision in the "100% accuracy" headline
+
+Of the 18 real-Groq escalations, one (`order_dfba37bc5ff7`, genuine_error) resolved via
+`_fail_safe`'s "did not converge within the tool-call budget" path, not genuine tool-informed
+reasoning — it only counts as correct because the fallback category happened to match ground
+truth. The original phrasing ("every single narrator-classified transaction... was correct")
+implied all 18 were reasoned through by the model. Corrected in both BUILD_LOG and README to state
+17/18 via reasoning + 1/18 via safe fallback — still a materially excellent result, stated precisely
+instead of rounded up.
+
+### Gaps not fixed this round, and why
+
+- **Gap #6 (frontend test coverage):** the audit correctly noted no committed Playwright spec or
+  preserved screenshots back up this log's repeated "screenshot-confirmed" claims. Partially
+  addressed in spirit — every fix in this entry was re-verified live in a browser with a fresh
+  screenshot before being logged — but a committed, re-runnable spec is still outstanding.
+- **Gap #7 (API key hygiene):** confirmed via `git log --all --full-history -- backend/.env` that
+  the key was never committed. Flagging to the user directly: rotate the Groq key at
+  console.groq.com before any public push or recorded pitch video, since it was shared in plaintext
+  during this session.
+- **Gap #8 (`recall_similar_resolutions` is per-run only, unlike calibration which now accumulates
+  across runs):** already honestly disclosed in PROGRESS.md as an in-memory-per-run limitation.
+  Lower priority than the six items above; left as a known, disclosed gap rather than rushed.
 
 ---

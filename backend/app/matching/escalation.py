@@ -12,9 +12,13 @@ class EscalationItem(BaseModel):
     reasoning: str
     amount: int
     priority_score: float
+    provider: str  # which narrator backend produced this prediction -- carried through so a
+    # human resolving it (spec §6.5 feedback loop) records the confirmation against the right
+    # provider, and a mock-derived guess can't count toward the AI-judgment gate just because a
+    # human later looked at it.
 
 
-def build_escalation_item(transaction_id: str, category: str, confidence: float, reasoning: str, amount: int) -> EscalationItem:
+def build_escalation_item(transaction_id: str, category: str, confidence: float, reasoning: str, amount: int, provider: str) -> EscalationItem:
     ambiguity = 1.0 - confidence
     return EscalationItem(
         transaction_id=transaction_id,
@@ -23,6 +27,7 @@ def build_escalation_item(transaction_id: str, category: str, confidence: float,
         reasoning=reasoning,
         amount=amount,
         priority_score=amount * ambiguity,
+        provider=provider,
     )
 
 

@@ -130,6 +130,7 @@ def api_resolve_escalation(req: ResolveRequest) -> ResolveResponse:
         predicted_category=escalation["category"],
         confirmed_true_label=true_label,
         amount=escalation["amount"],
+        provider=escalation["provider"],
     )
     del state.latest_escalations_by_id[req.transaction_id]
 

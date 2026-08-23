@@ -5,6 +5,7 @@ import tempfile
 from pathlib import Path
 
 from app.audit.logger import AuditLogger
+from app.calibration.calibrator import ScoredDecision
 from app.calibration.history import CalibrationHistory
 from app.pipeline import run_batch
 
@@ -18,6 +19,21 @@ def test_full_pipeline_runs_end_to_end_with_mock_provider():
     assert 0 <= result.amount_reconciled <= result.total_amount
     assert result.escalated_count == len(result.escalations)
     assert result.escalated_count >= 0
+
+
+def test_throughput_is_measured_not_estimated():
+    """Spec explicitly names Throughput as a judged criterion (§9, §11) -- this must be a real
+    measured number attached to the result, not just quoted in prose (an external audit flagged
+    the earlier version of this project for having no instrumentation backing the throughput
+    claim in BUILD_LOG.md)."""
+    result = run_batch(seed=42, main_n=80, stress_n=0, threshold=0.90, provider="mock")
+    # mock mode is deterministic with no network calls -- it can legitimately complete in under a
+    # microsecond, rounding to exactly 0.0 at whatever timer resolution the OS provides. >= 0 is
+    # the real invariant; asserting > 0 here would be testing timer noise, not correctness.
+    assert result.elapsed_seconds >= 0
+    assert result.elapsed_seconds < 10, "mock provider should be fast -- no real network calls"
+    assert result.transactions_per_second > 0
+    assert 0 <= result.narrated_count <= result.total_transactions
 
 
 def test_pitch_stat_engine_beats_naive_baseline():
@@ -65,19 +81,24 @@ def test_threshold_change_reruns_cheaply_and_changes_escalation_count():
     assert strict.escalated_count >= loose.escalated_count
 
 
-def test_single_batch_alone_cannot_clear_threshold_but_accumulated_history_can():
-    """The core reason CalibrationHistory exists: verify both halves of the claim in BUILD_LOG —
-    a lone batch's per-category N is too small to trust, but accumulating several batches' worth
-    (the same thing repeated human-confirmed feedback would do) lets a category earn auto-resolve
-    without ever touching the ground truth outside of scoring."""
+def test_single_batch_alone_cannot_clear_threshold():
+    """A lone batch's per-category N is too small to trust — see calibration/history.py for why."""
     lone = run_batch(seed=1, main_n=120, stress_n=0, threshold=0.90, provider="mock")
     lone_auto_resolve = set(lone.calibration.auto_resolve_categories)
     assert "netting_trap" not in lone_auto_resolve and "duplicate_refund" not in lone_auto_resolve, (
         "a single ~120-record batch should not have enough same-category volume to clear a 90% "
-        "Wilson lower bound on its own — if this starts failing, batch sizing or the threshold "
+        "Wilson lower bound on its own -- if this starts failing, batch sizing or the threshold "
         "changed enough to invalidate the premise in calibration/history.py"
     )
 
+
+def test_accumulated_mock_history_never_clears_threshold_regardless_of_volume():
+    """Provider-aware gating (added 2026-08-24 after an external audit caught this missing): mock
+    mode is a deterministic stand-in for zero-cost pipeline testing, not AI judgment. Running the
+    default provider ("mock") through run_batch repeatedly must NEVER be able to earn auto-resolve
+    for a narrator category, no matter how many batches accumulate -- that would let a demo "prove"
+    calibrated AI judgment without a single real LLM call ever having been made. (Before this fix,
+    6-7 accumulated mock batches did cross the threshold -- see BUILD_LOG.md 2026-08-24.)"""
     with tempfile.TemporaryDirectory() as tmp:
         history = CalibrationHistory(db_path=Path(tmp) / "history.db")
         last_report = None
@@ -87,5 +108,34 @@ def test_single_batch_alone_cannot_clear_threshold_but_accumulated_history_can()
         history.close()
 
     accumulated_auto_resolve = set(last_report.auto_resolve_categories)
-    assert accumulated_auto_resolve, "accumulating 7 batches worth of confirmed mock decisions should cross the threshold for at least one category"
-    assert "genuine_error" not in accumulated_auto_resolve, "genuine_error must never auto-resolve, accumulated history or not"
+    assert not accumulated_auto_resolve, (
+        "mock-mode decisions must never accumulate toward auto-resolve, however many batches pile "
+        f"up -- got {accumulated_auto_resolve}"
+    )
+    for c in last_report.categories:
+        assert c.n == 0, f"{c.category}: n should be 0 (real-provider only) after only mock runs, got {c.n}"
+        assert c.mock_n > 0, f"{c.category}: mock_n should reflect the accumulated mock volume"
+
+
+def test_accumulated_real_provider_decisions_can_clear_threshold():
+    """The other half of the same property: genuine (non-mock) accumulated decisions can still
+    earn auto-resolve -- the gate isn't broken, it's just no longer foolable by the free default.
+    Uses directly-constructed ScoredDecisions (provider="groq") rather than real API calls, to
+    prove the CalibrationHistory/calibrate() mechanics without spending real LLM budget on a test."""
+    with tempfile.TemporaryDirectory() as tmp:
+        history = CalibrationHistory(db_path=Path(tmp) / "history.db")
+        history.add(
+            [
+                ScoredDecision(
+                    transaction_id=f"real{i}", predicted_category="netting_trap", true_label="netting_trap", amount=400_00, provider="groq"
+                )
+                for i in range(40)
+            ],
+            source="batch",
+        )
+        report = history.report(threshold=0.90)
+        history.close()
+
+    netting = next(c for c in report.categories if c.category == "netting_trap")
+    assert netting.decision == "auto_resolve"
+    assert netting.n == 40

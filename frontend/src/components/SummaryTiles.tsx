@@ -27,6 +27,13 @@ export function SummaryTiles({ result }: { result: BatchRunResult }) {
         <span className="tile-value">{result.provider}</span>
         <span className="tile-sub">seed {result.seed} · threshold {pct(result.threshold, 0)}</span>
       </div>
+      <div className="tile">
+        <span className="tile-label">Throughput</span>
+        <span className="tile-value">{result.elapsed_seconds.toFixed(2)}s</span>
+        <span className="tile-sub">
+          {result.total_transactions} txns ({result.narrated_count} narrated) · {result.transactions_per_second.toFixed(1)}/s
+        </span>
+      </div>
     </section>
   );
 }

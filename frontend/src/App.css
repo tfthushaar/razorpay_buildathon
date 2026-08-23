@@ -317,6 +317,12 @@ button:disabled {
   color: var(--muted);
 }
 
+.mock-n-note {
+  font-size: 0.72rem;
+  color: var(--muted);
+  font-style: italic;
+}
+
 .badge {
   display: inline-block;
   padding: 3px 10px;

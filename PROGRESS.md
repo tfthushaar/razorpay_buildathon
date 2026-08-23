@@ -10,7 +10,7 @@ Status legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blo
 - [x] Causal chain builder (spec §6.2) — 5-hop trace + ledger gap + SLA timing check
 - [x] Matching engine — exact-match pass + deterministic structured diff pass (spec §6.3) — resolves 5 of 8 categories with zero LLM calls, 18/18 tests passing incl. 199-seed fuzz check
 - [x] Naive baseline reconciler (spec §6.7) — pure amount equality, documented blind spots on timing_lag (false negative) and currency_rounding (false positive)
-- [x] Calibration / auto-resolve layer — per-category accuracy + Wilson CI + threshold logic (spec §6.5) — applies only to narrator categories, genuine_error hard-never-auto-resolves, 7/7 tests passing
+- [x] Calibration / auto-resolve layer — per-category accuracy + Wilson CI + threshold logic (spec §6.5) — applies only to narrator categories, genuine_error hard-never-auto-resolves; **provider-aware since 2026-08-24: only real-LLM decisions count toward the gate, mock decisions tracked separately (`mock_n`) but never earn auto-resolve** — closes a critical gap an external audit found (see BUILD_LOG)
 - [x] Calibration history accumulator (`app/calibration/history.py`) — persists scored decisions across runs + human confirmations; single-batch N is provably too small to clear threshold alone, see BUILD_LOG
 - [x] Audit logger (spec §6.8) — SQLite, append-only, source-row links
 - [x] Pipeline orchestrator (`app/pipeline.py`) — full generate→chain→match→narrate→calibrate→audit→baseline→stress flow, 7/7 tests passing
@@ -33,7 +33,23 @@ Status legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blo
 
 ## Backend API (spec §7)
 
-- [x] FastAPI app: POST /api/run, GET /api/runs/latest, GET /api/calibration (live dial), POST /api/escalations/resolve (feedback loop), GET /api/audit, GET /api/health — 5/5 tests passing, 34/34 overall
+- [x] FastAPI app: POST /api/run, GET /api/runs/latest, GET /api/calibration (live dial), POST /api/escalations/resolve (feedback loop), GET /api/audit, POST /api/transactions/evaluate (live "break it" scenario eval), GET /api/health — 50/50 tests passing overall
+
+## External audit (2026-08-24) — judge-agent review, round 1
+
+Spawned an independent agent to audit the whole project as a Razorpay judge would, scoring against
+the spec's own criteria and verifying claims against actual code/tests rather than trusting docs.
+**Scores: AI Judgment 7/10, Failure Recovery 8/10, Measured Accuracy 8/10, Throughput 5/10, Bounded
+& Gated 5/10, Real Problem 8/10, Submission Readiness 8/10 — Overall 71/100.** Full findings and
+fixes in BUILD_LOG.md. Fixed this round:
+
+- [x] **Provider-aware calibration gate** (critical) — mock-mode decisions could accumulate toward auto-resolve with zero real LLM involvement; empirically verified as fixed (mock accumulation now always escalates; real-provider accumulation still works)
+- [x] **Test isolation** (high) — `test_api.py` was clearing the live demo's SQLite databases on every `pytest` run; now uses `conftest.py`'s `isolated_app_state` fixture with temp-file-backed instances
+- [x] **Throughput instrumentation** (medium) — `elapsed_seconds`/`narrated_count`/`transactions_per_second` now measured and attached to every `BatchRunResult`, surfaced as a dashboard tile
+- [x] Stale UI copy (trivial) — "Llama 3.3" → "gpt-oss-20b" in RunControls.tsx
+- [x] Precision-of-claim fix (medium) — the "100% accuracy" headline now correctly distinguishes 17/18 genuine-reasoning vs. 1/18 safe-fallback-that-happened-to-be-right
+
+Not fixed this round (see BUILD_LOG for why): no committed Playwright spec/preserved screenshots (partially mitigated — every fix above was re-verified live with a fresh screenshot); Groq API key needs rotation before any public push (user action, flagged); `recall_similar_resolutions` stays per-run-only (already disclosed, lower priority).
 
 ## Frontend (spec §6.10)
 
@@ -50,12 +66,13 @@ Status legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blo
 
 ## Submission checklist (spec §10)
 
-- [ ] Public repo, clean history, README
-- [ ] 5-min pitch video
-- [ ] Architecture doc (adapt docs/track04-*.md)
-- [ ] "What broke / how fixed" narrative — pulled from BUILD_LOG.md, not invented
-- [ ] Reproducible setup instructions
-- [ ] Honest exception list surfaced in the UI
+- [x] Clean local git history, clear README — **not yet pushed to the public remote, ask before pushing**
+- [ ] 5-min pitch video — outside what code can produce; user's to record
+- [x] Architecture doc (docs/track04-*.md, kept current through the build, several mid-build revisions logged in BUILD_LOG)
+- [x] "What broke / how fixed" narrative — BUILD_LOG.md, real bugs with root causes, fixes, and verification, not invented after the fact
+- [x] Reproducible setup instructions — README, followed independently by the external audit agent
+- [x] Honest exception list surfaced in the UI — escalation queue with reasoning, never hidden
+- [!] **Rotate the GROQ_API_KEY before pushing publicly or recording the pitch video** — it was shared in this session's chat and is not committed, but should be rotated at console.groq.com as a precaution
 
 ---
 *This file is the resumption point if the session breaks mid-build — re-read it before starting again rather than re-deriving state.*

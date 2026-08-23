@@ -7,9 +7,10 @@ comparison, stress scorecard) — it never reaches the matching engine or the na
 """
 
 import os
+import time
 import uuid
 
-from pydantic import BaseModel
+from pydantic import BaseModel, computed_field
 
 from app.audit.logger import AuditEntry, AuditLogger
 from app.calibration.calibrator import CalibrationReport, ScoredDecision, calibrate
@@ -51,6 +52,20 @@ class BatchRunResult(BaseModel):
     baseline_false_positive_rounding: int
 
     stress: StressScorecard
+
+    # Throughput (spec's own explicitly-named criterion) — measured, not estimated. Covers the
+    # main batch only, not the separately-scored stress batch, so it reflects what a merchant's
+    # actual reconciliation batch would cost in wall-clock time.
+    elapsed_seconds: float
+    narrated_count: int  # of total_transactions, how many actually reached the narrator
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def transactions_per_second(self) -> float:
+        # float("inf") is not valid JSON and would break the frontend's response.json() parsing --
+        # floor elapsed_seconds for this rate calculation only (the reported elapsed_seconds field
+        # itself stays exactly what was measured, including a genuine 0.0).
+        return self.total_transactions / max(self.elapsed_seconds, 1e-6)
 
 
 def _final_decision(result: MatchResult, narrator_category: str | None, auto_resolve_categories: set[str]) -> str:
@@ -134,9 +149,11 @@ def run_batch(
 ) -> BatchRunResult:
     run_id = str(uuid.uuid4())
     provider = provider or os.environ.get("LLM_PROVIDER", "mock")
+    started_at = time.monotonic()
     main_batch, stress_batch = generate(seed=seed, main_n=main_n, stress_n=stress_n)
 
     chains, match_results, narrator_outputs, _ = _process_batch(main_batch, provider)
+    elapsed_seconds = time.monotonic() - started_at
     gt_by_id = {g.transaction_id: g.true_label for g in main_batch.ground_truth}
     baseline_results = run_naive_baseline(chains)
 
@@ -146,6 +163,7 @@ def run_batch(
             predicted_category=output.category,
             true_label=gt_by_id[txn_id],
             amount=chains[txn_id].actual_settled_amount,
+            provider=output.provider,
         )
         for txn_id, output in narrator_outputs.items()
     ]
@@ -175,7 +193,9 @@ def run_batch(
             if decision == "escalated":
                 escalated_count += 1
                 escalations.append(
-                    build_escalation_item(txn_id, output.category, output.confidence, output.reasoning, chain.actual_settled_amount)
+                    build_escalation_item(
+                        txn_id, output.category, output.confidence, output.reasoning, chain.actual_settled_amount, output.provider
+                    )
                 )
             else:
                 amount_reconciled += chain.actual_settled_amount
@@ -212,4 +232,6 @@ def run_batch(
         baseline_false_negative_timing_lag=baseline_false_negative_timing_lag,
         baseline_false_positive_rounding=baseline_false_positive_rounding,
         stress=stress,
+        elapsed_seconds=elapsed_seconds,
+        narrated_count=len(narrator_outputs),
     )

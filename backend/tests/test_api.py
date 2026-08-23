@@ -1,11 +1,14 @@
 """API-level smoke tests for the FastAPI layer (spec §7). Uses the mock provider throughout —
 zero cost, deterministic. These exercise the same module-level app state a real dashboard session
 would, including the live threshold dial and the human-feedback resolve flow end-to-end over HTTP.
+
+Every test that touches state uses the `isolated_app_state` fixture (see conftest.py) rather than
+the app's live singletons — see that fixture's docstring for why this matters.
 """
 
 from fastapi.testclient import TestClient
 
-from app.main import app, calibration_history
+from app.main import app
 
 client = TestClient(app)
 
@@ -16,8 +19,7 @@ def test_health():
     assert resp.json() == {"status": "ok"}
 
 
-def test_run_then_fetch_latest():
-    calibration_history.clear()
+def test_run_then_fetch_latest(isolated_app_state):
     run_resp = client.post("/api/run", json={"seed": 42, "main_n": 100, "stress_n": 30, "threshold": 0.90, "provider": "mock"})
     assert run_resp.status_code == 200
     result = run_resp.json()
@@ -29,8 +31,7 @@ def test_run_then_fetch_latest():
     assert latest_resp.json()["run_id"] == result["run_id"]
 
 
-def test_calibration_dial_recomputes_without_rerunning_pipeline():
-    calibration_history.clear()
+def test_calibration_dial_recomputes_without_rerunning_pipeline(isolated_app_state):
     client.post("/api/run", json={"seed": 42, "main_n": 120, "stress_n": 0, "threshold": 0.90, "provider": "mock"})
 
     loose = client.get("/api/calibration", params={"threshold": 0.3})
@@ -41,8 +42,20 @@ def test_calibration_dial_recomputes_without_rerunning_pipeline():
     assert strict_auto <= loose_auto
 
 
-def test_resolve_escalation_feeds_back_into_history():
-    calibration_history.clear()
+def test_calibration_dial_still_gates_mock_decisions_over_http(isolated_app_state):
+    """The provider-aware fix (calibrator.py) exercised end-to-end over the real API: even at a
+    permissive threshold, mock-mode batch runs must never show auto_resolve for a narrator
+    category, since mock decisions carry provider="mock" and never count toward the gate."""
+    client.post("/api/run", json={"seed": 42, "main_n": 120, "stress_n": 0, "threshold": 0.90, "provider": "mock"})
+    resp = client.get("/api/calibration", params={"threshold": 0.01})
+    assert resp.status_code == 200
+    for c in resp.json()["categories"]:
+        assert c["decision"] == "escalate", f"{c['category']} auto-resolved from mock-only data even at threshold=0.01"
+        assert c["n"] == 0
+        assert c["mock_n"] > 0
+
+
+def test_resolve_escalation_feeds_back_into_history(isolated_app_state):
     run_resp = client.post("/api/run", json={"seed": 7, "main_n": 150, "stress_n": 0, "threshold": 0.90, "provider": "mock"})
     result = run_resp.json()
     assert result["escalations"], "seed=7/n=150 should produce at least one escalation to resolve"
@@ -63,12 +76,11 @@ def test_resolve_escalation_feeds_back_into_history():
     assert second_attempt.status_code == 404
 
 
-def test_evaluate_endpoint_catches_a_hand_crafted_duplicate_refund():
+def test_evaluate_endpoint_catches_a_hand_crafted_duplicate_refund(isolated_app_state):
     """The 'break it' live path (spec §6.10): a judge-submitted scenario, not a pre-generated
     batch. Hand-builds a transaction where a refund is on record once but deducted twice from
     settlement, and checks the API correctly flags it as duplicate_refund via the real
     check_batch_anomalies tool, not a canned answer."""
-    calibration_history.clear()  # deterministic starting point: zero accumulated trust -> must escalate
     scenario = {
         "orders": [
             {
@@ -137,8 +149,7 @@ def test_evaluate_endpoint_catches_a_hand_crafted_duplicate_refund():
     assert results[0]["tool_calls"], "should have a real tool-call trace, not a canned answer"
 
 
-def test_audit_endpoint_returns_entries_for_the_latest_run():
-    calibration_history.clear()
+def test_audit_endpoint_returns_entries_for_the_latest_run(isolated_app_state):
     run_resp = client.post("/api/run", json={"seed": 3, "main_n": 60, "stress_n": 0, "threshold": 0.90, "provider": "mock"})
     run_id = run_resp.json()["run_id"]
 

@@ -37,6 +37,7 @@ class CalibrationHistory:
                 predicted_category TEXT NOT NULL,
                 true_label TEXT NOT NULL,
                 amount INTEGER NOT NULL,
+                provider TEXT NOT NULL DEFAULT 'mock',
                 source TEXT NOT NULL DEFAULT 'batch'
             )"""
         )
@@ -46,22 +47,35 @@ class CalibrationHistory:
         if not decisions:
             return
         self._conn.executemany(
-            "INSERT INTO scored_decisions (transaction_id, predicted_category, true_label, amount, source) VALUES (?, ?, ?, ?, ?)",
-            [(d.transaction_id, d.predicted_category, d.true_label, d.amount, source) for d in decisions],
+            "INSERT INTO scored_decisions (transaction_id, predicted_category, true_label, amount, provider, source) VALUES (?, ?, ?, ?, ?, ?)",
+            [(d.transaction_id, d.predicted_category, d.true_label, d.amount, d.provider, source) for d in decisions],
         )
         self._conn.commit()
 
-    def confirm_human_resolution(self, transaction_id: str, predicted_category: str, confirmed_true_label: str, amount: int) -> None:
+    def confirm_human_resolution(
+        self, transaction_id: str, predicted_category: str, confirmed_true_label: str, amount: int, provider: str
+    ) -> None:
         """The feedback loop entry point (spec §6.5): a human resolving an escalated case is a
-        confirmed data point, folded straight back into the accumulated history."""
+        confirmed data point, folded straight back into the accumulated history. `provider` is
+        whatever produced the *original* prediction being confirmed — a human confirming a
+        mock-derived guess still doesn't make it AI judgment, so it must not silently start
+        counting toward the auto-resolve gate just because a human looked at it."""
         self.add(
-            [ScoredDecision(transaction_id=transaction_id, predicted_category=predicted_category, true_label=confirmed_true_label, amount=amount)],
+            [
+                ScoredDecision(
+                    transaction_id=transaction_id,
+                    predicted_category=predicted_category,
+                    true_label=confirmed_true_label,
+                    amount=amount,
+                    provider=provider,
+                )
+            ],
             source="human_confirmed",
         )
 
     def all_decisions(self) -> list[ScoredDecision]:
-        cursor = self._conn.execute("SELECT transaction_id, predicted_category, true_label, amount FROM scored_decisions")
-        return [ScoredDecision(transaction_id=r[0], predicted_category=r[1], true_label=r[2], amount=r[3]) for r in cursor.fetchall()]
+        cursor = self._conn.execute("SELECT transaction_id, predicted_category, true_label, amount, provider FROM scored_decisions")
+        return [ScoredDecision(transaction_id=r[0], predicted_category=r[1], true_label=r[2], amount=r[3], provider=r[4]) for r in cursor.fetchall()]
 
     def report(self, threshold: float = 0.90) -> CalibrationReport:
         return calibrate(self.all_decisions(), threshold=threshold)

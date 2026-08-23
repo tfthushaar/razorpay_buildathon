@@ -23,6 +23,7 @@ export interface CategoryCalibration {
   reason: string;
   amount_total: number;
   amount_at_risk: number;
+  mock_n: number;
 }
 
 export interface CalibrationReport {
@@ -37,6 +38,7 @@ export interface EscalationItem {
   reasoning: string;
   amount: number;
   priority_score: number;
+  provider: string;
 }
 
 export interface StressScorecard {
@@ -62,6 +64,9 @@ export interface BatchRunResult {
   baseline_false_negative_timing_lag: number;
   baseline_false_positive_rounding: number;
   stress: StressScorecard;
+  elapsed_seconds: number;
+  narrated_count: number;
+  transactions_per_second: number;
 }
 
 export interface ResolveResponse {
