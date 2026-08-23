@@ -45,7 +45,8 @@ Status legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blo
 - [x] Escalation queue ↔ calibration dial coherence ("would auto-resolve at current dial" badges) — found and fixed during browser verification, see BUILD_LOG
 - [x] Audit log view (collapsible)
 - [x] Full stack verified end-to-end in a real headless browser (Playwright): run → tiles → baseline → stress → calibration dial → resolve escalation → audit log. Zero console/network errors.
-- [ ] Judge-submitted / random-reshuffle "break it" live path — not yet built; current path re-runs with a new seed, doesn't yet accept a pasted/uploaded transaction
+- [x] Random-reshuffle path — "Randomize" button next to the seed field picks a fresh random seed, proving the demo isn't replaying 4 hardcoded cases
+- [ ] Judge-submitted single-transaction upload — bigger lift, not yet built (would need a one-off evaluate endpoint + form); randomize covers the "not scripted" claim more cheaply for now
 
 ## Submission checklist (spec §10)
 

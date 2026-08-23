@@ -20,7 +20,17 @@ export function RunControls({ onRun, loading, error }: Props) {
       <div className="run-controls-grid">
         <label>
           Seed
-          <input type="number" value={seed} onChange={(e) => setSeed(Number(e.target.value))} />
+          <div className="seed-input-row">
+            <input type="number" value={seed} onChange={(e) => setSeed(Number(e.target.value))} />
+            <button
+              type="button"
+              className="secondary-button"
+              title="Pick a fresh random seed — proves this isn't replaying the same fixed batch every time"
+              onClick={() => setSeed(Math.floor(Math.random() * 1_000_000))}
+            >
+              Randomize
+            </button>
+          </div>
         </label>
         <label>
           Main batch size

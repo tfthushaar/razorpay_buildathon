@@ -87,6 +87,25 @@
   gap: 8px !important;
 }
 
+.seed-input-row {
+  display: flex;
+  gap: 6px;
+}
+
+.seed-input-row input {
+  flex: 1;
+  min-width: 0;
+}
+
+.secondary-button {
+  background: var(--track);
+  color: var(--ink);
+  font-weight: 500;
+  padding: 8px 12px;
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+
 button {
   padding: 10px 18px;
   border-radius: 8px;
