@@ -18,7 +18,7 @@ Status legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blo
 ## Agentic layer (needs GROQ_API_KEY — free tier, see BUILD_LOG for provider-switch rationale)
 
 - [x] Mock backend (zero-cost, deterministic, uses real tool functions) — 100% on narration queue across 99-seed fuzz, see BUILD_LOG for why that number needs an asterisk
-- [x] Groq backend (openai/gpt-oss-20b, OpenAI-compatible, tool-calling loop) — **run for real 2026-08-24: 100% accuracy on main batch (n=4/6/8 across 3 categories), 37/37 correct on stress batch, 0 wrongly auto-resolved.** Retry-with-backoff added after hitting a real rate limit. See docs/evidence/real-groq-run-2026-08-24.json
+- [x] Groq backend (openai/gpt-oss-20b, OpenAI-compatible, tool-calling loop) — **run for real twice 2026-08-24. Run 1: 100% accuracy on main batch (n=4/6/8 across 3 categories), 37/37 correct on stress batch, 0 wrongly auto-resolved (docs/evidence/real-groq-run-2026-08-24.json). Run 2 (properly persisted into the live CalibrationHistory this time): 4/4, 7/7, 6/7 — one honest miss caused by a real empty-API-response failure, correctly caught by the fail-safe and defaulted to the one category that can never auto-resolve; 34/34 correct on stress batch (docs/evidence/real-groq-run-2026-08-24b-persisted.json).** Retry-with-backoff added after hitting a real rate limit.
 - [x] Agentic discrepancy narrator + 4 tools (spec §6.4) — lookup_fee_schedule, check_sla_window, check_batch_anomalies (duplicate+netting, consolidated), recall_similar_resolutions
 - [x] `recall_similar_resolutions` retrieval over audit log (spec §7) — in-memory per-run, grows as batch is narrated
 
@@ -33,7 +33,7 @@ Status legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blo
 
 ## Backend API (spec §7)
 
-- [x] FastAPI app: POST /api/run, GET /api/runs/latest, GET /api/calibration (live dial), POST /api/escalations/resolve (feedback loop), GET /api/audit, POST /api/transactions/evaluate (live "break it" scenario eval), GET /api/health — 50/50 tests passing overall
+- [x] FastAPI app: POST /api/run, GET /api/runs/latest, GET /api/calibration (live dial), POST /api/escalations/resolve (feedback loop), GET /api/audit, POST /api/transactions/evaluate (live "break it" scenario eval), GET /api/health — 51/51 tests passing overall
 
 ## External audit (2026-08-24) — judge-agent review, round 1
 
@@ -59,6 +59,16 @@ Second independent agent, instructed to verify (not trust) round 1's fixes and a
 - [x] README test count corrected (45 → 50, same stale-doc failure class as an earlier fixed gap, caught recurring)
 - [x] Added a permanent HTTP-level regression test for the resolve-loop-at-volume adversarial scenario (`test_resolving_many_mock_escalations_over_http_cannot_graduate_a_category`)
 - [!] **Groq API key still not rotated** — flagged in round 1, still open in round 2, restated directly to the user
+
+## External audit round 3 (2026-08-24) — no critical/high findings, score 84/100
+
+Third independent agent, held to a *higher* bar than rounds 1-2 (not a lower one) since it's a resubmission. Independently re-derived every load-bearing claim (regenerated seed 99's ground truth, queried the live CalibrationHistory and audit log directly, timed DB files before/after a test run, reran the new regression test standalone) rather than trusting BUILD_LOG's retelling. **Score: 84/100, up from 79. Explicit signal: no CRITICAL or HIGH finding — this could be the final round.** Only documentation-accuracy nits found, one being a *third* recurrence of the same stale-number failure class (round 1: UI copy, round 2: test count, round 3: test count again + spec doc + README, in new spots each time). Fixed this round:
+
+- [x] Test counts corrected everywhere (51, not 50) — repo-wide grep this time, not a single instance
+- [x] PROGRESS.md's Agentic-layer line updated to mention both real Groq runs, not just the first
+- [x] docs/track04-*.md §7 tech stack line updated (Claude API → Groq, was only fixed in §6.5 before)
+- [x] React 18 → React 19 (README, BUILD_LOG — wrong from the initial scaffold, not a later drift)
+- [!] **Groq API key still not rotated** — flagged in all three rounds now, user action only
 
 ## Frontend (spec §6.10)
 

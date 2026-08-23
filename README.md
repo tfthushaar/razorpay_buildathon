@@ -27,7 +27,7 @@ Build history, including every bug found and how it was fixed: [BUILD_LOG.md](BU
 ```
 backend/     Python + FastAPI. Synthetic data gen, causal chain builder, matching engine,
              agentic narrator, calibration layer, audit logger, pipeline orchestrator, API.
-frontend/    React 18 + TypeScript (Vite). Dashboard: run controls, match rate, baseline
+frontend/    React 19 + TypeScript (Vite). Dashboard: run controls, match rate, baseline
              comparison, live calibration threshold dial, escalation queue, audit log.
 docs/        Full architecture/design doc.
 PROGRESS.md  What's built vs. outstanding, updated as the build progresses.
@@ -83,7 +83,7 @@ cd backend
 python -m pytest tests/ -v
 ```
 
-50 tests covering the data generator's arithmetic invariants, the matching engine's deterministic
+51 tests covering the data generator's arithmetic invariants, the matching engine's deterministic
 resolution paths, the narrator's tool-based detection and retry/failure handling, the calibration
 layer's statistical behavior (including that mock-mode decisions can never earn auto-resolve),
 the Merkle-tree divergence pre-filter, the full pipeline, and the API layer.

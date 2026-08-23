@@ -251,7 +251,7 @@ Format per entry: **date/phase — what was attempted — what happened — reso
 
 ## 2026-08-23 — React dashboard (spec §6.10) + full-stack browser verification
 
-- **Built:** Vite + React 18 + TypeScript dashboard — run controls, summary tiles, baseline
+- **Built:** Vite + React 19 + TypeScript dashboard — run controls, summary tiles, baseline
   comparison, adversarial stress-test scorecard, the live calibration threshold dial, the triaged
   escalation queue with a resolve-against-source-records action, and a collapsible audit log view.
 - **Actually ran the full stack and drove it in a real headless browser** (Playwright against
@@ -634,5 +634,52 @@ this time with `calibration_history=`/`audit_logger=` explicitly pointed at the 
   one with a real, honestly-narrated miss caused by an actual API hiccup and correctly contained by
   the fail-safe design. That combination is more credible under scrutiny than a suspiciously
   perfect 100% would have been on its own.
+
+---
+
+## 2026-08-24 — Judge-agent audit, round 3: no critical/high findings, score 84/100
+
+Third independent agent, again instructed to verify rather than trust, with an explicit instruction
+to hold this round to a *higher* bar for polish, not a lower one, given it had already been reviewed
+twice. Re-derived every load-bearing claim itself rather than reading BUILD_LOG's retelling:
+regenerated `seed=99` independently and confirmed the "one honest miss" transaction's true label
+really is `netting_trap`; queried the live `CalibrationHistory` directly and confirmed it matches
+the evidence file exactly (18 `groq`-tagged rows, all `source='batch'`, zero cross-contamination
+from human-confirmed resolutions); queried the audit log directly and confirmed the failure
+signature text matches the exact code path in `agent.py`; timed `backend/data/*.db` mtimes
+before/after a full test run and confirmed byte-identical (the isolation fix still holds); reran
+the new adversarial regression test standalone and confirmed it produces 75 real escalations across
+5 seeds, not a vacuous pass.
+
+**Score: 84/100, up from round 2's 79** (AI Judgment 8, Failure Recovery 9, Measured Accuracy 9,
+Throughput 8, Bounded & Gated 9, Real Problem 8, Submission Readiness 7).
+
+**Explicit stop/continue signal from the auditor: no CRITICAL or HIGH finding, this could be the
+final round.** Everything structurally important — provider-aware gating, real persistence, the
+honest-miss failure-recovery story, test isolation, the new regression test — independently
+re-derived and held exactly as claimed. The only findings were documentation-accuracy nits, the
+same class of bug as an already-fixed round-1 item (stale UI copy) recurring in new spots:
+
+- README.md and PROGRESS.md both said "50 tests" after the suite grew to 51 (a *third* recurrence
+  of this exact failure class — round 1 caught it in UI copy, round 2 in a test count, round 3 in
+  the same test count again after it moved again).
+- PROGRESS.md's Agentic-layer checklist line still only described the first real Groq run, not the
+  second.
+- docs/track04-settlement-reconciliation-copilot.md §7 still said "Claude API" (only §6.5 had been
+  updated when the Groq switch happened).
+- README.md/BUILD_LOG.md said "React 18"; the actual installed version (`frontend/package.json`) is
+  React 19 — this one was wrong from the initial scaffold, not something that changed later.
+
+**Fixed all four this round** (test counts, the Agentic-layer summary, the spec doc's tech stack
+line, both React version mentions) rather than patching one instance and letting a fourth
+recurrence happen. **Still not actioned: the Groq key rotation** — flagged in all three rounds now,
+purely a user action, restated again below rather than dropped.
+
+**Pattern worth naming plainly:** every round's *mechanism* findings (calibration gating, test
+isolation, failure recovery) have been real, fixed, and held under a fresh independent adversarial
+check each time. Every round's *documentation* findings have been the same failure mode recurring
+in a new location — a number or version string stated once and not kept in sync as the codebase
+moved. The fix this round is the same as the last two: find every instance via a repo-wide search
+before calling a round done, not just the one instance a reviewer happened to point at.
 
 ---
