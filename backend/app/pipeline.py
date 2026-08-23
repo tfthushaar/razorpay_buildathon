@@ -51,6 +51,15 @@ class BatchRunResult(BaseModel):
     baseline_false_negative_timing_lag: int
     baseline_false_positive_rounding: int
 
+    # Three-way decomposition (spec's "real problem, not cherry-picked" §11): naive baseline vs.
+    # this project's own deterministic Pass1+2 engine alone (no LLM, no calibration) vs. the full
+    # system with the narrator. Isolates what the agentic layer specifically contributes on top of
+    # good deterministic engineering, rather than only comparing against a naive strawman. Added
+    # 2026-08-24 after an external audit noted this data was already computed internally but never
+    # surfaced as its own number.
+    deterministic_only_resolved_count: int
+    deterministic_only_amount_reconciled: int
+
     stress: StressScorecard
 
     # Throughput (spec's own explicitly-named criterion) — measured, not estimated. Covers the
@@ -68,10 +77,19 @@ class BatchRunResult(BaseModel):
         return self.total_transactions / max(self.elapsed_seconds, 1e-6)
 
 
-def _final_decision(result: MatchResult, narrator_category: str | None, auto_resolve_categories: set[str]) -> str:
+def _final_decision(result: MatchResult, narrator_category: str | None, narrator_provider: str | None, auto_resolve_categories: set[str]) -> str:
+    """A category being in `auto_resolve_categories` means the ACCUMULATED HISTORY of real-provider
+    decisions for that category cleared the threshold — it says nothing about whether THIS
+    transaction's own classification came from a real provider. Without the `narrator_provider !=
+    "mock"` check, a category that legitimately earned trust from real evidence would silently
+    auto-resolve a *mock-mode* run's guess riding on that trust, even though this specific decision
+    was never itself validated. Caught by an external audit 2026-08-24 (round 5) with a live
+    reproduction; see BUILD_LOG.md. `genuine_error` never appears in `auto_resolve_categories` in
+    the first place (calibrator.py's NEVER_AUTO_RESOLVE), so this is belt-and-suspenders there, but
+    load-bearing for duplicate_refund/netting_trap once either has real accumulated evidence."""
     if result.resolution != "needs_narration":
         return result.resolution  # "clean_pass1" | "auto_resolved_deterministic"
-    if narrator_category in auto_resolve_categories:
+    if narrator_category in auto_resolve_categories and narrator_provider != "mock":
         return "auto_resolved_calibrated"
     return "escalated"
 
@@ -122,7 +140,7 @@ def _stress_scorecard(
                 deterministic_correct += 1
             continue
         output = narrator_outputs[txn_id]
-        would_auto_resolve = output.category in auto_resolve_categories
+        would_auto_resolve = output.category in auto_resolve_categories and output.provider != "mock"
         is_correct = output.category == true_label
         if would_auto_resolve and not is_correct:
             wrongly_auto_resolved += 1
@@ -157,6 +175,14 @@ def run_batch(
     gt_by_id = {g.transaction_id: g.true_label for g in main_batch.ground_truth}
     baseline_results = run_naive_baseline(chains)
 
+    # deterministic-only tier of the three-way decomposition: what Pass1+2 resolves before the
+    # narrator or calibration are ever involved -- computed here, from match_results alone, so it
+    # can never be influenced by narrator/calibration behavior even by accident.
+    deterministic_only_resolved_count = sum(1 for r in match_results.values() if r.resolution != "needs_narration")
+    deterministic_only_amount_reconciled = sum(
+        r.chain.actual_settled_amount for r in match_results.values() if r.resolution != "needs_narration"
+    )
+
     scored_decisions = [
         ScoredDecision(
             transaction_id=txn_id,
@@ -187,7 +213,7 @@ def run_batch(
         chain = result.chain
         if result.resolution == "needs_narration":
             output = narrator_outputs[txn_id]
-            decision = _final_decision(result, output.category, auto_resolve_categories)
+            decision = _final_decision(result, output.category, output.provider, auto_resolve_categories)
             tool_calls = [tc.model_dump() for tc in output.tool_calls]
             audit_entries.append(_audit_entry_for(run_id, result, decision, output.category, output.confidence, output.reasoning, tool_calls))
             if decision == "escalated":
@@ -231,6 +257,8 @@ def run_batch(
         baseline_clean_count=baseline_clean_count,
         baseline_false_negative_timing_lag=baseline_false_negative_timing_lag,
         baseline_false_positive_rounding=baseline_false_positive_rounding,
+        deterministic_only_resolved_count=deterministic_only_resolved_count,
+        deterministic_only_amount_reconciled=deterministic_only_amount_reconciled,
         stress=stress,
         elapsed_seconds=elapsed_seconds,
         narrated_count=len(narrator_outputs),

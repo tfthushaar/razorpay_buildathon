@@ -83,6 +83,15 @@ Fourth independent agent, pointed at surface area rounds 1-3 hadn't specifically
 
 **Auditor's honest assessment, carried forward rather than edited out:** fixing all 5 findings was estimated to land ~87-90, not 95 outright — Throughput and Real Problem are close to an honest ceiling imposed by real, disclosed constraints (free-tier rate limits, Merkle providing no saving on this project's own dense demo data), and pushing past that would require overclaiming, which contradicts this project's entire approach. Continued rounds may oscillate rather than climb monotonically.
 
+## External audit round 5 (2026-08-24) — the most significant finding of the whole loop, score 72/100
+
+Fifth independent agent found something rounds 1-4 all missed: `_final_decision()` (pipeline.py) checked only whether a *category* had earned trust, never whether *this specific transaction's own classification* came from a real provider. Once a category legitimately earned trust (the intended end-state!), a subsequent mock-mode run's guess in that category would silently ride on trust it never itself earned — falsifying "only auto-resolves what it's proven itself accurate on" at the per-decision level, through entirely ordinary use (mock is the UI's default). Proved live with a real reproduction against the unmodified code. **Score: 72/100** — a real, warranted drop (AI Judgment 6, Bounded & Gated 5).
+
+- [x] **Fixed the core gap**: threaded `output.provider` into `_final_decision()` and `_stress_scorecard()`'s equivalent check — now requires the category to be trusted AND this specific decision to be non-mock. Verified the fix is load-bearing by temporarily reverting it and confirming the new regression test (`test_provider_gate_applies_per_decision_not_just_per_category`) fails without it, then restored the fix. 53/53 tests passing.
+- [x] Fixed a nonsensical mock-mode throughput display (was showing "120000000.0/s"; now "instant (mock — no network calls)")
+- [x] Added the three-way baseline decomposition round 4's auditor recommended (naive vs. this project's own deterministic engine alone vs. full system) — `deterministic_only_resolved_count`/`amount_reconciled` fields, a third bar in `BaselineComparison.tsx`, honest copy for the case where the narrator hasn't earned auto-resolve yet in the current session
+- [!] **Tension flagged, not resolved unilaterally:** round 5 estimates fixing everything found lands in the mid-to-high 80s, not 95 — Throughput's remaining ceiling is the free-tier token budget itself (raising it means a paid tier, conflicting with the user's own cost-minimization instruction), and Real Problem's Merkle disclosure is a correct, permanent feature of this project's chosen demo data, not a defect. This needs the user's input on how to proceed, not a 6th round manufacturing findings to force the number up.
+
 ## Frontend (spec §6.10)
 
 - [x] React/TS scaffold (Vite)

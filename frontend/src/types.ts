@@ -63,6 +63,8 @@ export interface BatchRunResult {
   baseline_clean_count: number;
   baseline_false_negative_timing_lag: number;
   baseline_false_positive_rounding: number;
+  deterministic_only_resolved_count: number;
+  deterministic_only_amount_reconciled: number;
   stress: StressScorecard;
   elapsed_seconds: number;
   narrated_count: number;

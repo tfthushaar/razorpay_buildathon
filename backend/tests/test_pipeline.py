@@ -48,6 +48,22 @@ def test_pitch_stat_engine_beats_naive_baseline():
     assert result.baseline_false_positive_rounding > 0
 
 
+def test_three_way_decomposition_isolates_what_the_narrator_adds():
+    """Real Problem / not-cherry-picked (spec §11): the three-way ordering must hold --
+    naive baseline <= this project's own deterministic engine alone <= full system with the
+    narrator -- so the pitch can isolate what the *agentic* layer specifically contributes on top
+    of good deterministic engineering, not just beat a naive strawman. Added 2026-08-24 after an
+    external audit noted this data existed internally but was never surfaced as its own number."""
+    result = run_batch(seed=42, main_n=150, stress_n=0, threshold=0.90, provider="mock")
+    full_system_resolved = result.total_transactions - result.escalated_count
+
+    assert result.baseline_clean_count <= result.deterministic_only_resolved_count <= full_system_resolved
+    # the deterministic engine alone should already meaningfully beat the naive baseline -- that's
+    # the whole point of causal-chain matching over flat row matching, with zero LLM involvement
+    assert result.deterministic_only_resolved_count > result.baseline_clean_count
+    assert 0 < result.deterministic_only_amount_reconciled <= result.amount_reconciled
+
+
 def test_stress_scorecard_never_wrongly_auto_resolves():
     result = run_batch(seed=42, main_n=100, stress_n=50, threshold=0.90, provider="mock")
     assert result.stress.total == 50
@@ -139,3 +155,41 @@ def test_accumulated_real_provider_decisions_can_clear_threshold():
     netting = next(c for c in report.categories if c.category == "netting_trap")
     assert netting.decision == "auto_resolve"
     assert netting.n == 40
+
+
+def test_provider_gate_applies_per_decision_not_just_per_category():
+    """A category being in auto_resolve_categories reflects the ACCUMULATED HISTORY of
+    real-provider decisions for that category -- it says nothing about whether THIS transaction's
+    own classification came from a real provider. Reproduces exactly the gap an external audit
+    found live 2026-08-24 (round 5), via a standalone repro script against the unmodified code:
+    pre-load real evidence for netting_trap past the threshold, then run a mock batch through that
+    same history, and confirm mock-classified netting_trap transactions in THAT run still escalate
+    -- they must never silently ride on trust a different, real decision earned elsewhere."""
+    with tempfile.TemporaryDirectory() as tmp:
+        history = CalibrationHistory(db_path=Path(tmp) / "history.db")
+        history.add(
+            [
+                ScoredDecision(
+                    transaction_id=f"real{i}", predicted_category="netting_trap", true_label="netting_trap", amount=400_00, provider="groq"
+                )
+                for i in range(40)
+            ],
+            source="batch",
+        )
+        pre_report = history.report(threshold=0.90)
+        assert "netting_trap" in set(pre_report.auto_resolve_categories), "test setup should have netting_trap already earning trust"
+
+        # find a seed whose mock-classified narration queue actually includes a netting_trap case
+        result = None
+        for seed in range(1, 30):
+            candidate = run_batch(seed=seed, main_n=120, stress_n=0, threshold=0.90, provider="mock", calibration_history=history)
+            if any(e.category == "netting_trap" for e in candidate.escalations):
+                result = candidate
+                break
+        history.close()
+
+    assert result is not None, "test setup should find a seed producing a mock netting_trap escalation"
+    netting_escalations = [e for e in result.escalations if e.category == "netting_trap"]
+    assert netting_escalations, "mock-classified netting_trap must still escalate even though the category has earned real trust elsewhere"
+    for e in netting_escalations:
+        assert e.provider == "mock"

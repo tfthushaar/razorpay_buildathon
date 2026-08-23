@@ -210,7 +210,7 @@ def api_evaluate_transactions(scenario: TransactionScenario) -> EvaluateResponse
     for txn_id, result in match_results.items():
         if result.resolution == "needs_narration":
             output = narrate(chains[txn_id], context, provider=provider)
-            decision = _final_decision(result, output.category, auto_resolve_categories)
+            decision = _final_decision(result, output.category, output.provider, auto_resolve_categories)
             results.append(
                 EvaluatedTransaction(
                     transaction_id=txn_id,

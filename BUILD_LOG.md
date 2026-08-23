@@ -762,3 +762,101 @@ monotonically — noted here so a future round isn't surprised by that, or tempt
 finding just to justify another point of movement.
 
 ---
+
+## 2026-08-24 — Judge-agent audit, round 5: the most significant finding of the whole loop
+
+Fifth independent agent, user's target for this loop is 95/100 (video and unpushed-repo status
+explicitly excluded from scoring throughout). Confirmed round 4's tool-call-trace fix is genuinely
+correct — not just by reading the code, but by installing playwright-core, starting both dev
+servers, and driving the live app in a headless browser to watch a toggle actually expand real
+data. Then found something rounds 1-4 all missed.
+
+**Score: 72/100 — a real, warranted drop, not variance.** (AI Judgment 6, Failure Recovery 9,
+Measured Accuracy 9, Bounded & Gated 5, Throughput 6, Real Problem 7, Submission Readiness 8.)
+
+### THE FINDING: the auto-resolve gate checks category membership, never the specific decision's own provider
+
+`pipeline.py`'s `_final_decision()` — the function that actually decides `auto_resolved_calibrated`
+vs. `escalated` for a live transaction — only ever checked `narrator_category in
+auto_resolve_categories`. `auto_resolve_categories` correctly reflects the accumulated REAL-provider
+history for a category (round 1's fix, still solid). But nothing then checked whether **this
+specific transaction's own classification** — the one actually being decided on right now — came
+from a real provider before letting it ride on that category's earned trust. The identical gap
+existed in `_stress_scorecard()`'s equivalent check and in `/api/transactions/evaluate`'s call site.
+
+**The auditor proved this live**, not theoretically: seeded 40 real (`provider="groq"`)
+all-correct `netting_trap` decisions into a fresh `CalibrationHistory` (crossing the threshold,
+exactly the way `test_accumulated_real_provider_decisions_can_clear_threshold` already
+demonstrates it should), then ran the real, unmodified `run_batch(provider="mock", ...)` against
+that same history — and read back a real, persisted audit row showing a **mock-classified**
+transaction silently marked `auto_resolved_calibrated`, absent from `result.escalations`, with zero
+real LLM ever consulted for that specific transaction.
+
+**Why this is worse than the round-1 gap it's adjacent to:** round 1's bug meant mock evidence
+could never *earn* trust. This bug meant that once a category legitimately *had* earned trust
+(exactly the intended, celebrated end-state — "watch it cross the threshold live"), every
+*subsequent* mock-mode run's guess in that category would silently ride on trust it never itself
+earned. It falsifies "only auto-resolves categories it has proven itself accurate on" at the
+per-decision level, using the default provider (`mock` is `RunControls.tsx`'s default selection),
+reachable through entirely ordinary use — not an adversarial trick, just the natural next step of
+using the system as designed for long enough. It was latent (not yet visibly triggered) in today's
+live demo state only because no category had crossed the threshold yet — the design defect was
+real regardless of whether today's specific data happened to expose it.
+
+**Fix:** threaded `output.provider` (the specific decision's own provider, not the category's
+accumulated history) into `_final_decision()` — now requires `narrator_category in
+auto_resolve_categories AND narrator_provider != "mock"` — and the equivalent check in
+`_stress_scorecard()`. Updated both call sites (`pipeline.py`'s `run_batch()`,
+`main.py`'s `/api/transactions/evaluate`).
+
+**Verified the fix catches the bug, not just that it compiles** — the same rigor applied to every
+fix in this loop: wrote `test_provider_gate_applies_per_decision_not_just_per_category`
+(reproducing the auditor's exact scenario), confirmed it **passes** with the fix in place, then
+temporarily reverted the one-line condition back to the buggy version and confirmed the test
+**fails** (`assert result is not None` — without the fix, mock-classified transactions in a
+trusted category never appear in escalations at all, so the test correctly can't find one to
+check). Restored the fix immediately after. 53/53 tests passing.
+
+### Two legitimate, non-overclaiming improvement levers (also from round 5)
+
+Round 5 pushed back on round 4's "~87-90 ceiling without overclaiming" — correctly on the
+reported-number honesty, but round 5 argued round 4 conflated "honest" with "already optimized."
+Two real levers existed and hadn't been pulled:
+
+- **Throughput: the mock-mode rate display could render a nonsensical number** (observed live:
+  "120000000.0/s") when `elapsed_seconds` rounds to ~0. Not a lie (the floor-division guard exists
+  specifically to avoid serializing `Infinity`), but absurd on its face in a project about not
+  overclaiming. **Fix:** `SummaryTiles.tsx` now shows "instant (mock — no network calls)" below a
+  sane threshold instead of computing a rate against a near-zero denominator.
+- **Real Problem: the deterministic engine's own ~85%-with-zero-LLM-calls contribution (documented
+  in prose since 2026-08-23) was never surfaced as its own number** next to the naive baseline and
+  the full system — meaning the pitch could show total lift, but not decompose how much of it is
+  "good deterministic engineering" vs. "the agentic layer specifically." **Fix:** added
+  `deterministic_only_resolved_count`/`deterministic_only_amount_reconciled` to `BatchRunResult`
+  (computed directly from `match_results`, before the narrator or calibration are ever involved —
+  can't be influenced by their behavior even by accident), a third bar in
+  `BaselineComparison.tsx`, and `test_three_way_decomposition_isolates_what_the_narrator_adds`
+  proving the ordering `naive <= deterministic-only <= full system` holds and that the
+  deterministic engine alone already meaningfully beats the naive baseline.
+  - **UX catch during live verification, not from the auditor:** at the current live demo state
+    (no category has crossed threshold yet), the narrator's own contribution renders as a flat
+    "+0.0%", which reads as "the agentic layer does nothing" to anyone who doesn't already know why.
+    Fixed the copy to explain the mechanism honestly when this happens ("hasn't auto-resolved
+    anything *yet*... watch this number become positive as trust is earned") rather than let a
+    correct-but-uncontextualized zero look like a dead feature.
+
+### Honest reassessment of the path to 95
+
+Round 5's own estimate: fixing the provider-per-decision gap alone should restore AI Judgment to
+~8-9 and Bounded & Gated to ~9 (worth roughly +10, landing near 82); the two levers above add a
+few more points each (Throughput → ~8, Real Problem → ~9), landing in the mid-to-high 80s.
+Round 5 was explicit that reaching 95 from there is not just "keep finding bugs" — it named a
+concrete, real remaining constraint: Throughput's ceiling below 9-10 is the free-tier TPM budget
+itself (raising it means a paid tier — a real cost trade-off the user previously asked to minimize,
+not a code fix), and Real Problem's Merkle-provides-no-saving disclosure is a correct, permanent
+feature of this project's own chosen demo distribution, not a defect to be engineered away.
+**This tension — a hard 95 target vs. two genuinely externally-bounded categories — is reported
+here plainly rather than resolved unilaterally; it needs the user's input, not a 6th round
+manufacturing findings to force the number up.**
+
+---

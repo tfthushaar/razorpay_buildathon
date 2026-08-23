@@ -29,9 +29,11 @@ export function SummaryTiles({ result }: { result: BatchRunResult }) {
       </div>
       <div className="tile">
         <span className="tile-label">Throughput</span>
-        <span className="tile-value">{result.elapsed_seconds.toFixed(2)}s</span>
+        <span className="tile-value">{result.elapsed_seconds < 0.01 ? "instant" : `${result.elapsed_seconds.toFixed(2)}s`}</span>
         <span className="tile-sub">
-          {result.total_transactions} txns ({result.narrated_count} narrated) · {result.transactions_per_second.toFixed(1)}/s
+          {result.total_transactions} txns ({result.narrated_count} narrated)
+          {result.elapsed_seconds >= 0.01 && ` · ${result.transactions_per_second.toFixed(1)}/s`}
+          {result.elapsed_seconds < 0.01 && " (mock — no network calls)"}
         </span>
       </div>
     </section>
