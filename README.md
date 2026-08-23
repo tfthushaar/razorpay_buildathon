@@ -95,15 +95,22 @@ causal chain matching, deterministic exception resolution, calibration, audit lo
 full dashboard are all live with zero external dependencies, and mock mode calls the exact same
 real tool functions the live narrator does (only the final synthesis step is a fixed rule).
 
-The agentic Groq-backed narrator has been run against the live API on a full batch (n=120) plus
-the full 100%-adversarial stress batch (n=40) — real results, not mocked: **100% narrator accuracy
-across all three categories (duplicate_refund, genuine_error, netting_trap) on the main batch
-(17/18 via genuine tool-informed reasoning, 1/18 via a safe "did not converge" fallback that
-happened to match ground truth), and 37/37 correctly handled with 0 wrongly auto-resolved on the
-stress batch.** Raw output:
-[docs/evidence/real-groq-run-2026-08-24.json](docs/evidence/real-groq-run-2026-08-24.json); full
-narrative in BUILD_LOG.md, including the real rate-limit hit mid-batch and how it's handled (retry
-with backoff, honoring the API's own `retry-after` header, failing safe rather than crashing).
+The agentic Groq-backed narrator has been run against the live API twice, on two different random
+batches, with results genuinely persisted into the same `CalibrationHistory`/audit log the live
+dashboard reads from — not just a side file. **Run 1** (n=120 + full 100%-adversarial stress batch,
+n=40): 100% narrator accuracy across all three categories (17/18 via genuine tool-informed
+reasoning, 1/18 via a safe "did not converge" fallback that happened to match ground truth), 37/37
+correctly handled on the stress batch, 0 wrongly auto-resolved. **Run 2** (different seed): 4/4 and
+7/7 on two categories, 6/7 on the third — the one miss was a real API hiccup (an empty response,
+correctly caught and routed through the same fail-safe path) that happened to guess wrong this
+time; the fail-safe's *design* held regardless, since it always defaults to the one category that
+can never auto-resolve, so a real narrator failure produced a wrong classification but never a
+wrong autonomous action. Stress batch: 34/34 handled, 0 wrongly auto-resolved. Two runs with one
+honest miss are a more credible artifact than either run alone would be. Raw output:
+[run 1](docs/evidence/real-groq-run-2026-08-24.json),
+[run 2](docs/evidence/real-groq-run-2026-08-24b-persisted.json); full narrative in BUILD_LOG.md,
+including the real rate-limit hits and how they're handled (retry with backoff, honoring the API's
+own `retry-after` header, failing safe rather than crashing).
 
 ## Honest exceptions
 

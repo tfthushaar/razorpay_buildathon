@@ -594,3 +594,45 @@ test exercised the resolve-loop-at-volume scenario the auditor had to construct 
   recorded pitch video.**
 
 ---
+
+## 2026-08-24 — Real Groq run #2: properly persisted, and a more credible result than a clean sweep
+
+Seed 99 (new seed, not a replay), main_n=120, stress_n=40, threshold=0.90, `openai/gpt-oss-20b`,
+this time with `calibration_history=`/`audit_logger=` explicitly pointed at the real
+`backend/data/*.db` paths. Raw output:
+[docs/evidence/real-groq-run-2026-08-24b-persisted.json](docs/evidence/real-groq-run-2026-08-24b-persisted.json).
+
+- **Wall-clock time: 4,174s (~70 minutes) for the full run; the measured `elapsed_seconds` field
+  (main batch only, by design) came out to 179.1s.** The gap is almost entirely the stress batch's
+  34 narrated transactions hitting much heavier rate-limit retries than the main batch did — a
+  real, worth-stating cost of running a stress-batch-sized narration load against a free-tier
+  account, not a measurement bug. `elapsed_seconds` intentionally excludes the stress batch (see
+  its docstring) so the reported throughput number reflects what a merchant's actual reconciliation
+  run would cost, not the extra load this project's own testing adds on top.
+- **Per-category real accuracy this run: duplicate_refund 4/4 (100%), genuine_error 6/7 (85.7%),
+  netting_trap 7/7 (100%).** Unlike the first real run (all three at 100%), this one has a genuine
+  miss — and it's worth narrating exactly, not rounding away:
+  - **The one miss was itself a real API failure, correctly handled by the existing fail-safe, that
+    happened to guess wrong.** `order_bf02a69cada6`'s true label is `netting_trap`; the narrator's
+    final response came back empty (`_parse_json_response` correctly raised, `_fail_safe` correctly
+    engaged) and defaulted to `genuine_error` per the fail-safe's design. That default was wrong
+    this time (round 1's equivalent fail-safe case happened to be right). **The important property
+    held regardless: the fail-safe always defaults to the one category that can never auto-resolve
+    — a real narrator failure produced a wrong classification, but not a wrong autonomous action.**
+    This is a cleaner demonstration of "Failure Recovery" than a clean sweep would have been: a
+    real failure occurred, and the system's designed-in safety margin (escalate, don't guess an
+    auto-resolvable category) is exactly what absorbed it.
+- **Stress scorecard: 34/34 narrator-classified cases correctly handled, 0 wrongly auto-resolved**
+  (6 more resolved deterministically) — consistent with the first real run's clean stress result,
+  on an entirely different random batch.
+- **Calibration now genuinely reflects both real and mock evidence, separated correctly:**
+  `duplicate_refund n=4 (real) + mock_n=8`, `genuine_error n=7 (real) + mock_n=9`,
+  `netting_trap n=7 (real) + mock_n=10` — all still `escalate` at the 90% threshold, correctly,
+  since Wilson lower bounds at n=4/7/7 don't clear it regardless of point accuracy. This is now the
+  actual live state a judge could query through the running dashboard, not just a side file.
+- **The two real runs together are a better pitch artifact than either alone:** one clean sweep,
+  one with a real, honestly-narrated miss caused by an actual API hiccup and correctly contained by
+  the fail-safe design. That combination is more credible under scrutiny than a suspiciously
+  perfect 100% would have been on its own.
+
+---

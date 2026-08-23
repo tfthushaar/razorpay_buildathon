@@ -1,0 +1,231 @@
+{
+  "run_id": "78d21d15-845c-44ef-9091-dccefe04be08",
+  "seed": 99,
+  "threshold": 0.9,
+  "provider": "groq",
+  "total_transactions": 120,
+  "total_amount": 98793936,
+  "amount_reconciled": 86369479,
+  "escalated_count": 18,
+  "calibration": {
+    "threshold": 0.9,
+    "categories": [
+      {
+        "category": "duplicate_refund",
+        "n": 4,
+        "correct": 4,
+        "accuracy": 1.0,
+        "ci_lower": 0.5100999795960008,
+        "ci_upper": 1.0,
+        "decision": "escalate",
+        "reason": "95% CI lower bound 51.0% has not cleared 90% yet (n=4 real-provider decisions)",
+        "amount_total": 2630853,
+        "amount_at_risk": 0,
+        "mock_n": 8
+      },
+      {
+        "category": "genuine_error",
+        "n": 7,
+        "correct": 6,
+        "accuracy": 0.8571428571428571,
+        "ci_lower": 0.48686549668097007,
+        "ci_upper": 0.9743210440510253,
+        "decision": "escalate",
+        "reason": "escalation is the correct resolution for this category by definition, regardless of measured accuracy",
+        "amount_total": 16201586,
+        "amount_at_risk": 0,
+        "mock_n": 9
+      },
+      {
+        "category": "netting_trap",
+        "n": 7,
+        "correct": 7,
+        "accuracy": 1.0,
+        "ci_lower": 0.6456611570247934,
+        "ci_upper": 1.0,
+        "decision": "escalate",
+        "reason": "95% CI lower bound 64.6% has not cleared 90% yet (n=7 real-provider decisions)",
+        "amount_total": 15812634,
+        "amount_at_risk": 0,
+        "mock_n": 10
+      }
+    ]
+  },
+  "escalations": [
+    {
+      "transaction_id": "order_bf02a69cada6",
+      "category": "genuine_error",
+      "confidence": 0.0,
+      "reasoning": "Narrator's final response could not be parsed as valid JSON: ''",
+      "amount": 4997300,
+      "priority_score": 4997300.0,
+      "provider": "groq"
+    },
+    {
+      "transaction_id": "order_5e1a19764228",
+      "category": "genuine_error",
+      "confidence": 0.7,
+      "reasoning": "post_refunds_to_settlement hop added 48500, no refund or netting anomaly detected, so likely a system error",
+      "amount": 2539650,
+      "priority_score": 761895.0000000001,
+      "provider": "groq"
+    },
+    {
+      "transaction_id": "order_6adfc04593fa",
+      "category": "genuine_error",
+      "confidence": 0.6,
+      "reasoning": "No duplicate refund or netting trap detected; fee, tax, and timing all match expected values, so the -81400 settlement shortfall remains unexplained.",
+      "amount": 665945,
+      "priority_score": 266378.0,
+      "provider": "groq"
+    },
+    {
+      "transaction_id": "order_6975f7cfe709",
+      "category": "genuine_error",
+      "confidence": 0.2,
+      "reasoning": "Settlement hop broke by 69100 INR; no duplicate refund or netting trap detected, and rounding cannot explain the large delta",
+      "amount": 118510,
+      "priority_score": 94808.0,
+      "provider": "groq"
+    },
+    {
+      "transaction_id": "order_0a89f4bd2d01",
+      "category": "netting_trap",
+      "confidence": 0.95,
+      "reasoning": "Settlement delta +5000 is offset by another transaction in the same batch with -5000, indicating a netting trap.",
+      "amount": 1190840,
+      "priority_score": 59542.00000000005,
+      "provider": "groq"
+    },
+    {
+      "transaction_id": "order_daf8ec7a376b",
+      "category": "netting_trap",
+      "confidence": 0.95,
+      "reasoning": "Another transaction in the same settlement batch (order_7318b04dbcf5) has an offsetting delta of -5000, causing the 5000 discrepancy.",
+      "amount": 752345,
+      "priority_score": 37617.25000000004,
+      "provider": "groq"
+    },
+    {
+      "transaction_id": "order_bc43b81d4dca",
+      "category": "genuine_error",
+      "confidence": 0.6,
+      "reasoning": "post_refunds_to_settlement hop broke by -79300 INR; no fee, refund, netting, or SLA anomaly explains the shortfall",
+      "amount": 70169,
+      "priority_score": 28067.600000000002,
+      "provider": "groq"
+    },
+    {
+      "transaction_id": "order_938ff489c1db",
+      "category": "duplicate_refund",
+      "confidence": 0.95,
+      "reasoning": "The settlement shortfall of 369,757 matches exactly the refund amount already on record (rfnd_07420b741871), indicating the refund was applied twice.",
+      "amount": 432166,
+      "priority_score": 21608.300000000017,
+      "provider": "groq"
+    },
+    {
+      "transaction_id": "order_ac7b36b92779",
+      "category": "genuine_error",
+      "confidence": 0.9,
+      "reasoning": "post_refunds_to_settlement hop produced +64100, no refunds or netting detected, so settlement amount is higher than expected",
+      "amount": 213569,
+      "priority_score": 21356.899999999994,
+      "provider": "groq"
+    },
+    {
+      "transaction_id": "order_5def437673fd",
+      "category": "genuine_error",
+      "confidence": 0.9,
+      "reasoning": "post_refunds_to_settlement hop broke by -39400 INR; no refunds, no netting or duplicate refund detected, so the shortfall is unexplained",
+      "amount": 209715,
+      "priority_score": 20971.499999999996,
+      "provider": "groq"
+    },
+    {
+      "transaction_id": "order_7ba512b05a39",
+      "category": "netting_trap",
+      "confidence": 0.95,
+      "reasoning": "Netting trap: another transaction in the same settlement batch has an offsetting delta of -15000, causing the +15000 discrepancy.",
+      "amount": 264115,
+      "priority_score": 13205.750000000011,
+      "provider": "groq"
+    },
+    {
+      "transaction_id": "order_087d4c41518d",
+      "category": "netting_trap",
+      "confidence": 0.95,
+      "reasoning": "post_refunds_to_settlement hop broke by -5000, offset by another transaction in same batch with +5000",
+      "amount": 242050,
+      "priority_score": 12102.500000000011,
+      "provider": "groq"
+    },
+    {
+      "transaction_id": "order_a8efeb5b7abc",
+      "category": "netting_trap",
+      "confidence": 0.95,
+      "reasoning": "Another transaction in the same settlement batch has an offsetting delta of +15000, causing a netting trap that explains the -15000 settlement shortfall.",
+      "amount": 234115,
+      "priority_score": 11705.750000000011,
+      "provider": "groq"
+    },
+    {
+      "transaction_id": "order_75a0d6c96b1b",
+      "category": "duplicate_refund",
+      "confidence": 0.95,
+      "reasoning": "Settlement delta equals the refund amount (250275), indicating the refund was applied twice in the settlement process.",
+      "amount": 231750,
+      "priority_score": 11587.500000000011,
+      "provider": "groq"
+    },
+    {
+      "transaction_id": "order_5236ab600124",
+      "category": "netting_trap",
+      "confidence": 0.95,
+      "reasoning": "Settlement delta of -15000 matched an offsetting +15000 in another transaction (order_7ba512b05a39) in the same batch, indicating a netting trap.",
+      "amount": 134469,
+      "priority_score": 6723.450000000006,
+      "provider": "groq"
+    },
+    {
+      "transaction_id": "order_4cebf6d2b7d7",
+      "category": "duplicate_refund",
+      "confidence": 0.95,
+      "reasoning": "post_refunds_to_settlement hop applied the refund twice, causing a 41835 INR shortfall",
+      "amount": 62790,
+      "priority_score": 3139.5000000000027,
+      "provider": "groq"
+    },
+    {
+      "transaction_id": "order_7318b04dbcf5",
+      "category": "netting_trap",
+      "confidence": 0.95,
+      "reasoning": "post_refunds_to_settlement hop broke by -5000, matched by another transaction in same batch with +5000 offset, indicating a netting trap",
+      "amount": 44823,
+      "priority_score": 2241.150000000002,
+      "provider": "groq"
+    },
+    {
+      "transaction_id": "order_a50a26bad771",
+      "category": "duplicate_refund",
+      "confidence": 0.95,
+      "reasoning": "The settlement shortfall of 39342 exactly matches a refund already on record for this payment, indicating a duplicate refund application.",
+      "amount": 20136,
+      "priority_score": 1006.8000000000009,
+      "provider": "groq"
+    }
+  ],
+  "baseline_clean_count": 80,
+  "baseline_false_negative_timing_lag": 8,
+  "baseline_false_positive_rounding": 7,
+  "stress": {
+    "total": 40,
+    "deterministic_correct": 6,
+    "narrated_total": 34,
+    "narrated_correctly_handled": 34,
+    "wrongly_auto_resolved": 0
+  },
+  "elapsed_seconds": 179.09400000004098,
+  "narrated_count": 18,
+  "transactions_per_second": 0.6700391972928883
+}
