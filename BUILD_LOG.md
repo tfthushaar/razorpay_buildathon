@@ -542,3 +542,55 @@ instead of rounded up.
   Lower priority than the six items above; left as a known, disclosed gap rather than rushed.
 
 ---
+
+## 2026-08-24 — Judge-agent audit, round 2: verified the fix, found the fix hadn't actually shipped
+
+Spawned a second, independent agent — no shared context with round 1 beyond what's in this log —
+specifically instructed to verify round 1's "fixed" claims rather than trust them, and to try to
+break the provider-aware calibration fix directly.
+
+**Score: 79/100, up from round 1's 71** (AI Judgment 8, Failure Recovery 8, Measured Accuracy 9,
+Throughput 7, Bounded & Gated 8, Real Problem 8, Submission Readiness 7).
+
+**The fix itself held under direct attack.** The auditor built its own adversarial probe — 29 mock
+batches, then 522 human-feedback-loop resolutions via `confirm_human_resolution`, always confirming
+the model "correct" (the best case for an attacker) — and confirmed every category still correctly
+shows `decision="escalate"`, `n=0`. Also fuzzed `narrate(provider=...)` with near-miss strings
+(`"Mock"`, `"MOCK"`, `"openai"`, `"claude"`, `"fake"`) and confirmed every one raises `ValueError`
+rather than being silently treated as real, real-provider is not a magic bypass.
+
+**But: the real Groq run's data never actually reached the live system's persistent state.** The
+2026-08-24 "real Groq narrator results" run above called
+`run_batch(seed=42, ..., provider="groq")` **without** passing `calibration_history=` — meaning it
+used the in-memory-only `calibrate()` fallback, not the persistent `CalibrationHistory` the actual
+dashboard reads from. The auditor confirmed this by querying `backend/data/calibration_history.db`
+directly: 100% `provider="mock"` rows, zero `provider="groq"`, and by cross-matching stored
+confidence values against the evidence JSON's own transaction IDs (the DB held the mock narrator's
+hardcoded 0.3/0.85/0.9 confidences, not the real run's 0.0/0.95/0.95). The real evidence existed as
+a static JSON file and BUILD_LOG prose — genuinely real, but never actually accumulated into the
+running system's own state, which is where the "trust builds live" pitch moment is supposed to
+happen. A subtle but real gap: proving the mechanism is safe is not the same as proving the
+mechanism has real evidence sitting in it right now.
+
+**Also found:** `docs/evidence/real-groq-run-2026-08-24.json` predates the throughput fields
+(elapsed_seconds/narrated_count/transactions_per_second) added later the same day, so the one
+real-provider run has no structured timing data, only the hand-typed "665s" in this log. README
+still said "45 tests" after the suite grew to 50 (same failure class Gap #4 already caught once,
+recurring elsewhere — a pattern worth watching for, not just patching each instance). No committed
+test exercised the resolve-loop-at-volume scenario the auditor had to construct ad hoc.
+
+**Fixes applied:**
+- Re-ran the real Groq batch (seed 99, new seed so it's not a replay) with `calibration_history=`
+  and `audit_logger=` explicitly pointed at the real `backend/data/*.db` paths — this time the real
+  narrator's decisions land in the actual persistent state the dashboard queries, not just a side
+  JSON file. See the numbers below.
+- Corrected README's test count (45 → 50).
+- Added `test_resolving_many_mock_escalations_over_http_cannot_graduate_a_category` to
+  `test_api.py` — a permanent, lighter-weight version of the auditor's ad hoc adversarial probe, run
+  over real HTTP through `/api/escalations/resolve`, not just at the calibrator-unit level.
+- **Still not actioned: rotating the Groq API key.** Flagged in round 1, still unrotated in round 2.
+  This is the user's action, not something I can do — restating it plainly rather than letting it
+  quietly age into a third round: **rotate the key at console.groq.com before any public push or
+  recorded pitch video.**
+
+---

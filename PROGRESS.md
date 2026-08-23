@@ -51,6 +51,15 @@ fixes in BUILD_LOG.md. Fixed this round:
 
 Not fixed this round (see BUILD_LOG for why): no committed Playwright spec/preserved screenshots (partially mitigated — every fix above was re-verified live with a fresh screenshot); Groq API key needs rotation before any public push (user action, flagged); `recall_similar_resolutions` stays per-run-only (already disclosed, lower priority).
 
+## External audit round 2 (2026-08-24) — verified the round-1 fix, found it hadn't fully shipped
+
+Second independent agent, instructed to verify (not trust) round 1's fixes and actively try to break them. **Score: 79/100, up from 71.** The provider-aware calibration fix itself held under a direct adversarial probe (522 human-feedback-loop resolutions, still correctly escalates). But found the real Groq run's data was never actually persisted into the live `CalibrationHistory` the dashboard reads from (the script that produced it never passed `calibration_history=`) — the real evidence existed only as a static JSON snapshot, not in the running system's own state. Fixed this round:
+
+- [x] Re-ran the real Groq batch (new seed 99) properly wired to the actual persistent `backend/data/*.db` files — real narrator decisions now genuinely accumulated in the live state, not just a side file
+- [x] README test count corrected (45 → 50, same stale-doc failure class as an earlier fixed gap, caught recurring)
+- [x] Added a permanent HTTP-level regression test for the resolve-loop-at-volume adversarial scenario (`test_resolving_many_mock_escalations_over_http_cannot_graduate_a_category`)
+- [!] **Groq API key still not rotated** — flagged in round 1, still open in round 2, restated directly to the user
+
 ## Frontend (spec §6.10)
 
 - [x] React/TS scaffold (Vite)

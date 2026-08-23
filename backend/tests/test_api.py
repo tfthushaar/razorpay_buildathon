@@ -19,6 +19,26 @@ def test_health():
     assert resp.json() == {"status": "ok"}
 
 
+def test_resolving_many_mock_escalations_over_http_cannot_graduate_a_category(isolated_app_state):
+    """Permanent regression guard for the exact adversarial scenario a round-2 external audit
+    constructed ad hoc to stress-test the provider-aware calibration fix (2026-08-24): repeatedly
+    running mock batches and resolving every escalation via the real /api/escalations/resolve HTTP
+    path -- always confirming the model "correct", the best case for an attacker -- must never let
+    a category earn auto_resolve. The audit found this held (522 resolutions, still all escalate)
+    but noted no committed test exercised it via HTTP at volume; this is that test, kept smaller
+    for CI speed while covering the same property."""
+    for seed in range(1, 6):
+        run_resp = client.post("/api/run", json={"seed": seed, "main_n": 100, "stress_n": 0, "threshold": 0.90, "provider": "mock"})
+        for escalation in run_resp.json()["escalations"]:
+            client.post("/api/escalations/resolve", json={"transaction_id": escalation["transaction_id"]})
+
+    final = client.get("/api/calibration", params={"threshold": 0.01}).json()
+    for c in final["categories"]:
+        assert c["decision"] == "escalate", f"{c['category']} auto-resolved after {c['n']} 'confirmed' mock-derived resolutions"
+        assert c["n"] == 0
+        assert c["mock_n"] > 0
+
+
 def test_run_then_fetch_latest(isolated_app_state):
     run_resp = client.post("/api/run", json={"seed": 42, "main_n": 100, "stress_n": 30, "threshold": 0.90, "provider": "mock"})
     assert run_resp.status_code == 200

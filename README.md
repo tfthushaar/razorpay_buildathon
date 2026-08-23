@@ -83,10 +83,10 @@ cd backend
 python -m pytest tests/ -v
 ```
 
-45 tests covering the data generator's arithmetic invariants, the matching engine's deterministic
+50 tests covering the data generator's arithmetic invariants, the matching engine's deterministic
 resolution paths, the narrator's tool-based detection and retry/failure handling, the calibration
-layer's statistical behavior, the Merkle-tree divergence pre-filter, the full pipeline, and the API
-layer.
+layer's statistical behavior (including that mock-mode decisions can never earn auto-resolve),
+the Merkle-tree divergence pre-filter, the full pipeline, and the API layer.
 
 ## What's real vs. mock
 
