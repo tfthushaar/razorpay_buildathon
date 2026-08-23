@@ -461,9 +461,13 @@ exact claim behind the two most heavily-weighted criteria (AI Judgment, Bounded 
   only**; mock decisions are still recorded and reported (`CategoryCalibration.mock_n`) for
   transparency, but categorically excluded from the gate. A category with real_n=0 always escalates
   ("no real-provider decisions yet"), the same posture as insufficient evidence generally.
-- **Existing local dev databases were incompatible with the new schema and already contaminated**
-  (see Gap #2) — deleted `backend/data/{audit_log,calibration_history}.db` (gitignored, local-only,
-  not real demo history) rather than migrate them.
+- **`calibration_history.db` was incompatible with the new schema and already contaminated** (see
+  Gap #2) — deleted it (gitignored, local-only, not real demo history) rather than migrate it.
+  **Correction (caught by round 4's audit, 2026-08-24):** this entry originally claimed
+  `audit_log.db` was deleted too — it wasn't (no schema change required it). It kept 860 rows of
+  the same pre-isolation-fix test contamination Gap #2 describes, undetected until round 4 queried
+  the live DB directly. Cleaned up then: deleted only those contaminated `run_id` groups, preserving
+  the 240 rows of genuine evidence (two real batch runs) that had accumulated since.
 - **Verified, not just implemented:** rewrote the test that used to prove "mock accumulation
   crosses the threshold" (that was the bug) into
   `test_accumulated_mock_history_never_clears_threshold_regardless_of_volume` — 7 accumulated mock
@@ -681,5 +685,80 @@ check each time. Every round's *documentation* findings have been the same failu
 in a new location — a number or version string stated once and not kept in sync as the codebase
 moved. The fix this round is the same as the last two: find every instance via a repo-wide search
 before calling a round done, not just the one instance a reviewer happened to point at.
+
+---
+
+## 2026-08-24 — Judge-agent audit, round 4: found something real, score 83/100 (an honest dip)
+
+Fourth independent agent, explicitly instructed to hold this round to a *higher* bar (a fourth
+review, not a first look) and to search surface area the first three rounds hadn't specifically
+targeted: full frontend render-paths (not just the calibration/summary components), the live
+persisted DB's *raw* contents via direct SQL, the installed toolchain's actual declared
+requirements, and a systematic re-derivation of every specific number claimed anywhere in the docs
+rather than just the ones already fixed once.
+
+**Score: 83/100, down 1 from round 3's 84 — an honest result, not an error.** The auditor was
+explicit that this reflects genuinely different surface area being examined at higher resolution,
+not a regression. Five findings, all real:
+
+1. **(Medium, fixed) The tool-call trace — the architecture doc's own headline proof of "AI
+   Judgment" — was captured correctly end-to-end but never rendered anywhere a person could see
+   it.** `AuditLogView.tsx` fetched `tool_calls_json` in every row and never touched it;
+   `BreakItPanel.tsx`'s `EvaluatedTransaction.tool_calls` was correctly typed and never rendered
+   either. The spec's own words (§3.3): *"the tool-call trace is shown alongside the verdict...
+   not an architecture-diagram claim"* — in the shipped product, it effectively was exactly that,
+   until now. **Fix:** added an expandable "N tool calls" toggle per row in `AuditLogView.tsx`
+   (parses `tool_calls_json`, renders `{tool, arguments, result}`) and a `<details>` block under
+   each Break-It result. **Verified live in the browser:** 18 of 120 audit rows (exactly the
+   narrator-classified ones) now show a working toggle; expanding one shows the real
+   `check_batch_anomalies`/`recall_similar_resolutions` trace with actual arguments and results,
+   not a placeholder. Deterministic rows correctly show "—" (they never called a tool). Zero
+   console errors.
+2. **(Medium, fixed) README's stated "Node 18+" doesn't satisfy the installed Vite's own declared
+   minimum** (`node_modules/vite/package.json`: `"node": "^20.19.0 || >=22.12.0"`) — a real
+   reproducibility gap against spec §10's own checklist item, undetected for 3 rounds because every
+   sandbox this was tested in already happened to have a compliant Node. **Fix:** corrected to
+   "Node 20.19+ (or 22.12+)."
+3. **(Low-medium, fixed) The real narrator's own system prompt told the live LLM it could output
+   `currency_rounding`** — structurally impossible, since `matching/engine.py`'s Pass 2 always
+   catches any `abs(settlement_delta) <= ROUNDING_EPSILON` deterministically before a transaction
+   ever reaches "needs_narration", and every category that does reach the narrator injects a delta
+   an order of magnitude larger than that threshold by construction. Verified this is genuinely
+   unreachable (checked every narrator-category generator's injected delta size against
+   `ROUNDING_EPSILON`) before removing it, rather than assuming the auditor was right. **Fix:**
+   dropped `currency_rounding` from `NARRATOR_CATEGORIES` and the system prompt's output list,
+   added it to the "already resolved, don't output" sentence, updated `test_narrator.py`'s expected
+   set.
+4. **(Low, fixed) Two per-file test-count claims in PROGRESS.md were wrong — and had been wrong
+   since the day they were written, missed by all three prior "fix the stale count" passes.**
+   `test_matching.py` was claimed "18/18"; it has always had 6 tests. `test_pipeline.py` was
+   claimed "7/7"; it currently has 10. Root cause of *why* three rounds of grepping missed this:
+   each prior fix was keyed to the one number a reviewer had just flagged (45→50, 50→51,
+   React 18→19), never to systematically re-collecting every count claim against
+   `pytest --collect-only` file-by-file. Did that this time: collected all 8 test files' counts
+   individually (6, 6, 8, 3, 10, 8, 5, 5 — sums to 51, matching the total) and corrected both wrong
+   lines.
+5. **(Low, fixed) `audit_log.db` still held 860 rows of the exact pre-isolation-fix test
+   contamination Gap #2 was about**, undetected because round 1's fix entry claimed both
+   `audit_log.db` and `calibration_history.db` were deleted — only the schema-incompatible
+   `calibration_history.db` actually was. Verified directly which `run_id` groups were real evidence
+   vs. contamination (the 8 contaminated groups are sized exactly 100/120/150/60, in two clusters
+   seconds apart, matching the old `test_api.py` batch sizes before `conftest.py` existed) before
+   deleting anything. Deleted only the 8 contaminated `run_id` groups (860 rows), preserving the 240
+   rows of genuine evidence from two real batch runs that had accumulated since. Corrected the
+   round-1 BUILD_LOG entry to state precisely what was actually deleted then vs. now.
+
+**All five fixed and re-verified** (51/51 tests still passing, `npm run build` clean, tool-call
+rendering confirmed live in a real browser).
+
+**Honest assessment from the auditor, worth carrying forward rather than editing out:** fixing
+these five was estimated to land around 87-90, not 95 outright. Throughput and Real Problem are
+already close to an honest ceiling — free-tier rate-limit-dominated wall-clock time and a Merkle
+pre-filter that genuinely provides no saving on this project's own dense demo-batch distribution
+are disclosed, real limitations, not defects; pushing those scores higher would require
+overclaiming past what's actually true, which is exactly what this project's entire philosophy has
+refused to do at every prior decision point. Continued rounds may oscillate rather than climb
+monotonically — noted here so a future round isn't surprised by that, or tempted to manufacture a
+finding just to justify another point of movement.
 
 ---

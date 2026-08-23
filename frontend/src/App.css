@@ -471,6 +471,49 @@ button:disabled {
   color: var(--muted);
 }
 
+.tool-call-toggle {
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+
+.tool-call-detail-row td {
+  background: var(--track);
+  padding: 10px 14px;
+}
+
+.tool-call-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.tool-call-list li {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 0.75rem;
+}
+
+.tool-call-name {
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.tool-call-args,
+.tool-call-result {
+  color: var(--muted);
+  word-break: break-word;
+}
+
+.escalation-tool-calls {
+  margin-top: 8px;
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
 /* Break it panel */
 
 .preset-buttons {

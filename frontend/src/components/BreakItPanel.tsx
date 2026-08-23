@@ -73,6 +73,20 @@ export function BreakItPanel() {
                 {r.confidence != null && <span className="escalation-confidence">confidence {r.confidence.toFixed(2)}</span>}
               </div>
               {r.reasoning && <p className="escalation-reasoning">{r.reasoning}</p>}
+              {r.tool_calls.length > 0 && (
+                <details className="escalation-tool-calls">
+                  <summary>{r.tool_calls.length} tool call{r.tool_calls.length === 1 ? "" : "s"} — what the narrator checked before answering</summary>
+                  <ul className="tool-call-list">
+                    {r.tool_calls.map((tc, i) => (
+                      <li key={i}>
+                        <span className="mono tool-call-name">{String((tc as { tool?: string }).tool ?? "tool")}</span>
+                        <span className="tool-call-args">args: {JSON.stringify((tc as { arguments?: unknown }).arguments)}</span>
+                        <span className="tool-call-result">result: {JSON.stringify((tc as { result?: unknown }).result)}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </details>
+              )}
             </li>
           ))}
         </ul>

@@ -36,7 +36,7 @@ BUILD_LOG.md Chronological engineering journal — every bug found, root cause, 
 
 ## Setup
 
-Requires Python 3.11+ and Node 18+.
+Requires Python 3.11+ and Node 20.19+ (or 22.12+) — Vite 8's own minimum, not just a suggestion.
 
 ### Backend
 

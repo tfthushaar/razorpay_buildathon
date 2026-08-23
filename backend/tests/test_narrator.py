@@ -54,7 +54,7 @@ def test_mock_narrator_classifies_the_narration_queue_correctly():
         output = narrate_mock(chain, context)
         assert output.provider == "mock"
         assert 0.0 <= output.confidence <= 1.0
-        assert output.category in {"duplicate_refund", "netting_trap", "currency_rounding", "genuine_error"}
+        assert output.category in {"duplicate_refund", "netting_trap", "genuine_error"}
         assert output.tool_calls, "mock narrator should still record real tool calls, not skip straight to an answer"
         if output.category == gt_by_id[txn_id]:
             correct += 1

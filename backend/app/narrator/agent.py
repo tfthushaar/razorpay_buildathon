@@ -33,7 +33,14 @@ from pydantic import BaseModel
 from app.chain.builder import CausalChain
 from app.narrator.tools import ToolContext, check_batch_anomalies, check_sla_window, lookup_fee_schedule, recall_similar_resolutions
 
-NARRATOR_CATEGORIES = ("duplicate_refund", "netting_trap", "currency_rounding", "genuine_error")
+NARRATOR_CATEGORIES = ("duplicate_refund", "netting_trap", "genuine_error")
+# Deliberately excludes currency_rounding: matching/engine.py's Pass 2 catches ANY transaction with
+# abs(settlement_delta) <= ROUNDING_EPSILON before it ever reaches "needs_narration" (see
+# ROUNDING_EPSILON in chain/builder.py), and every category that does reach the narrator injects a
+# delta an order of magnitude larger than that threshold by construction (data_gen/generate.py).
+# A real narrator run should structurally never need to classify this — it's not a valid live
+# output, so it must not be offered as one (an earlier version of the prompt/schema listed it
+# anyway; caught by an external audit 2026-08-24, see BUILD_LOG.md).
 
 DEFAULT_GROQ_MODEL = "openai/gpt-oss-20b"  # verified tool-calling support + cheapest of the candidates tried; swap via narrate_groq(model=...)
 
@@ -43,7 +50,7 @@ Your job: explain exactly which hop broke and by how much, using the tools provi
 reasoning before answering. Do not guess a category without calling at least one relevant tool.
 
 Categories you may output: {", ".join(NARRATOR_CATEGORIES)}.
-(clean_match, fee_deduction, partial_refund, and timing_lag are already resolved deterministically
+(clean_match, fee_deduction, partial_refund, timing_lag, and currency_rounding are already resolved deterministically
 before a transaction ever reaches you — if you're looking at a transaction, none of those apply,
 so don't output them.)
 

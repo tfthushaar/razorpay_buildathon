@@ -8,12 +8,12 @@ Status legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blo
 - [x] Repo scaffold (backend/frontend dirs, git, .gitignore)
 - [x] Synthetic data generator + hidden ground truth + adversarial cases + 100%-adversarial stress batch (spec §6.1, §4) — 6/6 tests passing, see BUILD_LOG
 - [x] Causal chain builder (spec §6.2) — 5-hop trace + ledger gap + SLA timing check
-- [x] Matching engine — exact-match pass + deterministic structured diff pass (spec §6.3) — resolves 5 of 8 categories with zero LLM calls, 18/18 tests passing incl. 199-seed fuzz check
+- [x] Matching engine — exact-match pass + deterministic structured diff pass (spec §6.3) — resolves 5 of 8 categories with zero LLM calls, 6/6 tests passing incl. 199-seed fuzz check
 - [x] Naive baseline reconciler (spec §6.7) — pure amount equality, documented blind spots on timing_lag (false negative) and currency_rounding (false positive)
 - [x] Calibration / auto-resolve layer — per-category accuracy + Wilson CI + threshold logic (spec §6.5) — applies only to narrator categories, genuine_error hard-never-auto-resolves; **provider-aware since 2026-08-24: only real-LLM decisions count toward the gate, mock decisions tracked separately (`mock_n`) but never earn auto-resolve** — closes a critical gap an external audit found (see BUILD_LOG)
 - [x] Calibration history accumulator (`app/calibration/history.py`) — persists scored decisions across runs + human confirmations; single-batch N is provably too small to clear threshold alone, see BUILD_LOG
 - [x] Audit logger (spec §6.8) — SQLite, append-only, source-row links
-- [x] Pipeline orchestrator (`app/pipeline.py`) — full generate→chain→match→narrate→calibrate→audit→baseline→stress flow, 7/7 tests passing
+- [x] Pipeline orchestrator (`app/pipeline.py`) — full generate→chain→match→narrate→calibrate→audit→baseline→stress flow, 10/10 tests passing
 
 ## Agentic layer (needs GROQ_API_KEY — free tier, see BUILD_LOG for provider-switch rationale)
 
@@ -69,6 +69,19 @@ Third independent agent, held to a *higher* bar than rounds 1-2 (not a lower one
 - [x] docs/track04-*.md §7 tech stack line updated (Claude API → Groq, was only fixed in §6.5 before)
 - [x] React 18 → React 19 (README, BUILD_LOG — wrong from the initial scaffold, not a later drift)
 - [!] **Groq API key still not rotated** — flagged in all three rounds now, user action only
+
+## External audit round 4 (2026-08-24) — found something real, score 83/100 (honest dip, not a regression)
+
+Fourth independent agent, pointed at surface area rounds 1-3 hadn't specifically targeted: full frontend render-paths, live DB raw contents via direct SQL, actual installed toolchain requirements. **Score: 83/100** (down 1 from round 3, explicitly attributed to deeper scrutiny, not a regression). Found 5 real issues, most importantly: the tool-call trace — the spec's own headline "AI Judgment" proof — was captured correctly in the backend but never rendered anywhere in the UI. Fixed this round:
+
+- [x] **Tool-call trace now visible** — expandable toggle in `AuditLogView.tsx` + `<details>` block in `BreakItPanel.tsx`. Verified live: 18/120 audit rows show a working toggle with the real tool trace.
+- [x] README's Node version corrected (18+ → 20.19+/22.12+, matching Vite's actual declared minimum)
+- [x] Removed `currency_rounding` as a possible narrator output (structurally unreachable — verified before removing) from `NARRATOR_CATEGORIES`, the system prompt, and `test_narrator.py`
+- [x] Two per-file test counts in this file, wrong since the day they were written, corrected via a systematic per-file recount (not just the one instance flagged)
+- [x] Cleaned up 860 rows of leftover pre-isolation-fix test contamination in `audit_log.db`, preserving the 240 rows of genuine evidence; corrected round 1's BUILD_LOG entry to state precisely what was deleted then vs. now
+- [!] **Groq API key still not rotated** — flagged in all four rounds now
+
+**Auditor's honest assessment, carried forward rather than edited out:** fixing all 5 findings was estimated to land ~87-90, not 95 outright — Throughput and Real Problem are close to an honest ceiling imposed by real, disclosed constraints (free-tier rate limits, Merkle providing no saving on this project's own dense demo data), and pushing past that would require overclaiming, which contradicts this project's entire approach. Continued rounds may oscillate rather than climb monotonically.
 
 ## Frontend (spec §6.10)
 
