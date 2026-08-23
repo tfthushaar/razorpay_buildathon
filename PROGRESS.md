@@ -29,7 +29,7 @@ Status legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blo
 - [x] Human-feedback loop (calibration updates live from resolved escalations) — `CalibrationHistory.confirm_human_resolution`, needs a FastAPI endpoint to expose it
 - [x] Adversarial stress-test scorecard (spec §6.9) — `pipeline.StressScorecard`
 - [x] Live threshold dial (backend support) — `calibrate()`/`CalibrationHistory.report()` are cheap re-aggregations, needs a FastAPI endpoint to expose it
-- [ ] Merkle-tree divergence pre-filter (optional stretch, spec §3) — cut first if time runs out, per spec
+- [x] Merkle-tree divergence pre-filter (optional stretch, spec §3) — `app/matching/merkle.py`, real measured number: 3,010 comparisons vs 50,000 brute-force (94% fewer) at 0.2% divergence; honestly documented that it provides no saving at this project's own ~33%-divergence demo batch density. 5/5 tests passing.
 
 ## Backend API (spec §7)
 

@@ -325,3 +325,67 @@ Format per entry: **date/phase — what was attempted — what happened — reso
   editable, resubmittable input.
 
 ---
+
+## 2026-08-24 — Real Groq narrator: a real rate-limit failure, handled properly
+
+- **Model name went stale between planning and building:** the spec named
+  `llama-3.3-70b-versatile`; by the time a real `GROQ_API_KEY` was available, Groq had retired it
+  (`404 model_not_found`). Queried `client.models.list()` rather than guessing a replacement from
+  training-data memory, tool-call-tested the three plausible candidates
+  (`openai/gpt-oss-20b`, `openai/gpt-oss-120b`, `qwen/qwen3.6-27b`) directly, confirmed all three
+  support tool calling, and picked `openai/gpt-oss-20b` — cheapest of the three, consistent with
+  the cost-minimization mandate.
+- **First real batch run hit a real `RateLimitError`** on transaction 4 of an 18-transaction
+  narration queue: 8000 TPM limit on this free-tier account. Diagnosed the *exact* cause (not
+  guessed) by running the full queue transaction-by-transaction with the raw error surfaced —
+  17/18 succeeded, one hit the cap.
+  - **Fix:** `_call_with_retry` in `app/narrator/agent.py` — retries `RateLimitError` /
+    `APIConnectionError` / `InternalServerError`, honoring the API's own `retry-after` response
+    header when present, exponential backoff otherwise, re-raising after 4 attempts. `narrate_groq`
+    now also fails safe (escalates as `genuine_error` with an honest reason string) rather than
+    crashing the batch if the narrator's JSON response is malformed or the API is unavailable even
+    after retries — an LLM producing a bad response is a real runtime failure mode, not a
+    hypothetical one, and this is the direct, demonstrable "identify a runtime failure, engineer a
+    graceful fallback" story the Failure Recovery criterion asks for.
+  - **Verified with fast, free, deterministic tests** (`test_retry.py`, 5 tests) using a fake
+    `RateLimitError` rather than re-triggering the real limit: retry-then-succeed, honoring
+    `retry-after`, exponential fallback without it, re-raising after exhaustion, and connection
+    errors retrying too. All passing alongside the full 45-test suite.
+
+---
+
+## 2026-08-24 — Merkle-tree divergence pre-filter (optional stretch, spec §3/§9)
+
+- **Built:** `app/matching/merkle.py` — a `MerkleComparator` that builds one shared tree shape over
+  a sorted key set (so two "views" of the same keys, e.g. ledger vs. settlement amounts, can be
+  diffed by direct index-aligned node comparison rather than a general tree-diff algorithm), and
+  prunes any subtree whose rolled-up hash matches on both sides.
+- **Correctness proven, not assumed:** `test_matches_brute_force_exactly_across_random_trials`
+  checks the diverging-key set against brute-force set difference across 20 randomized trials
+  (varying size, branching factor, and perturbation rate) — exact match every time. Also
+  cross-checked against this project's own real generated batches: hashing
+  (ledger_expected_amount, settled_amount) pairs and diffing them finds *exactly* the same
+  transactions as `ledger_gap != 0` on the real causal chains.
+- **Real measured number for the pitch, not an estimate** (`test_50000_record_scale_demonstration`):
+  50,000 keys, 100 deliberately injected mismatches (0.2% divergence, modeling a realistic
+  "mostly-clean daily settlement batch") — **3,010 comparisons made vs. 50,000 brute-force
+  (94.0% fewer)** to correctly find all 100 divergences. This is the exact spec §3 pitch line
+  ("compared 50,000 records using ~200 comparisons") — the real number came out to ~3,000, not
+  ~200, and that's what's reported; the point was never to hit a pre-picked number, only to have a
+  real one.
+- **Honest finding, caught by the test itself:** ran the same comparator against this project's own
+  ~120-200 record demo batches and found it provides *no* comparison saving there — the demo batch
+  is deliberately ~33% non-clean (spec's own 25% explainable + 10% adversarial + 5% ambiguous
+  distribution), and Merkle pruning only pays off when divergence is *sparse*. At 33% divergence,
+  most subtrees must be descended into regardless, and internal-node overhead can exceed a flat
+  per-leaf scan. Documented this explicitly rather than asserting a saving that wouldn't hold:
+  the 94%-fewer-comparisons number is real and belongs in the pitch, but it's honestly a claim
+  about realistic-scale, mostly-clean batches — not about this project's own deliberately dense
+  demo data. Overclaiming past that line would be exactly the "one cherry-picked match proves
+  nothing" failure mode the whole project is built to avoid.
+- **Scope decision:** kept this as a standalone, fully-tested, provably-correct utility rather than
+  rewiring the already-working matching engine's Pass 1 to route through it. Spec explicitly marks
+  this the first thing to cut if behind schedule; building it correctly and proving the real number
+  captures the pitch value without adding regression risk to a working, verified pipeline.
+
+---

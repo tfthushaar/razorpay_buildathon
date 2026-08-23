@@ -25,3 +25,6 @@ backend/data/generated/
 # OS
 .DS_Store
 Thumbs.db
+
+# Claude Code session/tooling metadata (not project content)
+.claude/
