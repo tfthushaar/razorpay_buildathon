@@ -1221,3 +1221,36 @@ system assumes" (provider identity, category membership, response shape/type). U
 target for this loop: ~90.
 
 ---
+
+## 2026-08-24 — Self-caught: the same bug class, one call earlier still (not an audit finding)
+
+While writing up round 7's fix, re-read the surrounding code one level up — the `if msg.tool_calls:`
+branch, which runs *before* a final answer is ever produced — and the same pattern was sitting there
+too, unfixed. Verified it directly before trusting the hunch, same as every other finding in this
+log: mocked a Groq tool-call response with `function.arguments = "{not valid json"` and separately
+with `function.name = "some_hallucinated_tool"`, ran both through `narrate_groq` with no other
+change, and both crashed uncaught (`json.JSONDecodeError`, then `ValueError: unknown tool: ...`).
+Confirmed the identical shape in `narrate_ollama` (`dict(tc.function.arguments)` raising `ValueError`
+on a non-mapping argument value).
+
+This is the same failure mode round 7 just fixed for the *final answer* — a value the model
+supplies (here, a tool call's own name and arguments, before any reasoning about the transaction has
+even happened) trusted without a guard, able to crash the whole `run_batch()` the same way, through
+the same uncaught-exception path into `main.py`'s handler-less endpoints.
+
+**Not something an external audit round found — caught by re-reading the code myself while fixing
+the adjacent bug**, worth recording as a distinct, honest data point: the discipline of "read the
+whole function once you're already in it, not just the line you were sent to fix" catches things a
+narrower fix wouldn't. Following the same process round 7 itself established: wrote
+`test_narrate_groq_fails_safe_on_an_unusable_tool_call` and the `_ollama` twin first, confirmed both
+fail against the unfixed code (real `JSONDecodeError`/`ValueError` propagating out of the test, not
+an assertion failure), then wrapped the tool-execution loop in both providers in
+`try/except (json.JSONDecodeError, TypeError, ValueError)`, routing through the existing
+`_fail_safe`, confirmed both tests pass. 63/63 tests passing.
+
+With this fix, every point in both `narrate_groq`/`narrate_ollama` where a model-supplied value is
+used — the tool call itself, the tool call's arguments, the final category, the final confidence,
+the final reasoning's presence — is now guarded. Not claiming there's no possible further layer,
+just that a systematic pass was made rather than stopping at the first fix.
+
+---

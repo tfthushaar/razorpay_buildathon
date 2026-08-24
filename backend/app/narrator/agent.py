@@ -336,11 +336,19 @@ def narrate_groq(chain: CausalChain, context: ToolContext, model: str = DEFAULT_
                         "tool_calls": [tc.model_dump() for tc in msg.tool_calls],
                     }
                 )
-                for tc in msg.tool_calls:
-                    args = json.loads(tc.function.arguments or "{}")
-                    result = _execute_tool(tc.function.name, args, chain, context)
-                    tool_calls_log.append(ToolCallRecord(tool=tc.function.name, arguments=args, result=result))
-                    messages.append({"role": "tool", "tool_call_id": tc.id, "content": json.dumps(result)})
+                try:
+                    # same bug class as the final-answer validation above, one call earlier: a
+                    # malformed tool-call-arguments string or a hallucinated/unknown tool name both
+                    # raised an uncaught exception here (json.JSONDecodeError / ValueError from
+                    # _execute_tool's "unknown tool" branch) before this fix — caught by re-reading
+                    # this block while writing up the final-answer fix, not by an external audit.
+                    for tc in msg.tool_calls:
+                        args = json.loads(tc.function.arguments or "{}")
+                        result = _execute_tool(tc.function.name, args, chain, context)
+                        tool_calls_log.append(ToolCallRecord(tool=tc.function.name, arguments=args, result=result))
+                        messages.append({"role": "tool", "tool_call_id": tc.id, "content": json.dumps(result)})
+                except (json.JSONDecodeError, TypeError, ValueError) as e:
+                    return _fail_safe(f"Narrator requested a tool call that could not be executed ({type(e).__name__}: {e}); escalating rather than guessing.")
                 continue
 
             try:
@@ -439,11 +447,15 @@ def narrate_ollama(chain: CausalChain, context: ToolContext, model: str = DEFAUL
 
             if msg.tool_calls:
                 messages.append({"role": "assistant", "content": msg.content or "", "tool_calls": [tc.model_dump() for tc in msg.tool_calls]})
-                for tc in msg.tool_calls:
-                    args = dict(tc.function.arguments)  # already parsed, unlike Groq's JSON-string arguments
-                    result = _execute_tool(tc.function.name, args, chain, context)
-                    tool_calls_log.append(ToolCallRecord(tool=tc.function.name, arguments=args, result=result))
-                    messages.append({"role": "tool", "content": json.dumps(result)})  # no tool_call_id -- Ollama matches by order
+                try:
+                    # see the identical block in narrate_groq for the full rationale.
+                    for tc in msg.tool_calls:
+                        args = dict(tc.function.arguments)  # already parsed, unlike Groq's JSON-string arguments
+                        result = _execute_tool(tc.function.name, args, chain, context)
+                        tool_calls_log.append(ToolCallRecord(tool=tc.function.name, arguments=args, result=result))
+                        messages.append({"role": "tool", "content": json.dumps(result)})  # no tool_call_id -- Ollama matches by order
+                except (json.JSONDecodeError, TypeError, ValueError) as e:
+                    return _fail_safe(f"Narrator requested a tool call that could not be executed ({type(e).__name__}: {e}); escalating rather than guessing.")
                 continue
 
             try:

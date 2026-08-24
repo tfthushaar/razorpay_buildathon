@@ -156,6 +156,52 @@ def test_narrate_groq_clamps_out_of_range_confidence():
     assert output.confidence == 1.0, "confidence must be clamped to the valid [0.0, 1.0] range"
 
 
+# Found by re-reading the tool-call branch (the `if msg.tool_calls:` block, one layer earlier in
+# the same loop) while writing up round 7's fix -- the exact same "trust an LLM-shaped value
+# without checking it" gap round 7 just fixed for the final answer was also sitting, unfixed, in
+# how a *tool call* gets executed. Reproduced directly before writing these tests (see BUILD_LOG):
+# malformed tool-call-arguments JSON and a hallucinated/unknown tool name both crashed the whole
+# batch uncaught, the same failure shape round 7 found, one call earlier.
+def test_narrate_groq_fails_safe_on_an_unusable_tool_call():
+    _, context, queue, _ = _narration_queue(main_n=150)
+    chain = context.chains[queue[0]]
+
+    bad_tool_calls = [
+        (SimpleNamespace(id="call_1", function=SimpleNamespace(name="lookup_fee_schedule", arguments="{not valid json")), "malformed arguments JSON"),
+        (SimpleNamespace(id="call_1", function=SimpleNamespace(name="some_hallucinated_tool", arguments="{}")), "hallucinated/unknown tool name"),
+    ]
+    for tc, description in bad_tool_calls:
+        tc.model_dump = lambda tc=tc: {"id": tc.id, "function": {"name": tc.function.name, "arguments": tc.function.arguments}}
+        fake_message = SimpleNamespace(tool_calls=[tc], content=None)
+        fake_response = SimpleNamespace(choices=[SimpleNamespace(message=fake_message)])
+        with patch("groq.Groq") as MockGroq, patch.dict("os.environ", {"GROQ_API_KEY": "test-key"}):
+            MockGroq.return_value.chat.completions.create.return_value = fake_response
+            output = narrate_groq(chain, context)
+        assert output.category == "genuine_error", f"should fail safe on: {description}"
+        assert output.confidence == 0.0, f"should fail safe on: {description}"
+        assert output.provider == "groq", f"should fail safe on: {description}"
+
+
+def test_narrate_ollama_fails_safe_on_an_unusable_tool_call():
+    _, context, queue, _ = _narration_queue(main_n=150)
+    chain = context.chains[queue[0]]
+
+    bad_tool_calls = [
+        (SimpleNamespace(function=SimpleNamespace(name="lookup_fee_schedule", arguments="not-a-mapping")), "arguments not convertible to a dict"),
+        (SimpleNamespace(function=SimpleNamespace(name="some_hallucinated_tool", arguments={})), "hallucinated/unknown tool name"),
+    ]
+    for tc, description in bad_tool_calls:
+        tc.model_dump = lambda tc=tc: {"function": {"name": tc.function.name, "arguments": tc.function.arguments}}
+        fake_message = SimpleNamespace(tool_calls=[tc], content=None)
+        fake_response = SimpleNamespace(message=fake_message)
+        with patch("ollama.Client") as MockClient:
+            MockClient.return_value.chat.return_value = fake_response
+            output = narrate_ollama(chain, context)
+        assert output.category == "genuine_error", f"should fail safe on: {description}"
+        assert output.confidence == 0.0, f"should fail safe on: {description}"
+        assert output.provider == "ollama", f"should fail safe on: {description}"
+
+
 def test_narrate_ollama_fails_safe_on_out_of_schema_category():
     """Same fix, same live-observed failure, the other real provider -- see the Groq version of
     this test for the full story."""
