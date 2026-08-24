@@ -1560,3 +1560,87 @@ well-formed data") has now recurred in the narrator (rounds 5-8), the live evalu
 after being found live rather than anticipated. User's stopping target for this loop: ~90.
 
 ---
+
+## 2026-08-24 — Self-caught: the fourth occurrence, found while round 11 was cut off mid-audit
+
+Round 11 hit a session usage limit partway through (its own last words, before termination: "Let me
+do one more quick live check on round 10's threshold-bounds fix, since I've now re-verified 3 of its
+4 fixes directly this round") — it had independently re-confirmed most of round 10's fixes but never
+delivered a score or a findings list. Rather than immediately spawn another full audit agent into
+the same exhausted quota, picked up the one specific thread round 11 was assigned but hadn't reached
+yet: `POST /api/escalations/resolve` had been flagged across two rounds as never fuzzed live, only
+code-reviewed. Read it directly instead of waiting for an agent to.
+
+### THE BUG: the fourth instance of the pattern, and this one's a real race condition, not just missing validation
+
+```python
+escalation = state.latest_escalations_by_id.get(req.transaction_id)   # (1) check
+if escalation is None:
+    raise HTTPException(404, ...)
+...
+calibration_history.confirm_human_resolution(...)                      # (2) act
+del state.latest_escalations_by_id[req.transaction_id]                 # (3) delete
+```
+
+Check, act, and delete were three separate steps with no lock between them — a textbook
+time-of-check-to-time-of-use race under FastAPI's genuinely-concurrent threadpool (the same
+"effectively serialized" assumption round 10 already disproved once, for the SQLite connections,
+now disproved a second time for this in-memory dict). Reproduced live before writing anything down,
+same discipline as every other finding in this log: fired 5 concurrent resolve requests at the same
+escalation. Two consequences, both real:
+
+- **Silent data corruption**: more than one concurrent request can pass the `.get()` check before
+  either reaches the `del`, so more than one writes a `human_confirmed` entry into
+  `calibration_history` for the *same* real-world resolution — one genuine data point silently
+  double-counted as two (or more) independent observations, corrupting the Wilson interval's
+  sample-independence assumption in exactly the direction that makes a category look more trustworthy
+  than the evidence actually supports.
+- **A crash**: the second (and any further) concurrent request then hits `del` on an already-deleted
+  key — `KeyError`, uncaught, propagating through `run_in_threadpool` to a bare HTTP 500. Confirmed
+  directly: `dict.__delitem__` on a missing key raises `KeyError` in isolation first, then reproduced
+  it live end-to-end through the real endpoint.
+
+### The fix
+
+```python
+with _escalation_lock:
+    escalation = state.latest_escalations_by_id.pop(req.transaction_id, None)
+if escalation is None:
+    raise HTTPException(404, ...)
+```
+
+`dict.pop(key, None)` makes "check and claim" one atomic step under a `threading.Lock`
+(`_escalation_lock`, module-level, next to `state`): only the request that actually removes the
+entry proceeds to record a resolution; every other concurrent request correctly sees it as already
+gone and 404s cleanly, the same outcome as if it had arrived a moment later rather than at the exact
+same instant. No more separate `del` for a second request to crash on. One minor, deliberately
+accepted behavior change: if `true_label` turns out to be missing (the pre-existing "stale run?"
+404), the escalation is now popped anyway rather than left lingering in the pending dict — reasoned
+through and judged inconsequential, since that dict is pure server-side bookkeeping the frontend
+never reads directly, and a ground-truth-less escalation was never actually recoverable once that
+happened regardless of whether it stayed in the dict or not.
+
+Test written first, verified against the actual pre-fix code via `git stash push -- backend/app/main.py`
+/ `git stash pop` (the process lesson recorded in round 9's entry continues to hold): fired 5
+concurrent resolves, asserted exactly one `200` and four clean `404`s plus exactly one new
+`calibration_history` row. First version of the test had its own bug — asserted zero existing rows
+for the transaction *before* resolving, not accounting for the fact that the batch's own mock
+narration already writes a `provider="mock"` row for every narrated transaction, resolved or not;
+fixed to assert the *delta* a resolve adds instead of absolute presence. Failed against the unfixed
+code with the exact predicted `KeyError`, passed after the fix, re-run 5 additional times to rule
+out a lucky pass (5/5 clean both times). 74/74 tests passing.
+
+### Worth naming plainly, as promised in round 10's entry
+
+This is the fourth subsystem where the same underlying lesson has shown up: the narrator (rounds
+5-8, tool-calling and response validation), the live evaluate endpoint (round 9, referential
+integrity), the primary run endpoint (round 10, provider validation and SQLite concurrency), and now
+the escalation-resolve endpoint (this entry, an in-memory-dict race). Four for four, each one found
+live rather than anticipated, each one closed the same way once found: validate or lock at the exact
+boundary where something outside the system's control (a model's output, a judge's hand-crafted
+input, two requests arriving at the same instant) meets code that assumed a single well-behaved
+caller. Whether this means every remaining unscrutinized corner has one more instance waiting, or
+whether four is where it actually ends, is a question for whichever round looks next — not something
+to guess at here.
+
+---

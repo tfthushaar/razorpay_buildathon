@@ -7,6 +7,7 @@ else is cheap to recompute from a batch run, consistent with the rest of the sys
 posture (see BUILD_LOG.md, [[feedback-build-autonomy-and-cost]]).
 """
 
+import threading
 from pathlib import Path
 from typing import Literal
 
@@ -51,6 +52,9 @@ class _AppState:
 
 
 state = _AppState()
+# guards the check-then-claim sequence in /api/escalations/resolve -- see that endpoint's own
+# comment for why this exists (a real race, reproduced live, not a theoretical one).
+_escalation_lock = threading.Lock()
 
 
 class RunRequest(BaseModel):
@@ -139,7 +143,18 @@ def api_calibration(threshold: float = Query(0.90, ge=0.0, le=1.0)) -> Calibrati
 def api_resolve_escalation(req: ResolveRequest) -> ResolveResponse:
     """The human-feedback loop (spec §6.5): confirms one escalated case against its real source
     records and folds the outcome back into the accumulated calibration history."""
-    escalation = state.latest_escalations_by_id.get(req.transaction_id)
+    # check-then-delete used to be two separate steps (a .get() here, a del at the bottom) with no
+    # lock between them -- a real TOCTOU race under FastAPI's genuinely-concurrent threadpool
+    # (round 10 already disproved the "effectively serialized" assumption once, for the SQLite
+    # connections). Two concurrent resolves of the SAME escalation both passed the .get() check,
+    # both wrote a human-confirmed entry into calibration_history (silently double-counting one
+    # real data point as two independent observations, corrupting the Wilson interval's sample-
+    # independence assumption), and the second `del` then crashed with an uncaught KeyError --
+    # reproduced live before fixing. _escalation_lock makes "check and claim" one atomic step via
+    # dict.pop(key, None): only the request that actually removes the entry proceeds: the other
+    # correctly sees it as already resolved and 404s, same as if it had arrived a moment later.
+    with _escalation_lock:
+        escalation = state.latest_escalations_by_id.pop(req.transaction_id, None)
     if escalation is None:
         raise HTTPException(404, f"{req.transaction_id} is not a pending escalation from the latest run")
     true_label = state.latest_ground_truth.get(req.transaction_id)
@@ -153,7 +168,6 @@ def api_resolve_escalation(req: ResolveRequest) -> ResolveResponse:
         amount=escalation["amount"],
         provider=escalation["provider"],
     )
-    del state.latest_escalations_by_id[req.transaction_id]
 
     threshold = state.latest_result.threshold if state.latest_result else 0.90
     return ResolveResponse(

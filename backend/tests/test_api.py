@@ -98,6 +98,42 @@ def test_resolve_escalation_feeds_back_into_history(isolated_app_state):
     assert second_attempt.status_code == 404
 
 
+def test_concurrent_resolve_of_the_same_escalation_only_counts_once(isolated_app_state):
+    """The sequential double-resolve test above only proves the *second, later* attempt 404s --
+    it doesn't touch the actual bug: the endpoint used to check-then-delete as two separate steps
+    (a .get(), then a del at the bottom) with no lock between them. Two genuinely concurrent
+    resolves of the SAME escalation both passed the .get() check before either reached the del,
+    both wrote a human-confirmed entry into calibration_history (silently double-counting one real
+    data point as two independent observations), and the second del then crashed with an uncaught
+    KeyError. Reproduced live before fixing this. Fires 5 concurrent resolves at the same
+    transaction_id and requires exactly one to succeed, the rest to 404 cleanly (not crash), and
+    exactly one calibration_history entry to result -- not zero, not five."""
+    test_calibration_history, _ = isolated_app_state
+    from concurrent.futures import ThreadPoolExecutor
+
+    run_resp = client.post("/api/run", json={"seed": 7, "main_n": 150, "stress_n": 0, "threshold": 0.90, "provider": "mock"})
+    result = run_resp.json()
+    assert result["escalations"], "seed=7/n=150 should produce at least one escalation to resolve"
+    txn_id = result["escalations"][0]["transaction_id"]
+
+    # the batch run itself already recorded one scored_decisions row for this transaction (mock
+    # narration is stored too, just tagged provider="mock" so it never counts toward the gate) --
+    # so the meaningful check is the DELTA a resolve adds, not absolute presence/absence.
+    before_count = len([d for d in test_calibration_history.all_decisions() if d.transaction_id == txn_id])
+
+    def resolve_once(_):
+        return client.post("/api/escalations/resolve", json={"transaction_id": txn_id})
+
+    with ThreadPoolExecutor(max_workers=5) as pool:
+        responses = list(pool.map(resolve_once, range(5)))
+
+    statuses = sorted(r.status_code for r in responses)
+    assert statuses == [200, 404, 404, 404, 404], f"expected exactly one winner and four clean 404s, got: {statuses}"
+
+    after_count = len([d for d in test_calibration_history.all_decisions() if d.transaction_id == txn_id])
+    assert after_count - before_count == 1, f"expected exactly one new calibration_history entry from the resolve, got {after_count - before_count}"
+
+
 def test_evaluate_endpoint_catches_a_hand_crafted_duplicate_refund(isolated_app_state):
     """The 'break it' live path (spec §6.10): a judge-submitted scenario, not a pre-generated
     batch. Hand-builds a transaction where a refund is on record once but deducted twice from
