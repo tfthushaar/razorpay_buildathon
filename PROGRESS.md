@@ -38,7 +38,7 @@ Status legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blo
 
 ## Backend API (spec §7)
 
-- [x] FastAPI app: POST /api/run, GET /api/runs/latest, GET /api/calibration (live dial), POST /api/escalations/resolve (feedback loop), GET /api/audit, POST /api/transactions/evaluate (live "break it" scenario eval), GET /api/health — 66/66 tests passing overall (current total as of the most recent audit round — see BUILD_LOG.md; per-file counts elsewhere in this file describe that section's own coverage at the time it was completed, not a running total). Round 8 caught this exact line stale at 61 when the real count was already 63 — it's the same recurring failure class as rounds 1-4's test-count drift, this file's own "current total" line included; if it's stale again, that's not a surprise, it's the pattern repeating.
+- [x] FastAPI app: POST /api/run, GET /api/runs/latest, GET /api/calibration (live dial), POST /api/escalations/resolve (feedback loop), GET /api/audit, POST /api/transactions/evaluate (live "break it" scenario eval), GET /api/health — 68/68 tests passing overall (current total as of the most recent audit round — see BUILD_LOG.md; per-file counts elsewhere in this file describe that section's own coverage at the time it was completed, not a running total). Round 8 caught this exact line stale at 61 when the real count was already 63 — it's the same recurring failure class as rounds 1-4's test-count drift, this file's own "current total" line included; if it's stale again, that's not a surprise, it's the pattern repeating.
 
 ## External audit (2026-08-24) — judge-agent review, round 1
 
@@ -108,7 +108,7 @@ Fifth independent agent found something rounds 1-4 all missed: `_final_decision(
 - [x] Audit log view (collapsible)
 - [x] Full stack verified end-to-end in a real headless browser (Playwright): run → tiles → baseline → stress → calibration dial → resolve escalation → audit log. Zero console/network errors.
 - [x] Random-reshuffle path — "Randomize" button next to the seed field picks a fresh random seed, proving the demo isn't replaying 4 hardcoded cases
-- [x] Judge-submitted scenario evaluation — `POST /api/transactions/evaluate` + "Break it" panel (3 presets: duplicate refund, netting-trap pair, clean control), editable JSON, goes through the same calibration gate as a batch run. Verified live in browser, all 3 presets correct, 0 console errors.
+- [x] Judge-submitted scenario evaluation — `POST /api/transactions/evaluate` + "Break it" panel (3 presets: duplicate refund, netting-trap pair, clean control), editable JSON, goes through the same calibration gate as a batch run. Verified live in browser, all 3 presets correct, 0 console errors. **Round 9 found this endpoint crashed with an opaque 500 (no category/reasoning, unlike every one of the narrator's own fail-safes) on a plausible malformed judge edit — a missing or mismatched order/payment/settlement/ledger reference.** Fixed: a specific 422 naming the broken reference for the known `KeyError` shape, plus a broader backstop for anything else, same two-part pattern as the narrator's own round-8 fix — see BUILD_LOG. 2 new tests, written before the fix and confirmed to fail against the unfixed endpoint first.
 
 ## Submission checklist (spec §10)
 

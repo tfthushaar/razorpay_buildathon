@@ -12,15 +12,20 @@ interface Props {
 export function EscalationQueue({ escalations, onResolved, liveAutoResolveCategories }: Props) {
   const [resolved, setResolved] = useState<Record<string, ResolveResponse>>({});
   const [pending, setPending] = useState<string | null>(null);
+  const [resolveErrors, setResolveErrors] = useState<Record<string, string>>({});
 
   const handleResolve = async (transactionId: string) => {
     setPending(transactionId);
+    setResolveErrors((prev) => ({ ...prev, [transactionId]: "" }));
     try {
       const resp = await resolveEscalation(transactionId);
       setResolved((prev) => ({ ...prev, [transactionId]: resp }));
       onResolved();
     } catch (err) {
+      // used to just log to the console and silently re-enable the button, leaving no trace
+      // anything went wrong -- caught by an external audit 2026-08-24.
       console.error(err);
+      setResolveErrors((prev) => ({ ...prev, [transactionId]: err instanceof Error ? err.message : "Could not resolve this escalation." }));
     } finally {
       setPending(null);
     }
@@ -54,6 +59,11 @@ export function EscalationQueue({ escalations, onResolved, liveAutoResolveCatego
               <button disabled={pending === item.transaction_id} onClick={() => handleResolve(item.transaction_id)}>
                 {pending === item.transaction_id ? "Resolving…" : "Resolve against source records"}
               </button>
+              {resolveErrors[item.transaction_id] && (
+                <p className="error-text" role="alert">
+                  {resolveErrors[item.transaction_id]}
+                </p>
+              )}
             </li>
           );
         })}

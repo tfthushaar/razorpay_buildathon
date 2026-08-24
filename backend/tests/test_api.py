@@ -6,6 +6,8 @@ Every test that touches state uses the `isolated_app_state` fixture (see conftes
 the app's live singletons — see that fixture's docstring for why this matters.
 """
 
+from unittest.mock import patch
+
 from fastapi.testclient import TestClient
 
 from app.main import app
@@ -167,6 +169,123 @@ def test_evaluate_endpoint_catches_a_hand_crafted_duplicate_refund(isolated_app_
     # same gate a batch-derived transaction would go through
     assert results[0]["resolution"] == "escalated"
     assert results[0]["tool_calls"], "should have a real tool-call trace, not a canned answer"
+
+
+def test_evaluate_endpoint_returns_a_clean_422_on_a_broken_reference(isolated_app_state):
+    """An external audit (2026-08-24) found this endpoint crashed with an opaque 500 -- no
+    category, no reasoning, nothing like the honest fail-safe messages the narrator produces -- on
+    a plausible judge-submitted scenario with a missing or mismatched reference (build_all_chains's
+    unguarded payments_by_order/settlements_by_payment/ledger_by_order lookups). This is the exact
+    live "break it" pitch-video endpoint, so a judge's own typo or incomplete edit is precisely the
+    input it should be hardened against. Reproduces the simplest orphaned-record case: an order
+    with a payment and settlement but no ledger entry at all."""
+    scenario = {
+        "orders": [
+            {
+                "order_id": "demo_order_orphan",
+                "merchant_id": "merchant_demo",
+                "amount": 500000,
+                "currency": "INR",
+                "created_at": "2026-01-01T10:00:00",
+                "rail": "upi",
+            }
+        ],
+        "payments": [
+            {
+                "payment_id": "demo_pay_orphan",
+                "order_id": "demo_order_orphan",
+                "status": "captured",
+                "captured": True,
+                "captured_amount": 500000,
+                "fee_amount": 1500,
+                "tax_amount": 270,
+                "gateway": "HDFC",
+                "captured_at": "2026-01-01T10:05:00",
+            }
+        ],
+        "refunds": [],
+        "settlements": [
+            {
+                "settlement_id": "demo_stl_orphan",
+                "payment_id": "demo_pay_orphan",
+                "settled_amount": 500000 - 1500 - 270,
+                "settlement_batch_id": "demo_batch_orphan",
+                "utr": "123456789013",
+                "rail": "upi",
+                "settled_at": "2026-01-02T11:00:00",
+                "sla_days": 1,
+            }
+        ],
+        "ledger_entries": [],  # deliberately missing -- ledger_by_order[order.order_id] should not crash the endpoint
+        "provider": "mock",
+    }
+
+    resp = client.post("/api/transactions/evaluate", json=scenario)
+    assert resp.status_code == 422, f"expected a clean 422, got {resp.status_code}: {resp.text}"
+    detail = resp.json()["detail"]
+    assert "demo_order_orphan" in detail, "the error should name the specific broken reference, not just say something failed"
+
+
+def test_evaluate_endpoint_returns_a_clean_422_on_an_unexpected_processing_error(isolated_app_state):
+    """Same principle as narrate()'s own orchestration-level backstop (round 8): a specific
+    exception type is handled with a good message, but this endpoint must never crash on a
+    genuinely unforeseen failure either. Mocks run_matching_engine itself to raise a plain
+    RuntimeError with no special meaning, proving the broader backstop isn't tied to the one
+    KeyError shape already found."""
+    scenario = {
+        "orders": [
+            {
+                "order_id": "demo_order_1",
+                "merchant_id": "merchant_demo",
+                "amount": 500000,
+                "currency": "INR",
+                "created_at": "2026-01-01T10:00:00",
+                "rail": "upi",
+            }
+        ],
+        "payments": [
+            {
+                "payment_id": "demo_pay_1",
+                "order_id": "demo_order_1",
+                "status": "captured",
+                "captured": True,
+                "captured_amount": 500000,
+                "fee_amount": 1500,
+                "tax_amount": 270,
+                "gateway": "HDFC",
+                "captured_at": "2026-01-01T10:05:00",
+            }
+        ],
+        "refunds": [],
+        "settlements": [
+            {
+                "settlement_id": "demo_stl_1",
+                "payment_id": "demo_pay_1",
+                "settled_amount": 500000 - 1500 - 270,
+                "settlement_batch_id": "demo_batch_1",
+                "utr": "123456789014",
+                "rail": "upi",
+                "settled_at": "2026-01-02T11:00:00",
+                "sla_days": 1,
+            }
+        ],
+        "ledger_entries": [
+            {
+                "ledger_id": "demo_ldg_1",
+                "order_id": "demo_order_1",
+                "expected_amount": 500000 - 1500 - 270,
+                "recorded_at": "2026-01-01T10:10:00",
+            }
+        ],
+        "provider": "mock",
+    }
+
+    with patch("app.main.run_matching_engine") as mock_engine:
+        mock_engine.side_effect = RuntimeError("a totally unforeseen failure mode")
+        resp = client.post("/api/transactions/evaluate", json=scenario)
+
+    assert resp.status_code == 422, f"expected a clean 422, got {resp.status_code}: {resp.text}"
+    assert "unforeseen failure mode" in resp.json()["detail"]
 
 
 def test_audit_endpoint_returns_entries_for_the_latest_run(isolated_app_state):

@@ -2,8 +2,12 @@ import type { BatchRunResult } from "../types";
 import { pct, rupees } from "../formatters";
 
 export function SummaryTiles({ result }: { result: BatchRunResult }) {
-  const reconciledPct = result.amount_reconciled / result.total_amount;
-  const escalatedPct = result.escalated_count / result.total_transactions;
+  // 0/0 is NaN, which renders as the literal string "NaN%" -- reachable with a deliberately
+  // zero-sized batch (main_n=0), which the backend itself handles fine (an all-zero result, not a
+  // crash). Guarded here rather than on the batch-size input, since the input's min is just a soft
+  // HTML hint a user can still type past. Caught by an external audit 2026-08-24.
+  const reconciledPct = result.total_amount > 0 ? result.amount_reconciled / result.total_amount : 0;
+  const escalatedPct = result.total_transactions > 0 ? result.escalated_count / result.total_transactions : 0;
 
   return (
     <section className="tiles">

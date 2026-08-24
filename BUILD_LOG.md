@@ -1339,3 +1339,103 @@ patched at the specific-instance level, which is a materially different kind of 
 before it. User's stopping target for this loop: ~90.
 
 ---
+
+## 2026-08-24 — Judge-agent audit, round 9: the narrator holds; the same pattern, one subsystem over
+
+Ninth independent agent, told explicitly to spend real effort trying to defeat round 8's structural
+backstop specifically, then to spend the *majority* of its budget away from the narrator entirely —
+four rounds of concentrated attention there had earned a real look at the rest of the system instead
+of a fifth narrow pass over the same file.
+
+**Score: 82/100.** (AI Judgment 17/20, Failure Recovery 13/20, Measured Accuracy 14/15, Bounded &
+Gated 13/15, Throughput 8/10, Real Problem 9/10, Submission Readiness 8/10.) A real step up from
+round 8's 78 — and this time two of the round's headline conclusions were *positive*, independently
+verified rather than assumed:
+
+- **The `narrate()` backstop genuinely holds.** The auditor read it line-by-line and specifically
+  tried to defeat it: checked live (not assumed) that every exception type in both providers' own
+  retry/API-error paths (`GroqError` and its subclasses, `httpx.ConnectError`/`TimeoutException`,
+  `ollama.RequestError`/`ResponseError`) really does subclass `Exception`, confirmed the only
+  pre-`try` code in `narrate()` is trivial and non-raising, and grepped the whole repo to confirm
+  `narrate_groq`/`narrate_ollama`/`narrate_mock` are never called directly from production code,
+  only from `narrate()` and from `test_narrator.py`'s intentional unit-test isolation. Four rounds
+  of narrator-focused pressure (5-8) are now closed, verified independently, not just claimed.
+- **Doc staleness — the failure class that recurred in nearly every round, including round 8
+  finding round 7's own anti-staleness fix already stale — was actually fully fixed this time.**
+  Test counts matched everywhere claimed current; the `recall_similar_resolutions` correction from
+  round 8 checked out against the real implementation.
+- **The 94.4% Ollama accuracy claim was re-verified from scratch a third time** (rounds 6, 7, and
+  now 9 have each independently regenerated the seed-42 ground truth and cross-checked it against
+  `docs/evidence/real-ollama-run-2026-08-24.json` — same 17/18, same specific miss, every time).
+
+### THE FINDING: the exact same pattern, one subsystem over — an unguarded boundary with untrusted input
+
+`POST /api/transactions/evaluate` — the live "break it" endpoint, the spec's own lead pitch-video
+moment — had zero exception handling anywhere in `main.py`, and `build_all_chains` in
+`chain/builder.py` does three unguarded dict lookups (`payments_by_order[order.order_id]`,
+`settlements_by_payment[payment.payment_id]`, `ledger_by_order[order.order_id]`) that assume every
+order has a matching payment, settlement, and ledger entry. That assumption is *correct* for
+`run_batch`'s path — `generate()` always produces referentially-complete records by construction —
+but this is the one endpoint where a judge submits or edits a scenario by hand, with no such
+guarantee. A missing record, or a settlement pointing at the wrong `payment_id` (a plausible typo),
+crashed the endpoint with a bare `"Internal Server Error"` — no category, no reasoning, nothing like
+the specific, honest fail-safe messages the narrator now produces for every one of its own failure
+modes. The auditor reproduced three separate realistic payloads live and confirmed the crash didn't
+take the whole server down (`/api/health` still returned 200 afterward) and that the frontend didn't
+white-screen — but the error banner it did show said nothing useful to a judge.
+
+This is structurally the identical lesson as round 8, in a different subsystem: an unguarded
+boundary where untrusted (here, judge-submitted) input meets code that assumes well-formed data.
+
+### The fix: the same two-part pattern round 8 established, applied to this boundary
+
+1. **Specific**: catch `KeyError` from `build_all_chains` and return a `422` naming the exact
+   missing reference (`e`'s own key), with a one-line explanation of what every order needs.
+2. **Structural**: wrap the endpoint's full body in a broader `except Exception`, returning a
+   generic-but-honest `422` for anything unforeseen — the same backstop shape as `narrate()`'s own,
+   applied to the one other place in the system where untrusted input enters processing.
+
+2 new tests, written before the fix (established practice since round 7): one submits a scenario
+with an order that has a payment and settlement but no ledger entry, confirms the pre-fix code
+actually crashes (verified via `git stash` this time, not `git checkout` — see below), then confirms
+the post-fix response is a clean `422` naming the specific order. The other mocks
+`run_matching_engine` itself to raise a plain `RuntimeError`, mirroring round 8's own
+"totally unforeseen failure" test, proving the broader backstop isn't tied to the one `KeyError`
+shape already found. 68/68 tests passing.
+
+**Process note, an actual improvement over an earlier mistake in this same log**: verifying the fix
+against the pre-fix code required temporarily setting the fix aside. The provider-gate fix (round 5)
+and the category-validation fix (round 6) both used `git checkout -- <file>` for this, and round 6's
+attempt at that pattern actually backfired once — a `git checkout` meant to restore a temporary
+strip-to-test state instead reverted all the way back to the last *commit*, wiping an uncommitted
+fix entirely (caught immediately, reapplied, noted in this log at the time). This round used
+`git stash push -- <file>` / `git stash pop` instead — reversible, scoped to exactly the one file,
+no risk of overshooting past uncommitted work. Worth remembering as the correct tool for "temporarily
+set aside an uncommitted change, then bring it back" going forward.
+
+### Three LOW findings, also fixed
+
+- `CalibrationPanel.tsx` and `EscalationQueue.tsx` both caught background-refresh/resolve failures
+  with `.catch(console.error)` and nothing visible to the user — a stale table or a silently
+  re-enabled button, no indication anything went wrong. Both now surface a visible error message
+  (reusing the existing `.error-text` style) while keeping the last-known-good data on screen rather
+  than blanking it.
+- No top-level React `ErrorBoundary` — added one (`ErrorBoundary.tsx`, a class component, the only
+  way React supports this) wrapping `<App />` in `main.tsx`. Low practical risk today (every FastAPI
+  response is validated through a pydantic model before serializing) but real defense-in-depth for
+  the one endpoint that accepts free-form input, at near-zero cost.
+- `SummaryTiles.tsx` could render the literal string `"NaN%"` with a deliberately zero-sized batch
+  (`main_n=0`, `total_amount`/`total_transactions` both 0, `0/0` is `NaN` in JS) — the backend
+  already handles this input fine (an honest all-zero result, not a crash), only the frontend
+  display math was unguarded. Fixed by guarding both divisions rather than trying to prevent the
+  input (the HTML `min` attribute the batch-size field already has is a soft hint a user can type
+  past, not real enforcement).
+
+### Score trajectory so far
+
+Round 1: 71. Round 2: 79. Round 3: 84. Round 4: 83. Round 5: 72. Round 6: 70. Round 7: 74. Round 8:
+78. Round 9: 82. Four consecutive rounds of net improvement (70 → 74 → 78 → 82) after round 6's dip
+— each round's fix has held under the next round's independent re-verification, not just been
+claimed and moved past. User's stopping target for this loop: ~90.
+
+---

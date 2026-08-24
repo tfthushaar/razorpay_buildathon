@@ -12,11 +12,21 @@ interface Props {
 export function CalibrationPanel({ initialReport, refreshKey, onReportChange }: Props) {
   const [threshold, setThreshold] = useState(initialReport.threshold);
   const [report, setReport] = useState(initialReport);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const applyReport = (r: CalibrationReport) => {
     setReport(r);
+    setFetchError(null);
     onReportChange?.(r);
+  };
+  // a failed background refresh used to just log to the console and leave the table showing
+  // stale data with no indication anything went wrong -- caught by an external audit 2026-08-24.
+  // The table itself keeps showing the last-known-good report (never blanks on a transient
+  // failure); this just makes the failure visible instead of silent.
+  const handleFetchError = (e: unknown) => {
+    console.error(e);
+    setFetchError(e instanceof Error ? e.message : "Could not refresh calibration data.");
   };
 
   // the live dial: dragging the slider re-fetches a cheap re-aggregation over the accumulated
@@ -24,7 +34,7 @@ export function CalibrationPanel({ initialReport, refreshKey, onReportChange }: 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
-      getCalibration(threshold).then(applyReport).catch(console.error);
+      getCalibration(threshold).then(applyReport).catch(handleFetchError);
     }, 120);
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -33,7 +43,7 @@ export function CalibrationPanel({ initialReport, refreshKey, onReportChange }: 
   }, [threshold]);
 
   useEffect(() => {
-    getCalibration(threshold).then(applyReport).catch(console.error);
+    getCalibration(threshold).then(applyReport).catch(handleFetchError);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [refreshKey]);
 
@@ -46,6 +56,11 @@ export function CalibrationPanel({ initialReport, refreshKey, onReportChange }: 
         Threshold is checked against each category's 95% Wilson confidence interval <em>lower bound</em>, not the raw
         accuracy — drag it and watch decisions and ₹-at-risk change instantly, without re-running anything.
       </p>
+      {fetchError && (
+        <p className="error-text" role="alert">
+          {fetchError} — showing the last successfully loaded data.
+        </p>
+      )}
       <label className="threshold-slider">
         Auto-resolve threshold: <strong>{pct(threshold, 0)}</strong>
         <input
