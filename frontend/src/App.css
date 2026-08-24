@@ -20,6 +20,23 @@
   font-size: 0.95rem;
 }
 
+.backend-unreachable-banner {
+  background: color-mix(in srgb, var(--bad) 10%, transparent);
+  border: 1px solid var(--bad);
+  color: var(--bad);
+  border-radius: 10px;
+  padding: 12px 16px;
+  margin-bottom: 20px;
+  font-size: 0.9rem;
+}
+
+.backend-unreachable-banner code {
+  background: color-mix(in srgb, var(--bad) 12%, transparent);
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 0.85em;
+}
+
 .panel {
   background: var(--surface);
   border: 1px solid var(--border);

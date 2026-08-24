@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { RunRequest } from "../api";
 
 interface Props {
@@ -7,12 +7,35 @@ interface Props {
   error: string | null;
 }
 
+// Below this, "Running…" alone is enough -- above it, a user watching a static button with no
+// other feedback has no way to tell "still working" from "hung", which is exactly the mistake a
+// real dev on this project made once with a live Ollama run (see BUILD_LOG.md's "hang, chased
+// carefully, that turned out not to exist" entry) -- now client-facing instead of just a
+// developer's own confusion. A real groq run can legitimately take many minutes on the free tier.
+const EXPECTATION_NOTE_THRESHOLD_SECONDS = 10;
+
 export function RunControls({ onRun, loading, error }: Props) {
   const [seed, setSeed] = useState(42);
   const [mainN, setMainN] = useState(120);
   const [stressN, setStressN] = useState(40);
   const [provider, setProvider] = useState("mock");
   const [resetHistory, setResetHistory] = useState(false);
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    if (loading) {
+      setElapsedSeconds(0);
+      const startedAt = Date.now();
+      intervalRef.current = setInterval(() => setElapsedSeconds(Math.floor((Date.now() - startedAt) / 1000)), 1000);
+    } else if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    };
+  }, [loading]);
 
   return (
     <section className="panel run-controls">
@@ -56,9 +79,16 @@ export function RunControls({ onRun, loading, error }: Props) {
           disabled={loading}
           onClick={() => onRun({ seed, main_n: mainN, stress_n: stressN, threshold: 0.9, provider, reset_history: resetHistory })}
         >
-          {loading ? "Running…" : "Run batch"}
+          {loading ? `Running… ${elapsedSeconds}s` : "Run batch"}
         </button>
       </div>
+      {loading && elapsedSeconds >= EXPECTATION_NOTE_THRESHOLD_SECONDS && (
+        <p className="panel-sub run-still-going-note">
+          Still working — this is expected, not a hang. Mock and Ollama runs typically finish in seconds to a couple
+          minutes; Groq's free tier can take much longer on a full batch because of rate-limit backoff, not because
+          anything is stuck.
+        </p>
+      )}
       {error && <p className="error-text">{error}</p>}
     </section>
   );

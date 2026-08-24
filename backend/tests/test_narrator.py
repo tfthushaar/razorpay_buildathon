@@ -287,6 +287,29 @@ def test_narrate_ollama_fails_safe_on_out_of_schema_category():
     assert "timing_lag" in output.reasoning
 
 
+def test_narrate_ollama_constructs_its_client_with_a_finite_timeout():
+    """Verified directly (not assumed) that ollama.Client() with no kwargs resolves to
+    timeout=None -- the ollama package overrides httpx.Client's own sane 5s default to unbounded.
+    Every fail-safe in this file protects against a call that raises; a call that never returns
+    bypasses all of them, including the retry logic's own httpx.TimeoutException handling, which
+    was already correctly wired but had nothing to ever catch. Doesn't wait out a real timeout
+    (that would make the suite unbearably slow) -- just proves the client is constructed with a
+    real, finite value, which is the actual fix."""
+    _, context, queue, _ = _narration_queue(main_n=150)
+    chain = context.chains[queue[0]]
+    fake_message = SimpleNamespace(tool_calls=None, content='{"category": "genuine_error", "confidence": 0.5, "reasoning": "ok"}')
+    fake_response = SimpleNamespace(message=fake_message)
+
+    with patch("ollama.Client") as MockClient:
+        MockClient.return_value.chat.return_value = fake_response
+        narrate_ollama(chain, context)
+
+    assert MockClient.call_args is not None, "Client() should have been constructed"
+    _, kwargs = MockClient.call_args
+    assert kwargs.get("timeout") is not None, "Client() must be constructed with an explicit, finite timeout -- not left at the library's own unbounded default"
+    assert kwargs["timeout"] > 0
+
+
 def test_recall_grows_as_the_run_progresses():
     _, context, queue, _ = _narration_queue(main_n=150)
     assert context.audit_log == []

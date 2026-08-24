@@ -103,20 +103,21 @@ cd backend
 python -m pytest tests/ -v
 ```
 
-75 tests covering the data generator's arithmetic invariants, the matching engine's deterministic
+76 tests covering the data generator's arithmetic invariants, the matching engine's deterministic
 resolution paths, the narrator's tool-based detection, response-schema validation (an out-of-set
 category, a malformed/wrongly-shaped final answer, out-of-range confidence, an unusable tool call,
 plus an orchestration-level backstop for whatever the next unforeseen failure shape turns out to be
-— see BUILD_LOG.md), and retry/failure handling (Groq-specific and provider-agnostic), the
-calibration layer's statistical behavior (including that mock-mode decisions can never earn
-auto-resolve, and that a category's earned trust can't be spent by a different decision that never
-itself earned it), the Merkle-tree divergence pre-filter, the full pipeline, and the API layer
-(including that both live-input endpoints reject malformed input cleanly instead of crashing, an
-out-of-range threshold can't force the calibration gate open, 8 genuinely concurrent batch runs
-against the shared SQLite-backed state all succeed, 5 concurrent resolves of the same escalation
-count exactly once instead of racing, and — with an amplified thread-switch interval, the technique
-used to actually find this — 16 concurrent batch runs never desync a run's escalations from its own
-ground truth — see BUILD_LOG.md).
+— see BUILD_LOG.md), a real, finite request timeout on both real providers (verified directly that
+Ollama's own client silently defaults to *no* timeout at all, unlike a bare `httpx.Client()`), and
+retry/failure handling (Groq-specific and provider-agnostic), the calibration layer's statistical
+behavior (including that mock-mode decisions can never earn auto-resolve, and that a category's
+earned trust can't be spent by a different decision that never itself earned it), the Merkle-tree
+divergence pre-filter, the full pipeline, and the API layer (including that both live-input
+endpoints reject malformed input cleanly instead of crashing, an out-of-range threshold can't force
+the calibration gate open, 8 genuinely concurrent batch runs against the shared SQLite-backed state
+all succeed, 5 concurrent resolves of the same escalation count exactly once instead of racing, and
+— with an amplified thread-switch interval, the technique used to actually find this — 16 concurrent
+batch runs never desync a run's escalations from its own ground truth — see BUILD_LOG.md).
 
 ## What's real vs. mock
 

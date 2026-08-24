@@ -300,7 +300,12 @@ def _call_with_retry(
 def narrate_groq(chain: CausalChain, context: ToolContext, model: str = DEFAULT_GROQ_MODEL, max_rounds: int = 4) -> NarratorOutput:
     from groq import Groq, GroqError
 
-    client = Groq(api_key=os.environ["GROQ_API_KEY"])
+    # Groq's SDK already defaults to a finite timeout (verified: connect=5s, read/write/pool=60s
+    # via groq._base_client.DEFAULT_TIMEOUT) unlike ollama's, so this isn't fixing a live bug the
+    # way the identical-looking line in narrate_ollama is -- but making it explicit here too means
+    # the actual bound is documented in this file, not hidden behind whatever the SDK happens to
+    # default to today, and both providers now read the same way for anyone comparing them.
+    client = Groq(api_key=os.environ["GROQ_API_KEY"], timeout=60.0)
     messages: list[dict] = [
         {"role": "system", "content": SYSTEM_PROMPT},
         {"role": "user", "content": _describe_chain(chain)},
@@ -413,7 +418,18 @@ def narrate_ollama(chain: CausalChain, context: ToolContext, model: str = DEFAUL
     import httpx
     from ollama import Client, RequestError, ResponseError
 
-    client = Client()
+    # timeout=60.0: verified directly, not assumed, that this was silently unbounded before --
+    # ollama.Client() delegates straight to httpx.Client(**kwargs) with no kwargs supplied, and
+    # while a bare httpx.Client() defaults to a sane 5s timeout, the ollama package's own
+    # constructor overrides that to timeout=None (checked via client._client.timeout on both).
+    # Every fail-safe fix across this whole audit loop protects against a call that RAISES; a call
+    # that never raises because it never returns bypasses all of them, including the retry logic
+    # right below, which already lists httpx.TimeoutException in its exception tuple -- that
+    # protection was already correctly wired, it just had nothing to ever catch, since no timeout
+    # could ever fire. 60s is generous relative to the ~3s/txn measured average (BUILD_LOG.md) but
+    # still finite, so a genuinely hung local model (a GPU stall, a stuck generation loop) fails
+    # safe within a bounded time instead of tying up a request thread forever.
+    client = Client(timeout=60.0)
     # explicit retry_on: without it, _call_with_retry defaults to Groq's exception tuple, which
     # would silently never match an Ollama error at all -- this isn't a hypothetical, it's exactly
     # the bug that would exist if this were left unspecified. httpx.ConnectError (server not

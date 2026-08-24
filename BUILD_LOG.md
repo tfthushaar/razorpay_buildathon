@@ -1746,3 +1746,83 @@ re-verification rather than just being claimed. The user's stopping target for t
 explicit hard 95, not the earlier ~90 softening — the loop continues.
 
 ---
+
+## 2026-08-24 — Targeted Failure Recovery pass: a call that never returns, and a frontend that never says so
+
+Round 11 landed at 80/100 with Failure Recovery still the lowest-scoring criterion at 13/20 despite
+five rounds of attention. Told directly to work on improving it specifically, rather than wait for
+the next full audit round (running in parallel, deliberately steered toward other criteria since
+this one had already had five rounds of scrutiny). Two real, previously-unfound gaps, both closed.
+
+### The backend gap: every fix in this whole loop protects against a call that raises — none protect against one that never returns
+
+Eleven rounds of fail-safe fixes all share one assumption: that a failing narrator call eventually
+*raises* something — a bad category, a malformed response, an unknown provider, a `KeyError` — and
+gets caught. Checked what happens when a call simply hangs instead, and found it directly rather
+than assumed: `ollama.Client()`, constructed with no keyword arguments (as `narrate_ollama` did),
+resolves to `timeout=None`. Verified precisely, not inferred — `httpx.Client()`'s own bare default
+is a sane `Timeout(timeout=5.0)`, but the `ollama` package's constructor explicitly overrides that to
+unbounded (checked both directly: `httpx.Client().timeout` vs. `ollama.Client()._client.timeout`).
+
+This means a genuinely hung local model call — a GPU driver stall, a generation loop that never
+terminates, a dropped connection the OS doesn't notice — would block `client.chat(...)` **forever**.
+Not for a long time: forever. Every fail-safe this project has built, including `_call_with_retry`'s
+own `httpx.TimeoutException` handling in `ollama_retry_exceptions` (already correctly listed, since
+round 8), was already wired to catch exactly this and fail safe cleanly — it just had nothing to
+ever catch, because no timeout could ever fire to raise it. The tied-up request thread would sit
+there indefinitely, and enough of them would eventually exhaust FastAPI's whole threadpool, since
+every endpoint shares it — a genuine availability risk for the entire application, not just one
+narrator call, on the recommended default provider.
+
+**Fixed**: `Client(timeout=60.0)` in `narrate_ollama`. 60 seconds is generous relative to the
+measured ~3s/txn average (BUILD_LOG's own earlier Ollama entries) but finite, so a real hang now
+fails safe within a bounded time instead of tying up a thread indefinitely. Also made `narrate_groq`'s
+timeout explicit (`timeout=60.0`) even though Groq's SDK default was already sane (verified:
+`groq._base_client.DEFAULT_TIMEOUT` is `connect=5.0, read/write/pool=60.0`) — not fixing a live bug
+there, just documenting the actual bound in this file instead of leaving it implicit in whatever the
+SDK happens to default to today. New test proves the client is constructed with a real, finite
+timeout without waiting out an actual 60-second hang (that would make the suite unbearably slow) —
+mocks the client and asserts on its construction kwargs, failed against the pre-fix code, passes
+after. 76/76 tests passing.
+
+### The frontend gap: nothing tells the user a long-running request isn't a hang
+
+A real Groq run can take 11-70 minutes (this log's own earlier entries). The only feedback during
+*any* run, mock or real, used to be a static "Running…" button — no elapsed time, no explanation,
+no distinction between "still working" and "stuck." This is the identical trap a developer on this
+project already fell into once, personally, with a live Ollama run (this log's "A real hang, chased
+carefully, that turned out not to exist" entry) — except now it's client-facing risk during an actual
+demo, not a developer's own momentary confusion working through it privately.
+
+**Fixed three things:**
+- `RunControls.tsx` now shows a live elapsed-seconds counter (`Running… 47s`) and, past 10 seconds,
+  an explicit note: *"Still working — this is expected, not a hang. Mock and Ollama runs typically
+  finish in seconds to a couple minutes; Groq's free tier can take much longer... because of
+  rate-limit backoff, not because anything is stuck."*
+- `App.tsx` now checks `/api/health` proactively on page load, not just reactively on the first
+  failed action — a stopped backend now shows a clear, actionable banner (with the exact command to
+  start it) the instant the page loads, rather than only surfacing after a user clicks something and
+  gets a confusing error.
+- `api.ts`'s shared `request()` helper now distinguishes a genuine network failure (`fetch()` itself
+  rejecting — no backend to talk to at all) from a handled server error (a response came back, just
+  not a success one) — previously both surfaced as whatever raw error the browser happened to throw,
+  which for a network failure is an unhelpful `TypeError: Failed to fetch` with no indication of what
+  to actually do about it.
+
+Verified live in a real browser (Playwright): zero console errors, and specifically confirmed no
+false-positive "backend unreachable" banner when the backend is actually up and healthy. `npm run
+build` (strict `tsc -b && vite build`) passes clean. No component-level frontend test framework
+exists in this project (verification has consistently been live-browser + build, same standard every
+frontend change in this log has used) — didn't introduce one just for this change.
+
+### Score trajectory so far
+
+Round 1: 71. Round 2: 79. Round 3: 84. Round 4: 83. Round 5: 72. Round 6: 70. Round 7: 74. Round 8:
+78. Round 9: 82. Round 10: 70. Round 11: 80. This entry isn't a numbered audit round — it's a direct
+response to specific user direction to work Failure Recovery up from round 11's 13/20, in parallel
+with round 12 (running concurrently, deliberately pointed elsewhere). Whether it moved the number is
+for round 12 or whichever round looks at Failure Recovery next to say — not something to claim here
+without independent re-verification, consistent with how every other fix in this log has been
+treated. User's stopping target remains a hard 95.
+
+---
