@@ -90,6 +90,72 @@ def test_narrate_groq_fails_safe_on_out_of_schema_category():
     assert "timing_lag" in output.reasoning
 
 
+# Round 7's audit found the round-6 fix above only guarded the JSON-parse step, not the field
+# access/construction that follows it -- a syntactically valid but structurally wrong payload
+# (missing key, wrapped in an array, wrong value type) raised an uncaught exception that crashed
+# the whole batch instead of escalating the one transaction. These five shapes are the exact ones
+# the audit reproduced live against both providers.
+_MALFORMED_FINAL_ANSWERS = [
+    ('{"category": "genuine_error", "reasoning": "no confidence key at all"}', "missing confidence key"),
+    ('{"category": "genuine_error", "confidence": 0.5}', "missing reasoning key"),
+    ('[{"category": "genuine_error", "confidence": 0.5, "reasoning": "wrapped in an array"}]', "top-level JSON array, not an object"),
+    ("null", "top-level JSON null"),
+    ('{"category": "genuine_error", "confidence": "high", "reasoning": "confidence is a string"}', "confidence is a string, not a number"),
+]
+
+
+def test_narrate_groq_fails_safe_on_structurally_malformed_final_answer():
+    _, context, queue, _ = _narration_queue(main_n=150)
+    chain = context.chains[queue[0]]
+
+    for content, description in _MALFORMED_FINAL_ANSWERS:
+        fake_message = SimpleNamespace(tool_calls=None, content=content)
+        fake_response = SimpleNamespace(choices=[SimpleNamespace(message=fake_message)])
+        with patch("groq.Groq") as MockGroq, patch.dict("os.environ", {"GROQ_API_KEY": "test-key"}):
+            MockGroq.return_value.chat.completions.create.return_value = fake_response
+            output = narrate_groq(chain, context)
+        assert output.category == "genuine_error", f"should fail safe on: {description}"
+        assert output.confidence == 0.0, f"should fail safe on: {description}"
+        assert output.provider == "groq", f"should fail safe on: {description}"
+
+
+def test_narrate_ollama_fails_safe_on_structurally_malformed_final_answer():
+    _, context, queue, _ = _narration_queue(main_n=150)
+    chain = context.chains[queue[0]]
+
+    for content, description in _MALFORMED_FINAL_ANSWERS:
+        fake_message = SimpleNamespace(tool_calls=None, content=content)
+        fake_response = SimpleNamespace(message=fake_message)
+        with patch("ollama.Client") as MockClient:
+            MockClient.return_value.chat.return_value = fake_response
+            output = narrate_ollama(chain, context)
+        assert output.category == "genuine_error", f"should fail safe on: {description}"
+        assert output.confidence == 0.0, f"should fail safe on: {description}"
+        assert output.provider == "ollama", f"should fail safe on: {description}"
+
+
+def test_narrate_groq_clamps_out_of_range_confidence():
+    """Round 7 also found `confidence` was never validated to be in [0.0, 1.0] -- a model
+    returning confidence=5.0 or a negative value would construct a "valid" NarratorOutput that
+    then produces a negative escalation priority score (escalation.py's ambiguity = 1 -
+    confidence) and a nonsensical percentage in the UI. Confidence should be clamped, not trusted
+    verbatim, same principle as validating category."""
+    _, context, queue, _ = _narration_queue(main_n=150)
+    chain = context.chains[queue[0]]
+
+    fake_message = SimpleNamespace(
+        tool_calls=None,
+        content='{"category": "genuine_error", "confidence": 5.0, "reasoning": "overconfident"}',
+    )
+    fake_response = SimpleNamespace(choices=[SimpleNamespace(message=fake_message)])
+    with patch("groq.Groq") as MockGroq, patch.dict("os.environ", {"GROQ_API_KEY": "test-key"}):
+        MockGroq.return_value.chat.completions.create.return_value = fake_response
+        output = narrate_groq(chain, context)
+
+    assert output.category == "genuine_error"  # a real, valid category this time -- not a fail-safe path
+    assert output.confidence == 1.0, "confidence must be clamped to the valid [0.0, 1.0] range"
+
+
 def test_narrate_ollama_fails_safe_on_out_of_schema_category():
     """Same fix, same live-observed failure, the other real provider -- see the Groq version of
     this test for the full story."""

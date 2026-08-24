@@ -1101,3 +1101,123 @@ something real and distinct — this is the sixth time in a row, not diminishing
 stopping target for this loop: ~90.
 
 ---
+
+## 2026-08-24 — Judge-agent audit, round 7: the same bug class, one call deeper
+
+Seventh independent agent, told explicitly to check whether round 6's fix was complete, not just
+correct — and to look for the same failure *pattern* elsewhere, not just the same failure.
+
+**Score: 74/100.** (AI Judgment 8/10, Failure Recovery 5/10, Measured Accuracy 9/10, Bounded &
+Gated 8/10, Throughput 8/10, Real Problem 8/10, Submission Readiness 6/10 — weighted 16.0 + 10.0 +
+13.5 + 12.0 + 8.0 + 8.0 + 6.0 = 73.5.)
+
+### THE FINDING: round 6's fail-safe only guarded the JSON-parse step, not what came after it
+
+`narrate_groq`/`narrate_ollama`'s `try/except (json.JSONDecodeError, KeyError)` wrapped `_parse_json_response()`
+only. Round 6's category-validity check and the `NarratorOutput(...)` construction that followed it
+sat **outside** that block — a leftover of how round 6's fix was written as an early-return `if`
+statement bolted onto the existing structure, not a rewrite of the structure itself. The auditor
+proved this crashes the real pipeline, not just a unit in isolation, with five concrete payloads
+fed through the same client-mocking technique round 6's own tests used:
+
+```
+{"reasoning": "...", "category": "genuine_error"}                    -> missing "confidence" key -> UNCAUGHT KeyError
+{"category": "genuine_error", "confidence": 0.5}                     -> missing "reasoning" key   -> UNCAUGHT KeyError
+[{"category": "genuine_error", "confidence": 0.5, "reasoning": "x"}] -> top-level array, not obj  -> UNCAUGHT AttributeError
+null                                                                  -> top-level JSON null       -> UNCAUGHT AttributeError
+{"category": "genuine_error", "confidence": "high", "reasoning": "x"} -> confidence not numeric    -> UNCAUGHT ValueError
+```
+
+All five are syntactically valid JSON — `_parse_json_response` succeeds on every one — so round 6's
+guard never triggers, and nothing downstream checked the shape before touching it (`parsed["confidence"]`,
+`parsed["reasoning"]`, `float(parsed["confidence"])`). The auditor confirmed the exception isn't
+contained to one transaction: it propagates uncaught through `narrate()` -> `_process_batch()`'s dict
+comprehension (`pipeline.py`) -> `run_batch()`, and `main.py` has no handler around `/api/run` or
+`/api/transactions/evaluate` — so it surfaces as a raw HTTP 500 that loses the *entire* batch's
+results, not just the one bad transaction. `/api/transactions/evaluate` is the live "break it" demo
+endpoint the spec names as the lead pitch-video moment — the auditor's phrase for what a judge would
+see: "a raw crash, not the 'correctly escalates instead of guessing' story the whole project is
+built to tell." Also confirmed: no existing test exercised this path (the only "malformed JSON"
+reference in the old test file was a docstring comment) — which is exactly why it survived six
+rounds.
+
+### The fix
+
+Merged the category-validation `if` into a second `try/except` that wraps the *entire*
+validate-and-construct sequence, in both `narrate_groq` and `narrate_ollama`:
+
+```python
+try:
+    if not isinstance(parsed, dict):
+        raise TypeError(f"expected a JSON object, got {type(parsed).__name__}")
+    if parsed.get("category") not in NARRATOR_CATEGORIES:
+        raise ValueError(f"category outside the valid set: {parsed.get('category')!r}")
+    output = NarratorOutput(
+        ...,
+        confidence=max(0.0, min(1.0, float(parsed["confidence"]))),
+        ...,
+    )
+except (KeyError, TypeError, ValueError) as e:
+    return _fail_safe(f"Narrator's final response was not a usable answer ({type(e).__name__}: {e}): {(msg.content or '')[:200]!r}")
+```
+
+The `isinstance` check runs before any `.get()`/subscript, so a wrong container type (list, `None`)
+raises a deliberate `TypeError` instead of an incidental `AttributeError` — narrower, more readable
+except clause, no need to catch `AttributeError` at all. **Verified before trusting it, not
+assumed**: `pydantic.ValidationError` (what a bad-typed field would raise inside `NarratorOutput(...)`
+itself) subclasses `ValueError` — checked directly (`issubclass(pydantic.ValidationError, ValueError)`
+-> `True`, then round-tripped an actual bad-type construction through a real model to confirm),
+so a type error surviving all the way to construction is caught here too, same as the round-6
+`httpx.ConnectError`/`ConnectionError` check applied the same discipline to a different assumption.
+
+Tests written **before** the fix this time (lesson from round 6's own process, see below): added
+`test_narrate_groq_fails_safe_on_structurally_malformed_final_answer` and the `_ollama` twin in
+`test_narrator.py`, looping over the five payloads above, confirmed all fail against the pre-fix
+code, then applied the fix, confirmed all pass. 61/61 tests passing.
+
+### The MEDIUM finding, fixed alongside: confidence was never bounded
+
+The auditor also asked whether `confidence` — another model-supplied value — was validated, since
+it's the same trust-without-checking question one field over. It isn't corrupting the calibration
+math (`calibrate()` only uses correct/incorrect booleans, confirmed by reading it directly), but it
+does feed `escalation.py`'s `ambiguity = 1.0 - confidence` -> `priority_score = amount * ambiguity`:
+a `confidence: 5.0` produces a *negative* priority score, sinking exactly the case that most needs a
+human's attention to the bottom of the triage queue — the opposite of the feature's own stated
+purpose. It would also render as "500.0%" or a negative percentage in the dashboard
+(`frontend/src/formatters.ts`'s `pct()` has no clamping). Fixed at both real call sites
+(`confidence=max(0.0, min(1.0, float(...)))`) and structurally backstopped with a Pydantic
+`Field(ge=0.0, le=1.0)` on `NarratorOutput.confidence`, so any future call site that forgets to
+clamp fails loudly instead of silently accepting a bad value. Checked the edge case a clamp alone
+doesn't obviously handle — Python's `json` module accepts non-standard `NaN`/`Infinity` literals —
+and verified directly (not assumed) that `max(0.0, min(1.0, float('nan')))` resolves to `1.0`
+(Python's min/max keep the first argument when a comparison against NaN is False, so it's
+well-defined here, if not obviously so from reading the expression alone) and that Pydantic accepts
+the already-clamped result; added `test_narrate_groq_clamps_out_of_range_confidence` for the
+ordinary case (`confidence: 5.0` -> `1.0`).
+
+### Also fixed: the recurring doc-staleness pattern, swept systematically this time
+
+Round 7's own diagnosis of *why* stale test counts keep recurring: prior fixes were "keyed to the
+one number a reviewer had just flagged... never to systematically re-collecting every count claim."
+Took that seriously — ran `pytest --collect-only` and cross-checked **every** `N/N tests passing`
+claim in PROGRESS.md against the real per-file counts, not just the two the auditor happened to
+name. Found exactly those two actually wrong (pipeline: claimed 10/10, real 12/12; the API-layer
+line's "51/51 overall" was stale relative to the current 58-then-61 total) and confirmed the rest
+(generator 6/6, matching 6/6, merkle 5/5, round 5's own "53/53" checkpoint) were each correct for
+what they specifically describe — added a parenthetical to the one "overall" line clarifying it's a
+running total, not a per-section snapshot, so this ambiguity stops being the recurring root cause.
+Also fixed: `docs/track04-settlement-reconciliation-copilot.md` still named the pre-build tool
+`check_duplicate_registry` in both its §6.4 tool list and its architecture-diagram ASCII art (the
+name was replaced by `check_batch_anomalies` before either was ever implemented — BUILD_LOG's very
+first narrator entry documents the consolidation — but the spec doc itself was never updated to
+match, despite PROGRESS.md's own claim that the doc is "kept current through the build").
+
+### Score trajectory so far
+
+Round 1: 71. Round 2: 79. Round 3: 84. Round 4: 83. Round 5: 72. Round 6: 70. Round 7: 74. Seven
+rounds, seven genuinely distinct findings — the last three rounds specifically have each found a
+different layer of "an LLM-supplied value trusted without checking it against what the rest of the
+system assumes" (provider identity, category membership, response shape/type). User's stopping
+target for this loop: ~90.
+
+---

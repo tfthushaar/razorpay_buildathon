@@ -39,7 +39,7 @@ import os
 import time
 from typing import Callable, TypeVar
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.chain.builder import CausalChain
 from app.narrator.tools import ToolContext, check_batch_anomalies, check_sla_window, lookup_fee_schedule, recall_similar_resolutions
@@ -143,7 +143,12 @@ class ToolCallRecord(BaseModel):
 class NarratorOutput(BaseModel):
     transaction_id: str
     category: str
-    confidence: float
+    # ge/le is a structural backstop, not the primary defense -- narrate_groq/narrate_ollama clamp
+    # before constructing this (round 7's audit: an unclamped out-of-range confidence flowed into
+    # escalation.py's ambiguity score and the UI's percentage display). This constraint exists so
+    # any *future* call site that forgets to clamp fails loudly (pydantic.ValidationError, a
+    # ValueError subclass) instead of silently accepting a bad value.
+    confidence: float = Field(ge=0.0, le=1.0)
     reasoning: str
     tool_calls: list[ToolCallRecord]
     provider: str  # "mock" | "groq" | "ollama" — always disclosed, never silently swapped
@@ -345,21 +350,39 @@ def narrate_groq(chain: CausalChain, context: ToolContext, model: str = DEFAULT_
                 # rather than crash the batch or silently invent a category.
                 return _fail_safe(f"Narrator's final response could not be parsed as valid JSON: {(msg.content or '')[:200]!r}")
 
-            if parsed.get("category") not in NARRATOR_CATEGORIES:
-                # valid JSON but an out-of-schema category is a real, observed failure mode (a real
-                # ollama run returned "timing_lag" — a category the prompt explicitly forbids — with
-                # confidence 0.9; caught by an external audit 2026-08-24 reading the live DB, see
-                # BUILD_LOG.md). The prompt instruction alone doesn't bind the model; this does.
-                return _fail_safe(f"Narrator returned a category outside the valid set: {parsed.get('category')!r}")
+            try:
+                # Round 6 validated `category` here but round 7's audit found everything past that
+                # point (missing keys, a top-level list/null instead of an object, a non-numeric
+                # confidence) still raised an UNCAUGHT exception that crashed the whole batch rather
+                # than escalating the one transaction — the same "trust an LLM-shaped value without
+                # checking it" bug class, one call deeper. isinstance() is checked before any dict
+                # access so a wrong container type fails here, not as an AttributeError later.
+                # (pydantic.ValidationError also subclasses ValueError — verified directly, not
+                # assumed — so a bad type surviving to NarratorOutput(...) is caught here too.)
+                if not isinstance(parsed, dict):
+                    raise TypeError(f"expected a JSON object, got {type(parsed).__name__}")
+                if parsed.get("category") not in NARRATOR_CATEGORIES:
+                    # valid JSON but an out-of-schema category is a real, observed failure mode (a
+                    # real ollama run returned "timing_lag" — a category the prompt explicitly
+                    # forbids — with confidence 0.9; caught by an external audit 2026-08-24 reading
+                    # the live DB, see BUILD_LOG.md). The prompt instruction alone doesn't bind the
+                    # model; this does.
+                    raise ValueError(f"category outside the valid set: {parsed.get('category')!r}")
+                output = NarratorOutput(
+                    transaction_id=chain.transaction_id,
+                    category=parsed["category"],
+                    # clamp, don't trust verbatim -- an out-of-[0,1] confidence would otherwise flow
+                    # into escalation.py's `1.0 - confidence` ambiguity score (sinking the case a
+                    # human most needs to see to the bottom of the triage queue) and render as a
+                    # nonsensical percentage in the UI. Caught by the same round-7 audit.
+                    confidence=max(0.0, min(1.0, float(parsed["confidence"]))),
+                    reasoning=parsed["reasoning"],
+                    tool_calls=tool_calls_log,
+                    provider="groq",
+                )
+            except (KeyError, TypeError, ValueError) as e:
+                return _fail_safe(f"Narrator's final response was not a usable answer ({type(e).__name__}: {e}): {(msg.content or '')[:200]!r}")
 
-            output = NarratorOutput(
-                transaction_id=chain.transaction_id,
-                category=parsed["category"],
-                confidence=float(parsed["confidence"]),
-                reasoning=parsed["reasoning"],
-                tool_calls=tool_calls_log,
-                provider="groq",
-            )
             context.audit_log.append({"transaction_id": chain.transaction_id, "category": output.category, "confidence": output.confidence})
             return output
     except GroqError as e:
@@ -428,19 +451,26 @@ def narrate_ollama(chain: CausalChain, context: ToolContext, model: str = DEFAUL
             except (json.JSONDecodeError, KeyError):
                 return _fail_safe(f"Narrator's final response could not be parsed as valid JSON: {(msg.content or '')[:200]!r}")
 
-            if parsed.get("category") not in NARRATOR_CATEGORIES:
-                # see the identical check in narrate_groq for why this is load-bearing, not defensive
-                # boilerplate: a real ollama run already returned an out-of-schema category live.
-                return _fail_safe(f"Narrator returned a category outside the valid set: {parsed.get('category')!r}")
+            try:
+                # see the identical block in narrate_groq for the full rationale (round 7's audit:
+                # everything past the JSON-parse step was still uncaught and could crash the batch).
+                if not isinstance(parsed, dict):
+                    raise TypeError(f"expected a JSON object, got {type(parsed).__name__}")
+                if parsed.get("category") not in NARRATOR_CATEGORIES:
+                    # a real ollama run already returned an out-of-schema category live — see
+                    # narrate_groq's identical check for the full incident.
+                    raise ValueError(f"category outside the valid set: {parsed.get('category')!r}")
+                output = NarratorOutput(
+                    transaction_id=chain.transaction_id,
+                    category=parsed["category"],
+                    confidence=max(0.0, min(1.0, float(parsed["confidence"]))),
+                    reasoning=parsed["reasoning"],
+                    tool_calls=tool_calls_log,
+                    provider="ollama",
+                )
+            except (KeyError, TypeError, ValueError) as e:
+                return _fail_safe(f"Narrator's final response was not a usable answer ({type(e).__name__}: {e}): {(msg.content or '')[:200]!r}")
 
-            output = NarratorOutput(
-                transaction_id=chain.transaction_id,
-                category=parsed["category"],
-                confidence=float(parsed["confidence"]),
-                reasoning=parsed["reasoning"],
-                tool_calls=tool_calls_log,
-                provider="ollama",
-            )
             context.audit_log.append({"transaction_id": chain.transaction_id, "category": output.category, "confidence": output.confidence})
             return output
     except ollama_retry_exceptions as e:

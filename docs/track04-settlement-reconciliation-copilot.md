@@ -94,8 +94,8 @@ Beyond the main 50-200 transaction batch (mixed distribution below), generate a 
 ┌────▼───┐   ┌────▼─────────────────┐
 │ Clean   │   │ Exceptions            │
 │ matches │   │ → Agentic narrator    │  → calls lookup_fee_schedule /
-└────┬───┘   │   (tool-calling LLM)  │     check_sla_window / check_duplicate_
-     │       └────┬───────────────────┘     registry / recall_similar_resolutions
+└────┬───┘   │   (tool-calling LLM)  │     check_sla_window / check_batch_
+     │       └────┬───────────────────┘     anomalies / recall_similar_resolutions
      │            │                          → category + confidence + reasoning
      │            │                          + tool-call trace, all strict JSON
      │     ┌──────▼──────────────────┐
@@ -157,7 +157,7 @@ Beyond the main 50-200 transaction batch (mixed distribution below), generate a 
 - This is a tool-calling loop, not a single completion. Give it a small, real tool set before it's allowed to answer:
   - `lookup_fee_schedule(rail, date)` — is the delta explained by a known fee?
   - `check_sla_window(rail, settled_at)` — is this just a timing lag within the rail's normal settlement window?
-  - `check_duplicate_registry(refund_id)` — has this refund already been applied once?
+  - `check_batch_anomalies(transaction_id)` — has this refund already been applied once, or does another transaction in the same settlement batch have the exact offsetting delta (a netting trap)? Consolidated from a separately-planned `check_duplicate_registry` before either was built, once duplicate-refund and netting-trap detection turned out to need the same batch cross-reference — see BUILD_LOG.md.
   - `recall_similar_resolutions(category)` — a lightweight retrieval over the audit log's past resolutions (plain SQLite lookup, no vector DB needed at this scale) so it can reason "I've seen this shape before, resolved as X."
 - Output: strict JSON — `{category, confidence, one_line_reasoning, tool_calls: [...]}`. The tool-call trace is stored and shown, not thrown away — it's the evidence that the model checked before it guessed.
 - Prompt it to explain *which hop broke and by how much*, not just "mismatch detected."
