@@ -348,6 +348,16 @@ class SyntheticDataGenerator:
         n_explainable = round(n * 0.25)
         n_adversarial = round(n * 0.10)
         n_ambiguous = n - n_clean - n_explainable - n_adversarial  # remainder, ~5%
+        if n_ambiguous < 0:
+            # independent per-share rounding can overshoot n at small n -- verified directly by
+            # brute-forcing every n from 0-2000: n=6 is the only value where round(0.60n) +
+            # round(0.25n) + round(0.10n) = 7 > 6 (4+2+1), which silently generated 7 transactions
+            # for a requested batch of 6 instead of erroring, since range(-1) just yields nothing
+            # rather than raising. Caught by an external audit 2026-08-24. Absorb the overflow into
+            # n_clean (the least structurally-constrained category) so the batch always totals
+            # exactly n, not silently more.
+            n_clean += n_ambiguous
+            n_ambiguous = 0
 
         batches = []
         batches += [self._gen_clean_match() for _ in range(n_clean)]

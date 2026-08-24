@@ -106,7 +106,9 @@ cd backend
 python -m pytest tests/ -v
 ```
 
-80 tests covering the data generator's arithmetic invariants, the matching engine's deterministic
+81 tests covering the data generator's arithmetic invariants (including that every requested batch
+size 0-150 produces exactly that many transactions, not off-by-one on a rounding edge case), the
+matching engine's deterministic
 resolution paths, the narrator's tool-based detection, response-schema validation (an out-of-set
 category, a malformed/wrongly-shaped final answer, out-of-range confidence, an unusable tool call,
 plus an orchestration-level backstop for whatever the next unforeseen failure shape turns out to be
@@ -135,21 +137,29 @@ real tool functions the live narrator does (only the final synthesis step is a f
 
 **Local (Ollama, qwen2.5:7b-instruct)** — the recommended real provider, run against the live
 server and persisted into the same `CalibrationHistory`/audit log the dashboard reads from, same as
-both Groq runs below. Raw output: [real run](docs/evidence/real-ollama-run-2026-08-24.json).
+both Groq runs below. Raw output: [real run](docs/evidence/real-ollama-run-2026-08-24.json)
+(regenerated 2026-08-24 against the current distinct-transaction-count gate — see BUILD_LOG.md).
 **94.4% narrator accuracy** (17/18 correct on the main narration queue, cross-checked directly
-against ground truth, not just read off the dashboard), 50.75s for that queue (~2.8s/txn), 37/37
-correctly handled on the stress batch, 0 wrongly auto-resolved. The one miss carried confidence
-0.0 — a genuine safe fallback (predicted `genuine_error`, true label `netting_trap`).
+against ground truth, not just read off the dashboard), 55.8s for that queue, 37/37 correctly
+handled on the stress batch, 0 wrongly auto-resolved. The one miss carried confidence 0.0 — a
+genuine safe fallback (predicted `genuine_error`, true label `duplicate_refund`).
+
+**This run is also the first time in this project's history that `netting_trap` genuinely earned
+auto-resolve with real evidence** — accumulated real-provider history reached 15 distinct
+transactions (the calibrated-autonomy floor) with a 90.4% Wilson lower bound, and 8 real,
+correctly-classified `netting_trap` decisions in this run itself show `decision:
+"auto_resolved_calibrated"` in the raw output, not just escalated. That's the calibrated-autonomy
+pitch actually paying off end-to-end with a real model, not just structurally possible in theory.
 
 **Concrete evidence the reasoning is genuine, not decorative tool-calling around a fixed answer:**
 transaction `order_671da51349f1` has been narrated across both mock and real runs recorded in this
 project's own audit log. Mock's answer is always confidence `0.3` for `genuine_error` (a fixed
 constant in `narrate_mock`, which calls `recall_similar_resolutions` but never reads its result) —
 so mock "matching" that tool's average confidence is a tautology, not evidence of anything. The
-real Ollama runs are different: across three independent real runs (confidence `0.533`, `0.25`,
-and `0.62` — three different values, not a repeated constant), each one's final confidence exactly
-equals what `recall_similar_resolutions` had just told it (`avg_confidence` from that run's own
-prior resolutions) — checked directly against the live audit log, not asserted. That's the model
+real Ollama runs are different: across four independent real runs (confidence `0.533`, `0.25`,
+`0.62`, and `0.427` — four different values, not a repeated constant), each one's final confidence
+exactly equals what `recall_similar_resolutions` had just told it (`avg_confidence` from that run's
+own prior resolutions) — checked directly against the live audit log, not asserted. That's the model
 using one tool's numeric output to set a different, later decision — the actual thing "agentic tool
 use" is supposed to mean here, not just calling functions on the way to an answer it would have
 given anyway.
@@ -174,7 +184,12 @@ help. Full narrative, including the provider-comparison research that led here, 
 
 **Groq (openai/gpt-oss-20b)** — a second real option, run against the live API twice on two
 different random batches, with results genuinely persisted into the same
-`CalibrationHistory`/audit log the live dashboard reads from — not just a side file. **Run 1**
+`CalibrationHistory`/audit log the live dashboard reads from — not just a side file. (Both raw
+files below predate the distinct-transaction-count gate added later the same day — their
+`calibration.categories[].reason` strings won't include the "across N distinct transactions"
+phrasing current code always adds. The underlying accuracy numbers quoted here are unaffected;
+re-running against a hosted API costs real quota, so these weren't regenerated just for the string
+format — see BUILD_LOG.md.) **Run 1**
 (n=120 + full 100%-adversarial stress batch, n=40): 100% narrator accuracy across all three
 categories (17/18 via genuine tool-informed reasoning, 1/18 via a safe "did not converge" fallback
 that happened to match ground truth), 37/37 correctly handled on the stress batch, 0 wrongly

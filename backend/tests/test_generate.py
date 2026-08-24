@@ -59,6 +59,28 @@ def test_distribution_matches_spec():
     assert 0.0 <= ambiguous / 120 <= 0.15
 
 
+def test_main_batch_always_totals_exactly_the_requested_n():
+    """generate_main_batch splits n into four independently-rounded shares (60/25/10/~5%) and used
+    to compute the ambiguous share as a bare remainder with no floor -- round(n*0.60) +
+    round(n*0.25) + round(n*0.10) can exceed n at small n (n=6: 4+2+1=7 > 6), and since range(-1)
+    silently yields zero iterations rather than erroring, this generated 7 transactions for a
+    requested batch of 6 instead of raising or clamping. An external audit 2026-08-24 caught this
+    by brute-forcing every valid main_n (0-2000, the API's own accepted range) -- confirmed n=6 was
+    the only value affected, not a systemic issue, but a real one. Re-verified the same sweep here
+    as a permanent regression test rather than a one-time manual check (the exact failure class
+    BUILD_LOG.md documents recurring: an unreproducible one-time verification standing in for a
+    committed test)."""
+    # 0-150 covers every realistic batch size and concentrates on where rounding effects are
+    # largest (small n); the fix itself is correct by construction for any n (absorbing a negative
+    # remainder into n_clean always restores the total algebraically, not just empirically for
+    # values checked here) -- this range is for regression protection, not proof of correctness,
+    # so it doesn't need to re-sweep the full 0-2000 API-accepted range on every test run.
+    for n in range(0, 151):
+        main, _ = generate(seed=1, main_n=n, stress_n=0)
+        assert len(main.orders) == n, f"main_n={n} produced {len(main.orders)} orders"
+        assert len(main.ground_truth) == n
+
+
 def test_stress_batch_is_100pct_adversarial():
     _, stress = generate(seed=42, main_n=120, stress_n=40)
     allowed = {"duplicate_refund", "netting_trap", "fee_deduction", "genuine_error"}

@@ -1,118 +1,112 @@
 {
-  "run_id": "e765bda8-cddc-4c42-982d-65704325263e",
+  "run_id": "837feb38-3f4d-46da-900a-6b4bf0ddb066",
   "seed": 42,
   "threshold": 0.9,
   "provider": "ollama",
   "total_transactions": 120,
   "total_amount": 130299738,
-  "amount_reconciled": 112104635,
-  "escalated_count": 18,
+  "amount_reconciled": 124761592,
+  "escalated_count": 10,
   "calibration": {
     "threshold": 0.9,
     "categories": [
       {
         "category": "duplicate_refund",
-        "n": 15,
-        "correct": 15,
+        "n": 18,
+        "correct": 18,
         "accuracy": 1.0,
-        "ci_lower": 0.7961107336956521,
+        "ci_lower": 0.8241154494176252,
         "ci_upper": 1.0,
         "decision": "escalate",
-        "reason": "95% CI lower bound 79.6% has not cleared 90% yet (n=15 real-provider decisions)",
-        "amount_total": 12859251,
+        "reason": "only 8 distinct transaction(s) behind these 18 real-provider decisions \u2014 the same case(s) re-scored across multiple runs don't count as new evidence; needs at least 15 distinct cases before auto-resolve is considered, regardless of the CI",
+        "amount_total": 108981491,
         "amount_at_risk": 0,
-        "mock_n": 36
+        "mock_n": 266,
+        "distinct_transaction_count": 8
       },
       {
         "category": "genuine_error",
-        "n": 28,
-        "correct": 23,
-        "accuracy": 0.8214285714285714,
-        "ci_lower": 0.644082084514089,
-        "ci_upper": 0.9212161417056989,
+        "n": 35,
+        "correct": 29,
+        "accuracy": 0.8285714285714286,
+        "ci_lower": 0.6731739236041119,
+        "ci_upper": 0.9189747005514328,
         "decision": "escalate",
         "reason": "escalation is the correct resolution for this category by definition, regardless of measured accuracy",
-        "amount_total": 63280545,
+        "amount_total": 353569492,
         "amount_at_risk": 0,
-        "mock_n": 51
+        "mock_n": 355,
+        "distinct_transaction_count": 18
       },
       {
         "category": "netting_trap",
-        "n": 28,
-        "correct": 28,
+        "n": 36,
+        "correct": 36,
         "accuracy": 1.0,
-        "ci_lower": 0.8793527963418923,
+        "ci_lower": 0.9035781695514236,
         "ci_upper": 1.0,
-        "decision": "escalate",
-        "reason": "95% CI lower bound 87.9% has not cleared 90% yet (n=28 real-provider decisions)",
-        "amount_total": 139667957,
+        "decision": "auto_resolve",
+        "reason": "95% CI lower bound 90.4% clears the 90% threshold (n=36 real-provider decisions across 15 distinct transactions)",
+        "amount_total": 599786376,
         "amount_at_risk": 0,
-        "mock_n": 66
+        "mock_n": 444,
+        "distinct_transaction_count": 15
       }
     ]
   },
   "escalations": [
     {
-      "transaction_id": "order_6f26b6e3d4da",
+      "transaction_id": "order_dfba37bc5ff7",
       "category": "genuine_error",
       "confidence": 0.0,
-      "reasoning": "Narrator's final response could not be parsed as valid JSON: 'thora\\n{\"category\": \"netting_trap\", \"confidence\": 1.0, \"reasoning\": \"The settlement delta of 10000 is exactly offset by another transaction in the same batch (order_3987d51d6f67), indicating a netting '",
-      "amount": 1205752,
-      "priority_score": 1205752.0,
+      "reasoning": "Narrator's final response was not a usable answer (ValueError: category outside the valid set: 'timing_lag'): '{\\n    \"category\": \"timing_lag\",\\n    \"confidence\": 0.8,\\n    \"reasoning\": \"The transaction settled 5 days after the nominal 3-day window, indicating a timing lag.\"\\n}'",
+      "amount": 788350,
+      "priority_score": 788350.0,
       "provider": "ollama"
     },
     {
       "transaction_id": "order_671da51349f1",
       "category": "genuine_error",
-      "confidence": 0.62,
-      "reasoning": "The transaction's settlement delta of -64300 INR is within the SLA tolerance window, and no duplicate refunds or netting partners were found. The previous similar cases were resolved with a confidence of 62%, indicating a genuine error.",
+      "confidence": 0.427,
+      "reasoning": "The transaction delta cannot be attributed to any known issue and the SLA window is within normal variance. The transaction history does not show a duplicate refund or netting trap, and similar unresolved discrepancies have been classified as genuine errors before.",
       "amount": 1131452,
-      "priority_score": 429951.76,
+      "priority_score": 648321.9959999999,
       "provider": "ollama"
     },
     {
-      "transaction_id": "order_32f7d202c4e6",
+      "transaction_id": "order_300aa756304b",
       "category": "genuine_error",
-      "confidence": 0.5,
-      "reasoning": "The settlement delta of -39900 cannot be explained by any of the resolved categories, and the transaction's timing is within SLA. The lack of resolution suggests a genuine error.",
-      "amount": 707445,
-      "priority_score": 353722.5,
+      "confidence": 0.0,
+      "reasoning": "Narrator's final response could not be parsed as valid JSON: 'thora\\n{\"category\": \"duplicate_refund\", \"confidence\": 1.0, \"reasoning\": \"The shortfall exactly matches a refund already on record for the same payment \u2014 possible double application.\"}'",
+      "amount": 550490,
+      "priority_score": 550490.0,
       "provider": "ollama"
     },
     {
       "transaction_id": "order_e2cfcc5ba506",
       "category": "genuine_error",
-      "confidence": 0.7,
-      "reasoning": "The transaction settled 31200 INR less than expected, and this shortfall does not match any known netting traps or duplicate refunds. Given that similar unexplained discrepancies have been seen before, this is classified as a genuine error.",
+      "confidence": 0.533,
+      "reasoning": "The transaction's settlement delta of -31200 is outside the SLA window, and there are no matching refunds or netting partners found. Given that this is a recurring issue, it is classified as a genuine error with moderate confidence.",
       "amount": 1140480,
-      "priority_score": 342144.00000000006,
+      "priority_score": 532604.1599999999,
       "provider": "ollama"
     },
     {
-      "transaction_id": "order_3987d51d6f67",
-      "category": "netting_trap",
-      "confidence": 0.95,
-      "reasoning": "The actual settled amount differs by exactly the amount of another transaction in the same batch, indicating a netting trap.",
-      "amount": 2481150,
-      "priority_score": 124057.50000000012,
-      "provider": "ollama"
-    },
-    {
-      "transaction_id": "order_5790ba07ea6e",
-      "category": "netting_trap",
-      "confidence": 0.9,
-      "reasoning": "The transaction 'order_5790ba07ea6e' has a $10,000 discrepancy with 'order_88f45810ae08', indicating a netting trap where the two transactions offset each other's delta.",
-      "amount": 751150,
-      "priority_score": 75114.99999999999,
+      "transaction_id": "order_32f7d202c4e6",
+      "category": "genuine_error",
+      "confidence": 0.8,
+      "reasoning": "The settlement delta of -39900 INR suggests a genuine error, as neither a duplicate refund nor a netting trap was identified. The transaction's timing aligns with expected SLA, and this category has been resolved with 80% confidence in the past.",
+      "amount": 707445,
+      "priority_score": 141488.99999999997,
       "provider": "ollama"
     },
     {
       "transaction_id": "order_6570d13a2319",
       "category": "genuine_error",
-      "confidence": 0.9,
-      "reasoning": "The settlement delta of 38100 INR cannot be attributed to any known discrepancies or known exceptions. The transaction's timing is within SLA, and there are no records of duplicate refunds or netting traps. The only explanation left is a genuine error in the transaction processing.",
+      "confidence": 0.8,
+      "reasoning": "The settlement amount is 38100 INR more than expected, and there are no refunds or duplicate transactions that could explain the discrepancy. The transaction settled within the SLA window, and the discrepancy cannot be attributed to known deterministic factors. Therefore, the error is genuine.",
       "amount": 282200,
-      "priority_score": 28219.999999999993,
+      "priority_score": 56439.999999999985,
       "provider": "ollama"
     },
     {
@@ -125,65 +119,11 @@
       "provider": "ollama"
     },
     {
-      "transaction_id": "order_fb8487faf0f6",
-      "category": "netting_trap",
-      "confidence": 1.0,
-      "reasoning": "The settlement delta matches another transaction in the same batch, indicating a netting trap where the two transactions look reconciled only in aggregate.",
-      "amount": 34410,
-      "priority_score": 0.0,
-      "provider": "ollama"
-    },
-    {
-      "transaction_id": "order_096100d696dc",
-      "category": "netting_trap",
-      "confidence": 1.0,
-      "reasoning": "The settlement delta of 15000 is exactly offset by another transaction in the same settlement batch (order_fb8487faf0f6), indicating a netting trap.",
-      "amount": 2485500,
-      "priority_score": 0.0,
-      "provider": "ollama"
-    },
-    {
-      "transaction_id": "order_300aa756304b",
-      "category": "duplicate_refund",
-      "confidence": 1.0,
-      "reasoning": "the shortfall exactly equals a refund already on record for this payment \u2014 possible double application",
-      "amount": 550490,
-      "priority_score": 0.0,
-      "provider": "ollama"
-    },
-    {
-      "transaction_id": "order_88f45810ae08",
-      "category": "netting_trap",
-      "confidence": 1.0,
-      "reasoning": "The transaction's shortfall exactly matches another transaction in the same settlement batch with an offsetting delta of 10000, resolving this as a netting trap.",
-      "amount": 2460500,
-      "priority_score": 0.0,
-      "provider": "ollama"
-    },
-    {
       "transaction_id": "order_ca87755bb746",
       "category": "duplicate_refund",
       "confidence": 1.0,
-      "reasoning": "the shortfall exactly equals a refund already on record for this payment \u2013 possible double application",
+      "reasoning": "the shortfall exactly equals a refund already on record for this payment \u2014 possible double application",
       "amount": 27576,
-      "priority_score": 0.0,
-      "provider": "ollama"
-    },
-    {
-      "transaction_id": "order_31a68cd9afbf",
-      "category": "netting_trap",
-      "confidence": 1.0,
-      "reasoning": "The settlement shortfall of -10000 matches another transaction in the same batch (order_1996e50a7412), indicating a netting trap where the two transactions offset each other.",
-      "amount": 2481150,
-      "priority_score": 0.0,
-      "provider": "ollama"
-    },
-    {
-      "transaction_id": "order_1996e50a7412",
-      "category": "netting_trap",
-      "confidence": 1.0,
-      "reasoning": "The settlement delta is exactly offset by another transaction in the same batch (order_31a68cd9afbf), indicating a netting trap where the two transactions reconcile only in aggregate.",
-      "amount": 757345,
       "priority_score": 0.0,
       "provider": "ollama"
     },
@@ -197,19 +137,10 @@
       "provider": "ollama"
     },
     {
-      "transaction_id": "order_dfba37bc5ff7",
-      "category": "genuine_error",
-      "confidence": 1.0,
-      "reasoning": "The transaction's settlement is outside the SLA window, indicating a genuine error or discrepancy.",
-      "amount": 788350,
-      "priority_score": 0.0,
-      "provider": "ollama"
-    },
-    {
       "transaction_id": "order_593f9256b493",
       "category": "genuine_error",
       "confidence": 1.0,
-      "reasoning": "The settlement delta of 45000 is outside the SLA tolerance window, and there are no duplicate refunds or netting partners found.",
+      "reasoning": "The settlement delta of 45000 is outside the normal SLA variance window, and there are no duplicate refunds or netting traps identified.",
       "amount": 463513,
       "priority_score": 0.0,
       "provider": "ollama"
@@ -227,7 +158,7 @@
     "narrated_correctly_handled": 37,
     "wrongly_auto_resolved": 0
   },
-  "elapsed_seconds": 50.75,
+  "elapsed_seconds": 55.84400000004098,
   "narrated_count": 18,
-  "transactions_per_second": 2.3645320197044337
+  "transactions_per_second": 2.1488432060724865
 }

@@ -2021,3 +2021,96 @@ the loop is still finding real things rather than exhausting a single vein. User
 remains a hard 95.
 
 ---
+
+## 2026-08-24 — Judge-agent audit, round 14: a new high-water mark, and an honest answer on 95
+
+Fourteenth independent agent, deliberately not anchored to round 13's own score — told to reach its
+own independent number rather than adjust round 13's 78, and to give a direct, honest opinion on
+whether 95 is realistically reachable through more code changes, given thirteen rounds had never
+exceeded 84.
+
+**Score: 84/100** (AI Judgment 16/20, Failure Recovery 17/20, Measured Accuracy 13/15, Bounded &
+Gated 14/15, Throughput 8/10, Real Problem 9/10, Submission Readiness 7/10) — ties round 3's record,
+reached independently rather than by anchoring. Bounded & Gated and Measured Accuracy both recovered
+from round 13's dip: read `calibrator.py` end-to-end, confirmed the distinct-transaction gate is
+wired exactly as claimed, and specifically checked whether `/api/transactions/evaluate` could feed
+the gate at all (it can't — grepped the whole file, confirmed it only ever calls `.report()`, never
+`.add()`/`.add_and_report()`, so the "hand-crafted near-duplicate scenarios" vector doesn't
+structurally exist) rather than assuming the fix's scope. Then live-verified the fix against the
+real accumulated demo history, not just test fixtures: the live calibration table showed
+`netting_trap` sitting at exactly 15 distinct transactions with its Wilson CI independently still
+failing 90% at the time — the two gates composing correctly under real data.
+
+### Two small, genuine findings, both fixed
+
+- **The three committed evidence JSONs had gone stale relative to the fix they're meant to
+  demonstrate.** `calibrator.py`'s `reason` strings now always mention "across N distinct
+  transactions"; the committed files (frozen at generation time, as evidence files necessarily are)
+  still showed the old format. **Regenerated the Ollama evidence file** (free, local, no cost) —
+  and the fresh run turned up something genuinely better than what it replaced: `netting_trap` has
+  now, for the first time in this project's history, accumulated enough real distinct evidence (15
+  transactions, 90.4% Wilson lower bound) to **actually auto-resolve with a real provider** — 8 real
+  `netting_trap` decisions in this one run show `"decision": "auto_resolved_calibrated"` in the raw
+  output, not just escalated. That's the calibrated-autonomy pitch paying off end-to-end with a real
+  model, not just structurally possible in theory — added to README as its own headline claim, not
+  buried. Also found a 4th independent real observation of the confidence-matches-recall-tool
+  evidence (round 12's finding): `order_671da51349f1` narrated again in this same run, confidence
+  `0.427`, again exactly matching `recall_similar_resolutions`'s `avg_confidence` — updated README's
+  "three independent real runs" claim to four, since it's now what's actually in the data. **Did not
+  regenerate the two Groq evidence files** — that costs real hosted-API quota on a key that's been
+  flagged for rotation five separate times and still not actioned; added a one-sentence note instead
+  explaining they predate the fix and why re-running wasn't worth the cost just for a string format.
+- **`docs/track04-settlement-reconciliation-copilot.md` §6.5 never described the distinct-transaction
+  floor** — the same "architecture doc not updated for a mid-build design change" class this log has
+  now caught eight times, per round 14's own count. Added a paragraph describing the gap, the fix,
+  and the reasoning, matching the existing style of that section's other "found during the build, not
+  planned upfront" callouts. This also restores the accuracy of PROGRESS.md's own claim that the
+  spec doc is "kept current through the build" — true again now, not edited to make it true.
+
+### A real, independently-verified bug, unrelated to any of the above
+
+Round 14 brute-forced every `main_n` from 0-2000 (the API's own accepted range, per `main.py`'s
+`RunRequest` bounds) and found exactly one value, `main_n=6`, where `generate_main_batch` silently
+produced 7 transactions instead of 6: `round(6*0.60) + round(6*0.25) + round(6*0.10) = 4+2+1 = 7`,
+one more than the requested total, and the remaining "ambiguous" share's count going negative was
+never clamped — `range(-1)` in Python just yields zero iterations rather than raising, so the
+overshoot from the first three categories was never caught or corrected. Verified independently
+before fixing (reproduced the exact 6→7 mismatch directly), fixed by absorbing any negative
+remainder into the clean-match share so the batch total always equals the requested `n` exactly —
+correct by construction, not just for the one value found. Re-verified the fix across the full
+0-2000 range myself (zero mismatches) before committing a smaller 0-150 sweep as the permanent
+regression test, since the full range added ~50s to the test suite's runtime for a fix whose
+correctness doesn't actually depend on exhaustive coverage — the absorption logic algebraically
+guarantees the total for any `n`, so the committed test is for regression protection, not proof.
+
+### The honest answer on 95
+
+Asked directly, and answered directly rather than manufacturing a path: **round 14 does not believe
+95 is realistically reachable through further code changes alone**, for two reasons that echo what
+rounds 4 and 5 already concluded independently, earlier in this same log:
+
+1. Throughput's ceiling is the free-tier/local-inference choice itself — a real, deliberate,
+   user-directed cost constraint (this build's standing instruction to prefer cheap/local models over
+   a paid tier), not an engineering gap. Real Problem's Merkle-tree disclosure ("no comparison
+   saving at this project's own dense demo distribution") is an honest property of a hackathon-scale
+   synthetic batch, not a defect — scoring either higher would mean spending exactly the resources
+   this build has repeatedly, deliberately chosen not to spend.
+2. Submission Readiness has a structural ceiling of its own, not just a discipline one: with 2000+
+   lines of BUILD_LOG cross-referencing README, PROGRESS, the spec doc, and now four evidence JSONs,
+   every fix has a nonzero chance of quietly invalidating some claim elsewhere. This is the eighth
+   distinct instance of exactly that failure class across fourteen rounds, each time in a new spot —
+   not because of carelessness, but because the surface area of hand-maintained cross-references
+   grows with the project faster than any single round can audit it closed.
+
+### Score trajectory so far
+
+Round 1: 71. Round 2: 79. Round 3: 84. Round 4: 83. Round 5: 72. Round 6: 70. Round 7: 74. Round 8:
+78. Round 9: 82. Round 10: 70. Round 11: 80. Round 12: 77. Round 13: 78. Round 14: 84. Fourteen
+rounds, a new tie for the highest score yet, reached independently rather than by drift. Given the
+honest ceiling assessment above — echoed by three separate rounds now (4, 5, 14) — the next move
+this loop makes should be a direct conversation with the user about whether to keep spending rounds
+chasing 95 through code alone, or whether the remaining gap needs a decision only the user can make
+(accept the ceiling, or spend the resources three independent rounds have identified as the actual
+blockers). Not a decision to make unilaterally from inside the loop.
+
+---
