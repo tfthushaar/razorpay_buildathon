@@ -158,7 +158,7 @@ Beyond the main 50-200 transaction batch (mixed distribution below), generate a 
   - `lookup_fee_schedule(rail, date)` — is the delta explained by a known fee?
   - `check_sla_window(rail, settled_at)` — is this just a timing lag within the rail's normal settlement window?
   - `check_batch_anomalies(transaction_id)` — has this refund already been applied once, or does another transaction in the same settlement batch have the exact offsetting delta (a netting trap)? Consolidated from a separately-planned `check_duplicate_registry` before either was built, once duplicate-refund and netting-trap detection turned out to need the same batch cross-reference — see BUILD_LOG.md.
-  - `recall_similar_resolutions(category)` — a lightweight retrieval over the audit log's past resolutions (plain SQLite lookup, no vector DB needed at this scale) so it can reason "I've seen this shape before, resolved as X."
+  - `recall_similar_resolutions(category)` — a lightweight retrieval over the *current run's* audit log so far (in-memory, not persisted across runs — no vector DB needed at this scale) so it can reason "I've seen this shape before, resolved as X." Originally planned as a cross-run SQLite lookup; shipped in-memory-per-run instead, disclosed honestly rather than corrected retroactively — see BUILD_LOG.md.
 - Output: strict JSON — `{category, confidence, one_line_reasoning, tool_calls: [...]}`. The tool-call trace is stored and shown, not thrown away — it's the evidence that the model checked before it guessed.
 - Prompt it to explain *which hop broke and by how much*, not just "mismatch detected."
 - Example target output: `"₹4,200 order → ₹4,116 captured after 2% fee → ₹3,800 settled, missing ₹316. Rail=UPI. Checked fee schedule (matches known 2% UPI fee) and SLA window (outside normal T+1 lag). Likely a reversed partial refund not yet reflected in ledger."`
@@ -206,7 +206,7 @@ Beyond the main 50-200 transaction batch (mixed distribution below), generate a 
 - **LLM:** Ollama (local `qwen2.5:7b-instruct`, OpenAI-tool-call-shaped) for the discrepancy narrator and classifier — structured JSON output, low temperature, zero cost and zero rate limit since it runs on-machine. Groq (openai/gpt-oss-20b, hosted, same tool-call contract) kept as a second real option. Originally planned as the Claude API; switched mid-build for cost (free tier) to Groq, then a full free-tier-API survey (Cerebras, Gemini, DeepSeek, GLM, SambaNova, OpenRouter, GitHub Models, Mistral) found every hosted option rate-limited or credit-capped in a way that made a full batch take 11-70 minutes, so the narrator moved to local inference — see BUILD_LOG.md
 - **Frontend:** React 19 + TypeScript (your existing strength from Vera ERP)
 - **Data generation:** Python (pandas/faker-style synthetic generation, with a documented seed for reproducibility)
-- **Retrieval for `recall_similar_resolutions`:** plain SQLite lookup over the audit log's past resolutions — no vector DB needed at this batch size
+- **Retrieval for `recall_similar_resolutions`:** in-memory lookup over the current run's audit log so far — not persisted across runs (see §6.4 above and BUILD_LOG.md) — no vector DB needed at this batch size
 
 ---
 

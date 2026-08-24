@@ -1254,3 +1254,88 @@ the final reasoning's presence — is now guarded. Not claiming there's no possi
 just that a systematic pass was made rather than stopping at the first fix.
 
 ---
+
+## 2026-08-24 — Judge-agent audit, round 8: the whack-a-mole pattern, named and structurally closed
+
+Eighth independent agent, told explicitly that rounds 5 through the self-caught fix had each found
+a different instance of the same bug class, and asked to form its own view on whether that pattern
+was actually exhausted rather than assume either "surely fixed now" or "there must be one more."
+
+**Score: 78/100.** (AI Judgment 17/20, Failure Recovery 12/20, Measured Accuracy 13/15, Bounded &
+Gated 13/15, Throughput 8/10, Real Problem 9/10, Submission Readiness 6/10.) Net improvement over
+round 7's 74 — real, verified progress — but the specific claim that closed round 7 ("every
+model-supplied value in the narrator loop is now guarded," written in PROGRESS.md) did not survive
+direct testing.
+
+### THE FINDING: the tool-call guard still had a gap, and there's a better shape of fix than another patch
+
+Three concrete, independently-reproducible crashes, all `AttributeError`, all missed by the
+`(json.JSONDecodeError, TypeError, ValueError)` tuple the self-caught fix added:
+
+```
+tc.function = None                                          -> 'NoneType' object has no attribute 'arguments'
+recall_similar_resolutions receives arguments = "[1,2,3]"    -> 'list' object has no attribute 'get'
+recall_similar_resolutions receives arguments = "null"       -> 'NoneType' object has no attribute 'get'
+```
+
+The second case needed no SDK-internals knowledge to hit — it's just the model writing a JSON array
+instead of an object for a tool call's arguments, and `_execute_tool`'s one tool that actually reads
+its arguments (`recall_similar_resolutions`, via `arguments.get("category_guess", ...)`) has no
+defense against that shape. Confirmed independently before touching any code (not just trusted from
+the report): mocked the exact three payloads against `narrate_groq` and got the exact three
+`AttributeError`s back.
+
+**The auditor's more important point wasn't the specific gap, it was the shape of the fix.** Direct
+quote: *"applying [a fail-safe] once at the orchestration layer would have prevented rounds 5-8's
+entire whack-a-mole pattern from being possible in the first place."* Four rounds in a row (5, 6, 7,
+and the self-caught fix) had each found a different unguarded model-supplied value inside
+`narrate_groq`/`narrate_ollama`'s own exception handling — a real, recurring pattern, and the honest
+read is that the *next* one, whatever shape it takes, is by definition not one either function's
+except tuple names yet, because nobody knows what it is until it happens.
+
+### The fix, in two parts (both done, not just the cheaper one)
+
+1. **Narrow**: added `AttributeError` to both providers' tool-call except tuples — closes the three
+   specific reproduced cases with a decent, specific `reasoning` string ("Narrator requested a tool
+   call that could not be executed...").
+2. **Structural**: wrapped `narrate()`'s own dispatch to whichever provider function in a broad
+   `try/except Exception`, converting *any* exception a provider function doesn't already handle
+   into a safe `genuine_error`/confidence-0.0 result, tagged with the correct `provider`. This does
+   not replace the provider-specific fail-safes — those still fire first and produce a more
+   informative reasoning string for a *known* failure shape — it's the last line of defense for
+   whatever isn't a known shape yet. `except Exception` (not narrower) is deliberate here and scoped
+   specifically to this one boundary: `narrate()` is the single seam between "arbitrary code calling
+   into an inherently unreliable external system" and "the rest of the pipeline," the same place a
+   web server's top-level request handler earns a broad catch that inner application logic doesn't.
+   `KeyboardInterrupt`/`SystemExit` aren't `Exception` subclasses, so an actual interrupt still
+   propagates correctly — checked, not assumed.
+
+Three new tests, written before the fix (established practice since round 7): two reproduce the
+specific `AttributeError` shapes against the real provider functions, one
+(`test_narrate_dispatcher_fails_safe_on_a_completely_unforeseen_exception`) mocks `narrate_groq`
+itself to raise a plain `RuntimeError` with no special meaning — proving the orchestration backstop
+works for a genuinely arbitrary failure, not just the ones already known about. All three confirmed
+to fail against the pre-fix code, then confirmed to pass. 66/66 tests passing.
+
+### Two MEDIUM doc findings, also fixed
+
+- PROGRESS.md's own "current total" test-count line (added in round 7 specifically to stop this
+  exact class of drift) was already stale at 61 when the real count was 63 — the identical failure
+  class recurring in the very line meant to guard against it. Fixed to 66, with an added note that
+  if it's stale again, that's the pattern repeating, not a surprise.
+- `docs/track04-settlement-reconciliation-copilot.md` described `recall_similar_resolutions` as "a
+  plain SQLite lookup... no vector DB needed" in two places, but the shipped implementation is a
+  pure in-memory list rebuilt fresh per run (`ToolContext.audit_log`), never touching SQLite, with
+  no cross-run memory — a real, known limitation disclosed honestly elsewhere (BUILD_LOG's original
+  Gap #8 entry, PROGRESS.md) but never corrected in the architecture doc itself across 7 rounds of
+  otherwise-thorough doc sweeps. Fixed both mentions to describe what's actually shipped.
+
+### Score trajectory so far
+
+Round 1: 71. Round 2: 79. Round 3: 84. Round 4: 83. Round 5: 72. Round 6: 70. Round 7: 74. Round 8:
+78. Eight rounds, eight genuinely distinct findings (plus one self-caught fix in between) — the
+whack-a-mole pattern that defined rounds 5 through 8 is now closed at the structural level, not just
+patched at the specific-instance level, which is a materially different kind of fix than the ones
+before it. User's stopping target for this loop: ~90.
+
+---

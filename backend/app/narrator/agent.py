@@ -342,12 +342,16 @@ def narrate_groq(chain: CausalChain, context: ToolContext, model: str = DEFAULT_
                     # raised an uncaught exception here (json.JSONDecodeError / ValueError from
                     # _execute_tool's "unknown tool" branch) before this fix — caught by re-reading
                     # this block while writing up the final-answer fix, not by an external audit.
+                    # AttributeError added after round 8's audit reproduced 3 more shapes live:
+                    # tc.function itself being None, and recall_similar_resolutions (the one tool
+                    # that actually reads its arguments) receiving a JSON array or JSON null instead
+                    # of an object, both of which pass json.loads fine but have no .get().
                     for tc in msg.tool_calls:
                         args = json.loads(tc.function.arguments or "{}")
                         result = _execute_tool(tc.function.name, args, chain, context)
                         tool_calls_log.append(ToolCallRecord(tool=tc.function.name, arguments=args, result=result))
                         messages.append({"role": "tool", "tool_call_id": tc.id, "content": json.dumps(result)})
-                except (json.JSONDecodeError, TypeError, ValueError) as e:
+                except (json.JSONDecodeError, TypeError, ValueError, AttributeError) as e:
                     return _fail_safe(f"Narrator requested a tool call that could not be executed ({type(e).__name__}: {e}); escalating rather than guessing.")
                 continue
 
@@ -448,13 +452,14 @@ def narrate_ollama(chain: CausalChain, context: ToolContext, model: str = DEFAUL
             if msg.tool_calls:
                 messages.append({"role": "assistant", "content": msg.content or "", "tool_calls": [tc.model_dump() for tc in msg.tool_calls]})
                 try:
-                    # see the identical block in narrate_groq for the full rationale.
+                    # see the identical block in narrate_groq for the full rationale, including why
+                    # AttributeError is caught here too (round 8: tc.function can be None).
                     for tc in msg.tool_calls:
                         args = dict(tc.function.arguments)  # already parsed, unlike Groq's JSON-string arguments
                         result = _execute_tool(tc.function.name, args, chain, context)
                         tool_calls_log.append(ToolCallRecord(tool=tc.function.name, arguments=args, result=result))
                         messages.append({"role": "tool", "content": json.dumps(result)})  # no tool_call_id -- Ollama matches by order
-                except (json.JSONDecodeError, TypeError, ValueError) as e:
+                except (json.JSONDecodeError, TypeError, ValueError, AttributeError) as e:
                     return _fail_safe(f"Narrator requested a tool call that could not be executed ({type(e).__name__}: {e}); escalating rather than guessing.")
                 continue
 
@@ -496,10 +501,33 @@ def narrate_ollama(chain: CausalChain, context: ToolContext, model: str = DEFAUL
 
 def narrate(chain: CausalChain, context: ToolContext, provider: str | None = None) -> NarratorOutput:
     provider = provider or os.environ.get("LLM_PROVIDER", "mock")
-    if provider == "mock":
-        return narrate_mock(chain, context)
-    if provider == "groq":
-        return narrate_groq(chain, context)
-    if provider == "ollama":
+    if provider not in ("mock", "groq", "ollama"):
+        raise ValueError(f"unknown LLM_PROVIDER: {provider!r} (expected 'mock', 'groq', or 'ollama')")
+
+    try:
+        if provider == "mock":
+            return narrate_mock(chain, context)
+        if provider == "groq":
+            return narrate_groq(chain, context)
         return narrate_ollama(chain, context)
-    raise ValueError(f"unknown LLM_PROVIDER: {provider!r} (expected 'mock', 'groq', or 'ollama')")
+    except Exception as e:
+        # Orchestration-level backstop (round 8's audit, 2026-08-24): rounds 5-8 each found a
+        # *different* unguarded model-supplied value inside narrate_groq/narrate_ollama's own
+        # exception handling — a real, recurring pattern, not a one-off, since the next unforeseen
+        # failure shape is by definition one neither function's specific except tuple names yet.
+        # This does NOT replace those specific handlers — a known failure still produces a more
+        # informative `reasoning` string from inside the provider function itself, which matters
+        # for the audit log's transparency story. This is the last line of defense for whatever
+        # isn't a known failure yet, so one transaction's crash can never take down an entire
+        # batch's results (including transactions already correctly resolved before it) the way it
+        # did before this existed, reachable live through /api/transactions/evaluate.
+        output = NarratorOutput(
+            transaction_id=chain.transaction_id,
+            category="genuine_error",
+            confidence=0.0,
+            reasoning=f"Narrator crashed unexpectedly ({type(e).__name__}: {e}); escalating rather than losing the batch.",
+            tool_calls=[],
+            provider=provider,
+        )
+        context.audit_log.append({"transaction_id": chain.transaction_id, "category": output.category, "confidence": output.confidence})
+        return output

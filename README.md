@@ -103,13 +103,14 @@ cd backend
 python -m pytest tests/ -v
 ```
 
-63 tests covering the data generator's arithmetic invariants, the matching engine's deterministic
+66 tests covering the data generator's arithmetic invariants, the matching engine's deterministic
 resolution paths, the narrator's tool-based detection, response-schema validation (an out-of-set
-category, a malformed/wrongly-shaped final answer, out-of-range confidence, an unusable tool call —
-see BUILD_LOG.md), and retry/failure handling (Groq-specific and provider-agnostic), the calibration
-layer's statistical behavior (including that mock-mode decisions can never earn auto-resolve, and
-that a category's earned trust can't be spent by a different decision that never itself earned it),
-the Merkle-tree divergence pre-filter, the full pipeline, and the API layer.
+category, a malformed/wrongly-shaped final answer, out-of-range confidence, an unusable tool call,
+plus an orchestration-level backstop for whatever the next unforeseen failure shape turns out to be
+— see BUILD_LOG.md), and retry/failure handling (Groq-specific and provider-agnostic), the
+calibration layer's statistical behavior (including that mock-mode decisions can never earn
+auto-resolve, and that a category's earned trust can't be spent by a different decision that never
+itself earned it), the Merkle-tree divergence pre-filter, the full pipeline, and the API layer.
 
 ## What's real vs. mock
 

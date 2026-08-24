@@ -13,7 +13,7 @@ from unittest.mock import MagicMock, patch
 from app.chain.builder import build_all_chains
 from app.data_gen.generate import generate
 from app.matching.engine import run_matching_engine
-from app.narrator.agent import narrate_groq, narrate_mock, narrate_ollama
+from app.narrator.agent import narrate, narrate_groq, narrate_mock, narrate_ollama
 from app.narrator.tools import build_tool_context, check_batch_anomalies, recall_similar_resolutions
 
 
@@ -200,6 +200,70 @@ def test_narrate_ollama_fails_safe_on_an_unusable_tool_call():
         assert output.category == "genuine_error", f"should fail safe on: {description}"
         assert output.confidence == 0.0, f"should fail safe on: {description}"
         assert output.provider == "ollama", f"should fail safe on: {description}"
+
+
+# Round 8's audit found the tool-call guard above still didn't catch everything: `tc.function`
+# being None, or a real tool (recall_similar_resolutions, the one tool that actually reads its
+# arguments) receiving a non-dict value like a JSON array or JSON null, all raised an UNCAUGHT
+# AttributeError -- the except tuple only had (json.JSONDecodeError, TypeError, ValueError), not
+# AttributeError. Reproduced independently before fixing, same as every other finding in this log.
+def test_narrate_groq_fails_safe_on_tool_call_shapes_that_raise_attributeerror():
+    _, context, queue, _ = _narration_queue(main_n=150)
+    chain = context.chains[queue[0]]
+
+    bad_tool_calls = [
+        (SimpleNamespace(id="c1", function=None), "tc.function is None"),
+        (SimpleNamespace(id="c1", function=SimpleNamespace(name="recall_similar_resolutions", arguments="[1,2,3]")), "arguments is a JSON array, not an object"),
+        (SimpleNamespace(id="c1", function=SimpleNamespace(name="recall_similar_resolutions", arguments="null")), "arguments is JSON null"),
+    ]
+    for tc, description in bad_tool_calls:
+        tc.model_dump = lambda tc=tc: {"id": tc.id}
+        fake_message = SimpleNamespace(tool_calls=[tc], content=None)
+        fake_response = SimpleNamespace(choices=[SimpleNamespace(message=fake_message)])
+        with patch("groq.Groq") as MockGroq, patch.dict("os.environ", {"GROQ_API_KEY": "test-key"}):
+            MockGroq.return_value.chat.completions.create.return_value = fake_response
+            output = narrate_groq(chain, context)
+        assert output.category == "genuine_error", f"should fail safe on: {description}"
+        assert output.confidence == 0.0, f"should fail safe on: {description}"
+        assert output.provider == "groq", f"should fail safe on: {description}"
+
+
+def test_narrate_ollama_fails_safe_on_tool_call_with_missing_function():
+    _, context, queue, _ = _narration_queue(main_n=150)
+    chain = context.chains[queue[0]]
+
+    tc = SimpleNamespace(function=None, model_dump=lambda: {})
+    fake_message = SimpleNamespace(tool_calls=[tc], content=None)
+    fake_response = SimpleNamespace(message=fake_message)
+    with patch("ollama.Client") as MockClient:
+        MockClient.return_value.chat.return_value = fake_response
+        output = narrate_ollama(chain, context)
+
+    assert output.category == "genuine_error"
+    assert output.confidence == 0.0
+    assert output.provider == "ollama"
+
+
+def test_narrate_dispatcher_fails_safe_on_a_completely_unforeseen_exception():
+    """Round 8's core structural point: rounds 5-8 each found a *different* unguarded
+    model-supplied value inside a specific provider function's own exception handling -- a real,
+    recurring pattern that per-function whack-a-mole can't fully close, since the next one is
+    always a shape nobody's seen yet. This tests the orchestration-level backstop in narrate()
+    itself, independent of any specific provider's internal logic: even a totally unanticipated
+    exception type from a provider function must never propagate out of narrate() and crash the
+    batch. Mocks narrate_groq directly (not the HTTP client) so this doesn't depend on which
+    specific failure modes narrate_groq happens to guard against today."""
+    _, context, queue, _ = _narration_queue(main_n=150)
+    chain = context.chains[queue[0]]
+
+    with patch("app.narrator.agent.narrate_groq") as mock_narrate_groq:
+        mock_narrate_groq.side_effect = RuntimeError("a totally unforeseen failure mode")
+        output = narrate(chain, context, provider="groq")
+
+    assert output.category == "genuine_error"
+    assert output.confidence == 0.0
+    assert output.provider == "groq"
+    assert "unforeseen failure mode" in output.reasoning
 
 
 def test_narrate_ollama_fails_safe_on_out_of_schema_category():
