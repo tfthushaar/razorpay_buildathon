@@ -146,7 +146,7 @@ class NarratorOutput(BaseModel):
     confidence: float
     reasoning: str
     tool_calls: list[ToolCallRecord]
-    provider: str  # "mock" | "groq" — always disclosed, never silently swapped
+    provider: str  # "mock" | "groq" | "ollama" — always disclosed, never silently swapped
 
 
 def _execute_tool(name: str, arguments: dict, chain: CausalChain, context: ToolContext) -> dict:
@@ -345,6 +345,13 @@ def narrate_groq(chain: CausalChain, context: ToolContext, model: str = DEFAULT_
                 # rather than crash the batch or silently invent a category.
                 return _fail_safe(f"Narrator's final response could not be parsed as valid JSON: {(msg.content or '')[:200]!r}")
 
+            if parsed.get("category") not in NARRATOR_CATEGORIES:
+                # valid JSON but an out-of-schema category is a real, observed failure mode (a real
+                # ollama run returned "timing_lag" — a category the prompt explicitly forbids — with
+                # confidence 0.9; caught by an external audit 2026-08-24 reading the live DB, see
+                # BUILD_LOG.md). The prompt instruction alone doesn't bind the model; this does.
+                return _fail_safe(f"Narrator returned a category outside the valid set: {parsed.get('category')!r}")
+
             output = NarratorOutput(
                 transaction_id=chain.transaction_id,
                 category=parsed["category"],
@@ -420,6 +427,11 @@ def narrate_ollama(chain: CausalChain, context: ToolContext, model: str = DEFAUL
                 parsed = _parse_json_response(msg.content or "")
             except (json.JSONDecodeError, KeyError):
                 return _fail_safe(f"Narrator's final response could not be parsed as valid JSON: {(msg.content or '')[:200]!r}")
+
+            if parsed.get("category") not in NARRATOR_CATEGORIES:
+                # see the identical check in narrate_groq for why this is load-bearing, not defensive
+                # boilerplate: a real ollama run already returned an out-of-schema category live.
+                return _fail_safe(f"Narrator returned a category outside the valid set: {parsed.get('category')!r}")
 
             output = NarratorOutput(
                 transaction_id=chain.transaction_id,

@@ -923,9 +923,21 @@ providers, not Groq-specific.
   stress `37/37` correctly handled, `0` wrongly auto-resolved.
 
 **Versus the real Groq runs logged earlier this same day: 11-70 *minutes* for the same shape of
-workload.** The single miss (confidence 0.0) carries the identical honest safe-fallback signature
-already documented for both Groq runs — not a new failure mode, the same one, on a different
-provider.
+workload.**
+
+**Precision correction (caught by round 6 of the external audit below, 2026-08-24): the sentence
+that used to sit here claimed the single miss "carries the identical honest safe-fallback signature
+already documented for both Groq runs" — confidence 0.0, not a confident wrong guess. That was
+false, and it was checkable false: the round-6 auditor queried the live `calibration_history.db`
+directly and found the actual row was `provider=ollama, predicted_category=timing_lag`, not
+`genuine_error`, at **confidence 0.9**. `timing_lag` is not one of the three categories the narrator
+is allowed to output — it's resolved deterministically before a transaction ever reaches the
+narrator, and the system prompt says so explicitly. The model produced syntactically valid JSON
+with a semantically invalid category, and nothing downstream of the JSON parse checked it against
+`NARRATOR_CATEGORIES` before this. See the "Category validation" entry below for the fix. This
+correction is left in place rather than silently edited away, same as the precedent earlier in this
+log (the confidence-0.0 Groq case at line ~412) — the point of this file is the honest record,
+including this one being wrong the first time.
 
 ### A real hang, chased carefully, that turned out not to exist
 
@@ -994,5 +1006,98 @@ already showed the GPU itself is the bottleneck, not request dispatch.
   is *not* caught by the default (Groq-only) exception tuple. 56/56 tests passing.
 - README.md rewritten to recommend Ollama first, with the Groq path kept as a documented
   alternative rather than removed.
+
+---
+
+## 2026-08-24 — Judge-agent audit, round 6: the narrator's category output was never validated
+
+Sixth independent agent, same brief as every round: verify, don't trust prior claims. Given the
+Ollama pivot above and told specifically to check whether round 5's provider-gate fix generalizes
+to the new code path — it does — and to independently check the 94.4%/~150s claim against real
+evidence, since it's now the project's headline number.
+
+**Score: 70/100.** (AI Judgment 8/10, Failure Recovery 6/10, Measured Accuracy 6/10, Bounded &
+Gated 7/10, Throughput 8/10, Real Problem 8/10, Submission Readiness 6/10 — weighted: 16.0 + 12.0 +
+9.0 + 10.5 + 8.0 + 8.0 + 6.0.) A real drop from round 5's post-fix estimate ("mid-to-high 80s"),
+for a legitimate reason: the Ollama pivot opened a genuinely new gap round 5 never had to face.
+
+### THE FINDING: a category the narrator isn't allowed to output sailed through as a confident answer
+
+`NARRATOR_CATEGORIES = ("duplicate_refund", "netting_trap", "genuine_error")` in `agent.py` was
+enforced **only as a prompt instruction** — nothing checked `parsed["category"]` against it on
+either real provider's success path. The auditor proved this wasn't theoretical by querying the
+live `calibration_history.db` directly and finding a real row: `provider=ollama,
+predicted_category=timing_lag, confidence=0.9`, transaction `order_dfba37bc5ff7`, from run
+`9eabac8d-83c4-4fbf-8bd3-e684f4ccd45b`. `timing_lag` is resolved deterministically before a
+transaction ever reaches the narrator — the system prompt says so explicitly — so this was a real
+model hallucination that the pipeline had no code-level defense against. It happened to escalate
+rather than auto-resolve only because no category named `timing_lag` had ever accumulated enough
+history to clear the Wilson threshold, not because anything caught the error itself. Worse: it
+directly contradicted a specific claim already in this log and in README.md, that the run's one
+miss "carries the identical honest safe-fallback signature" (confidence 0.0) — the real row was a
+confident 0.9, not a safe fallback. That correction is left in place a few sections up, not edited
+away.
+
+### The fix
+
+Added the same allowlist check both real providers' success paths were missing, in `agent.py`:
+
+```python
+if parsed.get("category") not in NARRATOR_CATEGORIES:
+    return _fail_safe(f"Narrator returned a category outside the valid set: {parsed.get('category')!r}")
+```
+
+immediately after the existing malformed-JSON check, in both `narrate_groq` and `narrate_ollama` —
+same shape as the fail-safe that already handles a JSON parse failure, so an out-of-schema category
+now escalates as an honest `genuine_error`/confidence 0.0 instead of sailing through. Two new tests
+in `test_narrator.py` mock each provider's client to return exactly this payload
+(`{"category": "timing_lag", "confidence": 0.9, ...}`) and assert the fail-safe fires. Verified
+load-bearing the same way round 5's fix was: stripped the check, confirmed both new tests fail
+against the real live bug's exact payload, restored it, confirmed they pass. 58/58 tests passing.
+
+Also fixed, all flagged in the same round: `backend/.env.example` didn't mention `ollama` as a
+provider option (the same "stale doc in a new location" failure class that's recurred nearly every
+round — UI copy, test counts twice, Node version, now this); a stale code comment still listing only
+`"mock" | "groq"` on `NarratorOutput.provider`.
+
+### Evidence cleanup and a real, committed Ollama evidence file
+
+Deleted exactly the two contaminated rows this one bad decision produced — `scored_decisions` id
+324 in `calibration_history.db`, `audit_log` id 2168 in `audit_log.db` — identified precisely by
+`transaction_id`/`run_id`/`category` match, same precision-cleanup precedent as rounds 1 and 4
+(240 genuine rows preserved then; nothing else touched now). Confirmed the live
+`CalibrationHistory.report()` now shows exactly the 3 valid categories, no phantom fourth row.
+
+The audit also flagged (HIGH) that unlike both Groq runs, no real Ollama run had ever been dumped
+to `docs/evidence/` — the 94.4%/~150s claim rested on log prose alone. Fixed by running a real
+`provider="ollama"` batch wired to the live DB objects (`app.main`'s actual `audit_logger`/
+`calibration_history`, not fresh ones — the exact mistake round 2 caught and fixed), same seed=42
+as every other documented Ollama number:
+[`docs/evidence/real-ollama-run-2026-08-24.json`](docs/evidence/real-ollama-run-2026-08-24.json).
+
+**Real numbers from this run, cross-checked against ground truth directly, not just trusted from
+the dashboard:** 17/18 (94.4%) on the main narration queue, 50.75s for that queue (~2.8s/txn) —
+reproducing the previously-logged figures exactly, now with a citable artifact behind them. The
+one miss this time (`order_6f26b6e3d4da`, predicted `genuine_error`, true `netting_trap`) really
+does carry confidence 0.0 — a genuine safe fallback, the claim that was false for the *previous*
+run is true for *this* one. And **the exact transaction that hallucinated `timing_lag` last time,
+`order_dfba37bc5ff7`, now resolves correctly to `genuine_error` at confidence 1.0** — not
+necessarily proof the new validation code path fired (the model may simply have answered correctly
+this time; LLM sampling isn't fully deterministic even at a fixed data seed), but a clean,
+concrete, real demonstration that this exact previously-problematic case is healthy now, with a
+code-level backstop in place either way. Stress batch: 37/37 correctly handled, 0 wrongly
+auto-resolved. Live accumulated calibration state at time of writing (not this run alone —
+`CalibrationHistory` accumulates across every real run in this session, by design): `duplicate_refund`
+n=15 100% accuracy but Wilson lower bound 79.6% (still escalates — small-N conservatism working as
+intended), `netting_trap` n=28 100% accuracy, Wilson lower bound 87.9% (still just under 90%, still
+escalates), `genuine_error` n=28 82.1% accuracy (always escalates regardless, by design). Nothing
+auto-resolves yet in the live history — an honest, un-cherry-picked snapshot, not a staged demo
+number.
+
+### Score trajectory so far
+
+Round 1: 71. Round 2: 79. Round 3: 84. Round 4: 83. Round 5: 72. Round 6: 70. Every round has found
+something real and distinct — this is the sixth time in a row, not diminishing returns. User's
+stopping target for this loop: ~90.
 
 ---

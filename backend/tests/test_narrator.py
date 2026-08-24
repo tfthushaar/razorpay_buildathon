@@ -7,10 +7,13 @@ adversarial/ambiguous case correctly using genuine cross-referenced signal, not 
 answer.
 """
 
+from types import SimpleNamespace
+from unittest.mock import MagicMock, patch
+
 from app.chain.builder import build_all_chains
 from app.data_gen.generate import generate
 from app.matching.engine import run_matching_engine
-from app.narrator.agent import narrate_mock
+from app.narrator.agent import narrate_groq, narrate_mock, narrate_ollama
 from app.narrator.tools import build_tool_context, check_batch_anomalies, recall_similar_resolutions
 
 
@@ -61,6 +64,51 @@ def test_mock_narrator_classifies_the_narration_queue_correctly():
 
     accuracy = correct / len(queue)
     assert accuracy >= 0.9, f"mock narrator accuracy on the narration queue was only {accuracy:.1%}"
+
+
+def test_narrate_groq_fails_safe_on_out_of_schema_category():
+    """A real ollama run once returned category="timing_lag" (a category the system prompt
+    explicitly forbids) at confidence 0.9 -- valid JSON, invalid schema, and nothing downstream of
+    the parse step checked for it. Caught by an external audit 2026-08-24 reading the live DB
+    directly (see BUILD_LOG.md). Proves the fix: an out-of-schema category must fail safe exactly
+    like malformed JSON does, not sail through as a confident wrong answer."""
+    _, context, queue, _ = _narration_queue(main_n=150)
+    chain = context.chains[queue[0]]
+    fake_message = SimpleNamespace(
+        tool_calls=None,
+        content='{"category": "timing_lag", "confidence": 0.9, "reasoning": "looks like a timing issue"}',
+    )
+    fake_response = SimpleNamespace(choices=[SimpleNamespace(message=fake_message)])
+
+    with patch("groq.Groq") as MockGroq, patch.dict("os.environ", {"GROQ_API_KEY": "test-key"}):
+        MockGroq.return_value.chat.completions.create.return_value = fake_response
+        output = narrate_groq(chain, context)
+
+    assert output.category == "genuine_error"
+    assert output.confidence == 0.0
+    assert output.provider == "groq"
+    assert "timing_lag" in output.reasoning
+
+
+def test_narrate_ollama_fails_safe_on_out_of_schema_category():
+    """Same fix, same live-observed failure, the other real provider -- see the Groq version of
+    this test for the full story."""
+    _, context, queue, _ = _narration_queue(main_n=150)
+    chain = context.chains[queue[0]]
+    fake_message = SimpleNamespace(
+        tool_calls=None,
+        content='{"category": "timing_lag", "confidence": 0.9, "reasoning": "looks like a timing issue"}',
+    )
+    fake_response = SimpleNamespace(message=fake_message)
+
+    with patch("ollama.Client") as MockClient:
+        MockClient.return_value.chat.return_value = fake_response
+        output = narrate_ollama(chain, context)
+
+    assert output.category == "genuine_error"
+    assert output.confidence == 0.0
+    assert output.provider == "ollama"
+    assert "timing_lag" in output.reasoning
 
 
 def test_recall_grows_as_the_run_progresses():

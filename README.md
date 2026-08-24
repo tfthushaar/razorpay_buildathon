@@ -103,12 +103,12 @@ cd backend
 python -m pytest tests/ -v
 ```
 
-56 tests covering the data generator's arithmetic invariants, the matching engine's deterministic
-resolution paths, the narrator's tool-based detection and retry/failure handling (Groq-specific and
-provider-agnostic), the calibration layer's statistical behavior (including that mock-mode
-decisions can never earn auto-resolve, and that a category's earned trust can't be spent by a
-different decision that never itself earned it), the Merkle-tree divergence pre-filter, the full
-pipeline, and the API layer.
+58 tests covering the data generator's arithmetic invariants, the matching engine's deterministic
+resolution paths, the narrator's tool-based detection, category-schema validation, and retry/failure
+handling (Groq-specific and provider-agnostic), the calibration layer's statistical behavior
+(including that mock-mode decisions can never earn auto-resolve, and that a category's earned trust
+can't be spent by a different decision that never itself earned it), the Merkle-tree divergence
+pre-filter, the full pipeline, and the API layer.
 
 ## What's real vs. mock
 
@@ -117,13 +117,27 @@ causal chain matching, deterministic exception resolution, calibration, audit lo
 full dashboard are all live with zero external dependencies, and mock mode calls the exact same
 real tool functions the live narrator does (only the final synthesis step is a fixed rule).
 
-**Local (Ollama, qwen2.5:7b-instruct)** — the recommended real provider. Full batch + stress run
-(160 transactions, 55 narrated): **94.4% narrator accuracy** (17/18 correct on the main
-narration queue), 37/37 correctly handled on the stress batch, 0 wrongly auto-resolved, in
-**~150 seconds wall clock, GPU-accelerated, zero API cost.** The one miss carried confidence 0.0 —
-the same honest safe-fallback signature documented for the real Groq runs below, not a confident
-wrong guess. A genuine concurrent-dispatch attempt (running narration calls in parallel) was tried
-and measured: it delivered **no speedup** (Ollama serializes on its single GPU-resident model
+**Local (Ollama, qwen2.5:7b-instruct)** — the recommended real provider, run against the live
+server and persisted into the same `CalibrationHistory`/audit log the dashboard reads from, same as
+both Groq runs below. Raw output: [real run](docs/evidence/real-ollama-run-2026-08-24.json).
+**94.4% narrator accuracy** (17/18 correct on the main narration queue, cross-checked directly
+against ground truth, not just read off the dashboard), 50.75s for that queue (~2.8s/txn), 37/37
+correctly handled on the stress batch, 0 wrongly auto-resolved. The one miss carried confidence
+0.0 — a genuine safe fallback (predicted `genuine_error`, true label `netting_trap`).
+
+An earlier Ollama run had a real, more interesting failure an external audit caught live: the model
+returned `timing_lag` — a category outside the 3 the narrator is allowed to output — at **confidence
+0.9**, and nothing downstream of the JSON parse checked the category against the valid set before
+letting it through. **Fixed**: both `narrate_groq` and `narrate_ollama` now validate the category
+and route an out-of-schema result through the same fail-safe as malformed JSON. The exact
+transaction that hallucinated `timing_lag` before now resolves correctly (`genuine_error`,
+confidence 1.0) in the linked evidence run — not proof the new check fired rather than the model
+just answering right this time, but a clean demonstration the case is healthy either way, with a
+code-level backstop now in place regardless. Full incident, fix, and the DB cleanup that followed
+in BUILD_LOG.md.
+
+A genuine concurrent-dispatch attempt (running narration calls in parallel) was also tried and
+measured: it delivered **no speedup** (Ollama serializes on its single GPU-resident model
 regardless of client-side concurrency) and introduced a real, if modest, accuracy cost from making
 the `recall_similar_resolutions` tool's "prior resolutions so far" answer order-dependent —
 reverted after measuring both effects rather than kept on the assumption that concurrency must
