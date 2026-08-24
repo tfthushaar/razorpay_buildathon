@@ -210,12 +210,18 @@ def api_resolve_escalation(req: ResolveRequest) -> ResolveResponse:
                 raise HTTPException(404, f"no source record on file for {req.transaction_id} (stale run?)")
             threshold = snapshot.result.threshold if snapshot.result else 0.90
 
-        calibration_history.confirm_human_resolution(
+        # confirm_human_resolution now returns the report reflecting this exact confirmation
+        # (add_and_report internally) rather than a separate .report() call afterward -- a
+        # concurrent reset_history used to be able to run in that gap and make this human's own
+        # just-confirmed resolution vanish from their own returned report. See
+        # calibration/history.py's add_and_report docstring for the live-reproduced race.
+        updated_calibration = calibration_history.confirm_human_resolution(
             transaction_id=req.transaction_id,
             predicted_category=escalation["category"],
             confirmed_true_label=true_label,
             amount=escalation["amount"],
             provider=escalation["provider"],
+            threshold=threshold,
         )
 
         return ResolveResponse(
@@ -223,7 +229,7 @@ def api_resolve_escalation(req: ResolveRequest) -> ResolveResponse:
             predicted_category=escalation["category"],
             confirmed_true_label=true_label,
             was_correct=escalation["category"] == true_label,
-            updated_calibration=calibration_history.report(threshold=threshold),
+            updated_calibration=updated_calibration,
         )
     except HTTPException:
         raise

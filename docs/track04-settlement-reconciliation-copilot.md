@@ -242,6 +242,11 @@ Beyond the main 50-200 transaction batch (mixed distribution below), generate a 
 
 ## 10. Submission checklist (per Razorpay's stated requirements)
 
+This is the original pre-build plan, left unchecked as written — it's a planning checklist, not a
+status tracker, and a round-12 audit correctly flagged that its all-`[ ]` state directly
+contradicts PROGRESS.md's own mirror of the same six items (five of six checked there). **For
+actual current completion status, see [PROGRESS.md](../PROGRESS.md)**, not this list.
+
 - [ ] Public GitHub repo, clean commit history, clear README
 - [ ] 5-minute pitch video — lead with a live "break it" moment (feed an ambiguous/adversarial transaction on camera, show the system correctly escalate instead of guessing)
 - [ ] Architecture explanation (this document adapted into your README/submission doc)

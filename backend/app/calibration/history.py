@@ -52,21 +52,49 @@ class CalibrationHistory:
         if not decisions:
             return
         with self._lock:
-            self._conn.executemany(
-                "INSERT INTO scored_decisions (transaction_id, predicted_category, true_label, amount, provider, source) VALUES (?, ?, ?, ?, ?, ?)",
-                [(d.transaction_id, d.predicted_category, d.true_label, d.amount, d.provider, source) for d in decisions],
-            )
-            self._conn.commit()
+            self._insert_locked(decisions, source)
+
+    def _insert_locked(self, decisions: list[ScoredDecision], source: str) -> None:
+        # caller must already hold self._lock -- factored out so add_and_report can share it
+        # without a second (re-entrant, and therefore self-deadlocking) acquisition.
+        self._conn.executemany(
+            "INSERT INTO scored_decisions (transaction_id, predicted_category, true_label, amount, provider, source) VALUES (?, ?, ?, ?, ?, ?)",
+            [(d.transaction_id, d.predicted_category, d.true_label, d.amount, d.provider, source) for d in decisions],
+        )
+        self._conn.commit()
+
+    def add_and_report(self, decisions: list[ScoredDecision], threshold: float, source: str = "batch") -> CalibrationReport:
+        """Insert this call's own decisions and read back the report in one lock acquisition, so
+        no other thread's `clear()` (the "reset calibration history" checkbox, wired to
+        `/api/run`) can run in the gap between them. Before this existed, `add()` and `report()`
+        were two independent, individually lock-safe calls -- an external audit 2026-08-24 proved
+        that gap live: request A added 9 decisions, request B's concurrent `reset_history` cleared
+        the table and added its own 22, and A's own `report()` came back reflecting B's data, with
+        A's own just-persisted decisions gone -- not delayed, permanently gone, no error, silently
+        corrupting the exact ledger the "trust accumulates over time" pitch depends on. This
+        doesn't prevent a concurrent `clear()` from wiping history around this call (that's the
+        reset checkbox doing what it's supposed to do); it guarantees THIS call's own report always
+        reflects THIS call's own contribution, not a different request's."""
+        with self._lock:
+            if decisions:
+                self._insert_locked(decisions, source)
+            cursor = self._conn.execute("SELECT transaction_id, predicted_category, true_label, amount, provider FROM scored_decisions")
+            all_decisions = [ScoredDecision(transaction_id=r[0], predicted_category=r[1], true_label=r[2], amount=r[3], provider=r[4]) for r in cursor.fetchall()]
+        return calibrate(all_decisions, threshold=threshold)
 
     def confirm_human_resolution(
-        self, transaction_id: str, predicted_category: str, confirmed_true_label: str, amount: int, provider: str
-    ) -> None:
+        self, transaction_id: str, predicted_category: str, confirmed_true_label: str, amount: int, provider: str, threshold: float
+    ) -> CalibrationReport:
         """The feedback loop entry point (spec §6.5): a human resolving an escalated case is a
         confirmed data point, folded straight back into the accumulated history. `provider` is
         whatever produced the *original* prediction being confirmed — a human confirming a
         mock-derived guess still doesn't make it AI judgment, so it must not silently start
-        counting toward the auto-resolve gate just because a human looked at it."""
-        self.add(
+        counting toward the auto-resolve gate just because a human looked at it. Returns the
+        report reflecting THIS confirmation via add_and_report, not a separate add()+report() pair
+        — the same live-reproduced race add_and_report's own docstring describes applies here too:
+        a concurrent reset_history could otherwise make a human's own just-confirmed resolution
+        vanish from their own returned report."""
+        return self.add_and_report(
             [
                 ScoredDecision(
                     transaction_id=transaction_id,
@@ -76,6 +104,7 @@ class CalibrationHistory:
                     provider=provider,
                 )
             ],
+            threshold=threshold,
             source="human_confirmed",
         )
 

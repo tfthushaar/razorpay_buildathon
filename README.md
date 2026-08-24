@@ -51,7 +51,9 @@ python -m uvicorn app.main:app --reload --port 8000
 By default the narrator runs in **mock mode** — zero cost, deterministic, and it calls the exact
 same real tool functions the live narrator does (only the final "turn tool results into a
 category+confidence+reasoning" step is a fixed rule rather than an LLM call). Two real-provider
-options exist:
+options exist. **Set either one by copying `backend/.env.example` to `backend/.env` and editing
+it** (works identically on Windows/macOS/Linux — `main.py` calls `load_dotenv()` on startup, so
+this is the recommended path regardless of shell):
 
 **Recommended: `ollama` — a fully local model, zero cost, zero rate limit, zero external
 dependency.**
@@ -59,8 +61,11 @@ dependency.**
 ```bash
 winget install Ollama.Ollama       # or download from ollama.com — free, no account needed
 ollama pull qwen2.5:7b-instruct    # ~4.7GB, one-time download
-export LLM_PROVIDER=ollama
 ```
+
+then set `LLM_PROVIDER=ollama` in `backend/.env` (or, on macOS/Linux only, `export LLM_PROVIDER=ollama`
+in your shell — `export` is not valid PowerShell/cmd syntax on Windows, where this project was
+actually built, so `.env` is the path that works everywhere).
 
 This runs entirely on your own machine (GPU-accelerated automatically if one is available, falls
 back to CPU otherwise) — no API key, no account, no rate limit, works fully offline. It's the
@@ -73,10 +78,8 @@ cap too small for a real batch. Real, verified result on this project's own hard
 
 **Alternative: `groq` — a real tool-calling loop against a hosted API.**
 
-```bash
-export GROQ_API_KEY=your-key-here   # free tier at console.groq.com
-export LLM_PROVIDER=groq
-```
+Set `GROQ_API_KEY=your-key-here` (free tier at console.groq.com) and `LLM_PROVIDER=groq` in
+`backend/.env`, the same way as above.
 
 (or pass `"provider": "ollama"` / `"provider": "groq"` per-request in the `/api/run` body. Groq was
 chosen over the originally-planned Claude API for cost — see BUILD_LOG.md. Default model is
@@ -103,18 +106,20 @@ cd backend
 python -m pytest tests/ -v
 ```
 
-76 tests covering the data generator's arithmetic invariants, the matching engine's deterministic
+77 tests covering the data generator's arithmetic invariants, the matching engine's deterministic
 resolution paths, the narrator's tool-based detection, response-schema validation (an out-of-set
 category, a malformed/wrongly-shaped final answer, out-of-range confidence, an unusable tool call,
 plus an orchestration-level backstop for whatever the next unforeseen failure shape turns out to be
 — see BUILD_LOG.md), a real, finite request timeout on both real providers (verified directly that
 Ollama's own client silently defaults to *no* timeout at all, unlike a bare `httpx.Client()`), and
 retry/failure handling (Groq-specific and provider-agnostic), the calibration layer's statistical
-behavior (including that mock-mode decisions can never earn auto-resolve, and that a category's
-earned trust can't be spent by a different decision that never itself earned it), the Merkle-tree
-divergence pre-filter, the full pipeline, and the API layer (including that both live-input
-endpoints reject malformed input cleanly instead of crashing, an out-of-range threshold can't force
-the calibration gate open, 8 genuinely concurrent batch runs against the shared SQLite-backed state
+behavior (including that mock-mode decisions can never earn auto-resolve, that a category's earned
+trust can't be spent by a different decision that never itself earned it, and that a concurrent
+history reset can never make a request's own just-added decisions vanish from its own report), the
+Merkle-tree divergence pre-filter, the full pipeline, and the API layer (including that both
+live-input endpoints reject malformed input cleanly instead of crashing, an out-of-range threshold
+can't force the calibration gate open, 8 genuinely concurrent batch runs against the shared
+SQLite-backed state
 all succeed, 5 concurrent resolves of the same escalation count exactly once instead of racing, and
 — with an amplified thread-switch interval, the technique used to actually find this — 16 concurrent
 batch runs never desync a run's escalations from its own ground truth — see BUILD_LOG.md).
@@ -133,6 +138,19 @@ both Groq runs below. Raw output: [real run](docs/evidence/real-ollama-run-2026-
 against ground truth, not just read off the dashboard), 50.75s for that queue (~2.8s/txn), 37/37
 correctly handled on the stress batch, 0 wrongly auto-resolved. The one miss carried confidence
 0.0 — a genuine safe fallback (predicted `genuine_error`, true label `netting_trap`).
+
+**Concrete evidence the reasoning is genuine, not decorative tool-calling around a fixed answer:**
+transaction `order_671da51349f1` has been narrated across both mock and real runs recorded in this
+project's own audit log. Mock's answer is always confidence `0.3` for `genuine_error` (a fixed
+constant in `narrate_mock`, which calls `recall_similar_resolutions` but never reads its result) —
+so mock "matching" that tool's average confidence is a tautology, not evidence of anything. The
+real Ollama runs are different: across three independent real runs (confidence `0.533`, `0.25`,
+and `0.62` — three different values, not a repeated constant), each one's final confidence exactly
+equals what `recall_similar_resolutions` had just told it (`avg_confidence` from that run's own
+prior resolutions) — checked directly against the live audit log, not asserted. That's the model
+using one tool's numeric output to set a different, later decision — the actual thing "agentic tool
+use" is supposed to mean here, not just calling functions on the way to an answer it would have
+given anyway.
 
 An earlier Ollama run had a real, more interesting failure an external audit caught live: the model
 returned `timing_lag` — a category outside the 3 the narrator is allowed to output — at **confidence

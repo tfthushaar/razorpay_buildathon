@@ -193,3 +193,52 @@ def test_provider_gate_applies_per_decision_not_just_per_category():
     assert netting_escalations, "mock-classified netting_trap must still escalate even though the category has earned real trust elsewhere"
     for e in netting_escalations:
         assert e.provider == "mock"
+
+
+def test_concurrent_reset_never_hides_a_calls_own_just_added_decisions():
+    """A round-12 audit reproduced this live against the previous add()+report() (two separate
+    calls) design: request A added 9 decisions, a concurrent reset_history request's clear() fired
+    in the gap before A's own report(), and A's own report() came back reflecting the OTHER
+    request's fresh data with A's own just-persisted decisions permanently gone -- not delayed,
+    gone, no error, silently corrupting the exact ledger the "trust accumulates over time" pitch
+    depends on. add_and_report (now used by both run_batch's calibration commit and
+    confirm_human_resolution) closes this by making "insert this call's own decisions, then read
+    the report" one atomic operation under the same lock clear() also needs -- a concurrent
+    clear() can only run entirely before or entirely after A's own add-then-report, never inside
+    it, so A's own report always reflects at least A's own contribution.
+
+    Fires many add_and_report calls concurrently against many clear() calls and requires every
+    single add_and_report to see at least its own 3 just-added decisions in its own returned
+    report -- not eventually, in the exact report that call itself received."""
+    import tempfile as _tempfile
+    from concurrent.futures import ThreadPoolExecutor
+    from pathlib import Path as _Path
+
+    with _tempfile.TemporaryDirectory() as tmp:
+        history = CalibrationHistory(db_path=_Path(tmp) / "history.db")
+        violations = []
+
+        def add_and_check(i: int):
+            decisions = [
+                ScoredDecision(transaction_id=f"a{i}_{j}", predicted_category="genuine_error", true_label="genuine_error", amount=100, provider="groq")
+                for j in range(3)
+            ]
+            report = history.add_and_report(decisions, threshold=0.90)
+            total_n = sum(c.n for c in report.categories)
+            if total_n < 3:
+                violations.append((i, total_n))
+
+        def reset_repeatedly():
+            for _ in range(30):
+                history.clear()
+
+        with ThreadPoolExecutor(max_workers=9) as pool:
+            resetter = pool.submit(reset_repeatedly)
+            adders = [pool.submit(add_and_check, i) for i in range(30)]
+            for f in adders:
+                f.result()
+            resetter.result()
+
+        history.close()
+
+    assert not violations, f"{len(violations)} of {30} add_and_report calls didn't see their own just-added decisions: {violations[:5]}"

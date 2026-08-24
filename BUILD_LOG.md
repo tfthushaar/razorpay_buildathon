@@ -1826,3 +1826,96 @@ without independent re-verification, consistent with how every other fix in this
 treated. User's stopping target remains a hard 95.
 
 ---
+
+## 2026-08-24 — Judge-agent audit, round 12: the sixth instance, and the strongest AI Judgment evidence found yet
+
+Twelfth independent agent, running in parallel with a direct, targeted Failure Recovery pass (the
+previous entry) — deliberately pointed away from the concurrency-hardening arc that had already had
+five rounds of attention, toward AI Judgment, Real Problem, Throughput, and Submission Readiness
+specifically, plus permission to report a sixth pattern instance if genuinely found rather than
+manufactured.
+
+**Score: 77/100** (AI Judgment 16/20, Failure Recovery 12/20, Measured Accuracy 13/15, Bounded &
+Gated 13/15, Throughput 8/10, Real Problem 8/10, Submission Readiness 7/10) — down 3 from round
+11's 80. An honest dip: Failure Recovery dropped one further point from finding the sixth instance
+below (before the fix landed), and Submission Readiness dropped two from real, if minor, findings.
+Every other criterion held under fresh, independent scrutiny.
+
+### THE FINDING: a sixth instance of the pattern, in `CalibrationHistory` this time
+
+Confirmed the `_RunSnapshot` fix from the previous entry genuinely holds — re-ran its test three
+additional times, traced every read/write path by hand, found no gap. But looked one level deeper,
+at `CalibrationHistory`, the other piece of shared mutable state `/api/run` touches, and found the
+identical underlying pattern in a subsystem the `_RunSnapshot` fix never covered: `add()` and
+`report()` were each individually lock-safe, but not atomic *as a pair*. A concurrent
+`reset_history` request's `clear()` could fire in the gap between one request's own `add()` and
+that same request's later `report()` — reproduced live: request A added 9 decisions, request B's
+`clear()` fired, B added its own 22, and A's own subsequent `report()` came back reflecting B's 22,
+with A's own 9 permanently gone. Not delayed — gone, no error, silently corrupting the exact ledger
+the "trust accumulates over time" pitch is built on. Realistically reachable, too: real-provider
+runs take 50s-70 minutes per this project's own docs, and an impatient judge clicking "Run batch"
+again with "reset" checked while a prior run is still in flight needs no thread-scheduling
+amplification to happen — a plausible interaction, not a manufactured edge case.
+
+**Fixed** the same way the last several rounds have: added `CalibrationHistory.add_and_report()`,
+which inserts a call's own decisions and reads back the report in one lock acquisition, so no other
+thread's `clear()` can run in the gap. Found and fixed the identical gap in
+`confirm_human_resolution()` (the escalation-resolve feedback loop) too, once looking for the
+pattern specifically — it had the exact same add-then-separately-report shape. Both `run_batch`'s
+calibration commit and `/api/escalations/resolve` now use the atomic path. New test fires 30
+concurrent `add_and_report` calls against a thread hammering `clear()` and requires every one to
+see its own just-added decisions in its own returned report — failed against the pre-fix code
+(the method didn't exist yet), passes after, re-run 5 additional times clean.
+
+### The AI Judgment evidence exists — and re-verifying it directly turned up something better than what was cited
+
+The auditor found and cited one concrete example of the narrator using a tool's numeric output to
+set a different decision's confidence — real evidence against the highest-weighted criterion (20%),
+previously undocumented anywhere. Checked it directly rather than taking the citation at face value,
+querying the live audit log myself: the cited transaction (`order_671da51349f1`) has been narrated
+16 times across this session's accumulated history, and *13 of those 16* are `mock` decisions whose
+"match" is tautological — `narrate_mock`'s `genuine_error` confidence is a hardcoded `0.3` constant,
+and if that's also the dominant value already in a run's own `recall_similar_resolutions` history,
+the average trivially converges to the same constant. That's not evidence of anything.
+
+The 3 real (Ollama) runs are the actual evidence, and they're more convincing than one citation:
+three independent real runs, three genuinely *different* confidence values (`0.533`, `0.25`,
+`0.62` — not a repeated constant), each one exactly matching what `recall_similar_resolutions` had
+just told it for that specific run's own prior context. Matching a varying, run-specific average by
+coincidence three times with three different numbers is a much stronger claim than matching a fixed
+constant once. Added this — the honest version, explicitly distinguishing it from the tautological
+mock matches rather than citing the inflated 16-observation count — to README's "What's real vs.
+mock" section, since a judge working under real time pressure (a real run costs 50s-70 minutes) may
+default to mock mode and never see genuine reasoning directly otherwise.
+
+### Two Submission Readiness findings, both fixed
+
+- `docs/track04-settlement-reconciliation-copilot.md`'s §10 submission checklist (all six items
+  `[ ]`, the original pre-build plan) directly contradicts `PROGRESS.md`'s own mirror of the same
+  six items (five of six `[x]`) — and README links the track04 doc prominently as "Full design
+  rationale," so a judge reading cold is likely to open it first and see an apparently 0%-complete
+  project. The exact "stale/contradictory claims across files" failure class this project has
+  already caught and fixed four separate times (UI copy, test counts twice, Node version), just not
+  yet in this specific spot. Fixed with a one-line pointer to PROGRESS.md as the actual status
+  source, rather than syncing two lists that would just drift apart again.
+- README's real-provider setup instructions were bash-only (`export LLM_PROVIDER=ollama`) on a
+  project actually built on Windows, where `export` is not valid PowerShell/cmd syntax — confirmed
+  against this session's own environment. `backend/.env.example` already documented both variables
+  and `main.py` already calls `load_dotenv()`, so the cross-platform-safe path already existed in
+  the code, README just didn't lead with it. Fixed to lead with copying `.env.example`, `export`
+  kept as a documented *nix-only alternative underneath.
+- (Also flagged: uncommitted frontend work from the parallel Failure Recovery pass — already
+  resolved by the time this entry was written, that work landed as its own commit before round 12's
+  report came back.)
+
+### Score trajectory so far
+
+Round 1: 71. Round 2: 79. Round 3: 84. Round 4: 83. Round 5: 72. Round 6: 70. Round 7: 74. Round 8:
+78. Round 9: 82. Round 10: 70. Round 11: 80. Round 12: 77. A dip, honestly earned by a real finding
+(the sixth pattern instance) rather than noise — the same shape as round 10's dip. Six confirmed
+instances of the same underlying lesson now, across the narrator, three different API endpoints,
+and the calibration layer — "an unguarded boundary where untrusted input or concurrent access meets
+code that assumed a single well-behaved caller or well-formed data." User's stopping target
+remains a hard 95.
+
+---

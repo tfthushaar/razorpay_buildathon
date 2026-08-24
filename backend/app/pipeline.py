@@ -196,9 +196,11 @@ def run_batch(
     if calibration_history is not None:
         # accumulate into the running history rather than judging this batch in isolation — see
         # calibration/history.py for why a single batch's per-category N is too small to ever
-        # clear a 90% Wilson lower bound on its own.
-        calibration_history.add(scored_decisions, source="batch")
-        calibration_report = calibration_history.report(threshold=threshold)
+        # clear a 90% Wilson lower bound on its own. add_and_report (not separate add()+report()
+        # calls) so a concurrent reset_history request can't wipe this run's own contribution out
+        # from under its own report -- see add_and_report's docstring for the live-reproduced race
+        # this closes.
+        calibration_report = calibration_history.add_and_report(scored_decisions, threshold=threshold, source="batch")
     else:
         calibration_report = calibrate(scored_decisions, threshold=threshold)
     auto_resolve_categories = set(calibration_report.auto_resolve_categories)
