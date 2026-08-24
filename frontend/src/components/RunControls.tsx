@@ -44,7 +44,8 @@ export function RunControls({ onRun, loading, error }: Props) {
           Narrator provider
           <select value={provider} onChange={(e) => setProvider(e.target.value)}>
             <option value="mock">mock (zero-cost, deterministic)</option>
-            <option value="groq">groq (gpt-oss-20b, needs GROQ_API_KEY)</option>
+            <option value="ollama">ollama (local qwen2.5:7b, zero cost, zero rate limit)</option>
+            <option value="groq">groq (gpt-oss-20b, needs GROQ_API_KEY, rate-limited)</option>
           </select>
         </label>
         <label className="checkbox-label">

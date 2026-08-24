@@ -860,3 +860,139 @@ here plainly rather than resolved unilaterally; it needs the user's input, not a
 manufacturing findings to force the number up.**
 
 ---
+
+## 2026-08-24 — Pivoted the narrator's throughput ceiling entirely: local inference via Ollama
+
+Round 5's own honest ceiling assessment named the free-tier token budget as Throughput's
+irreducible limit *if a hosted API stays the constraint*. Instead of accepting that ceiling or
+paying for a higher tier (the user's earlier instruction was to minimize running cost), the user
+asked to survey every alternative, including local inference, before settling.
+
+### The provider survey
+
+Checked, against each provider's own official docs where possible (not just aggregator blogs,
+several of which disagreed with each other and with the provider's own pages — see the Cerebras
+entry below for a concrete case of that mattering):
+
+| Provider | Real limit found | Disqualifying issue |
+|---|---|---|
+| Groq (original) | 8,000 TPM | Hit directly — the reason this survey started |
+| Cerebras | 5 RPM / 30K TPM | **Not actually permanently free** — the "$5 credit" requires a verified payment method and expires in 30 days (official docs, not a blog claim) |
+| DeepSeek | 500-2,500 *concurrent connections*, not RPM/TPM | **Not permanently free** — 5M tokens is a one-time signup grant, then payment required |
+| Gemini 2.5 Flash | 10 RPM, 250 req/day | Genuinely free and permanent, but still RPM-bound the same way Groq/Cerebras are |
+| GitHub Models | ~10 RPM, 50-150 req/day | Same class of ceiling; explicitly documented as "prototyping only" |
+| SambaNova | 20 RPM, **20 requests/day total** | Permanently free, no card — but the daily cap alone is smaller than one narration queue |
+| OpenRouter (`:free` models) | 20 RPM, 50/day unfunded | The workable 1,000/day tier requires **$10 of historical spend** — not actually free-forever |
+| Mistral (Experiment tier) | ~1B tokens/month, RPM unpublished | Explicitly framed by Mistral as "for prototyping, not for running a real product" |
+| Zhipu GLM-4.7-Flash | ~1 req/sec, ~1,000 req/day | Genuinely permanent, no card, praised specifically for tool-calling reliability — the strongest *hosted* candidate found |
+| Cloudflare Workers AI | 10,000 "Neurons"/day | Custom billing unit, unclear per-request cost, added integration complexity for uncertain benefit |
+
+Every hosted option shares the same structural problem for this project's access pattern (many
+small sequential tool-calling requests per transaction): they're all metered by RPM, TPM, or a
+daily cap, and our narrator makes 1-4 requests per transaction across 18-55+ transactions a batch.
+GLM-4.7-Flash was the best of the hosted options — but "best hosted option" still means an external
+dependency, a rate limit, and (for a live pitch recording) a real risk of the API being slow or
+down at exactly the wrong moment.
+
+### The actual fix: don't use a hosted API at all
+
+Installed Ollama (`winget install Ollama.Ollama`), pulled `qwen2.5:7b-instruct` (~4.7GB,
+GPU-tool-calling-tested against three candidate models before committing — see the earlier probe
+in this log's "smoke test" style, repeated here for Ollama), confirmed GPU acceleration
+(`ollama ps` reports 100% GPU on this machine's AMD Radeon RX 9060 XT — AMD+Windows local-LLM
+support turned out to work cleanly via Ollama's own backend, contrary to the higher risk assumed
+before checking).
+
+Implemented `narrate_ollama` in `app/narrator/agent.py`, mirroring `narrate_groq`'s structure with
+two real, verified API differences (checked directly against the `ollama` package's types, not
+assumed): `ToolCall.function.arguments` is already a parsed `dict`, not a JSON string needing
+`json.loads()`; tool-result messages have no `tool_call_id` to correlate against (Ollama matches by
+message order). Generalized `_call_with_retry` (previously hardcoded to Groq's three exception
+types) to accept an explicit `retry_on` tuple, and gave `narrate_ollama` its own
+(`ollama.RequestError`, `ollama.ResponseError`, `httpx.ConnectError`, `httpx.TimeoutException`) —
+**caught before shipping** that `httpx.ConnectError` does not subclass the builtin
+`ConnectionError` (verified via `.__mro__` directly rather than assumed; would have silently
+skipped the retry path on "ollama serve isn't running" otherwise). Renamed `GROQ_TOOL_SCHEMAS` to
+`TOOL_SCHEMAS` since the OpenAI-style function-calling schema is genuinely shared across both
+providers, not Groq-specific.
+
+**Real results, run twice:**
+- Isolated narration queue (18 transactions): 94.4% accuracy (17/18), 53.9s (~3.0s/txn avg).
+- Full pipeline (`run_batch`, 120 main + 40 stress, 55 narrated total): 148.9s wall clock, 86.0%
+  auto-reconciled, calibration `duplicate_refund` 4/4, `genuine_error` 6/7, `netting_trap` 7/7,
+  stress `37/37` correctly handled, `0` wrongly auto-resolved.
+
+**Versus the real Groq runs logged earlier this same day: 11-70 *minutes* for the same shape of
+workload.** The single miss (confidence 0.0) carries the identical honest safe-fallback signature
+already documented for both Groq runs — not a new failure mode, the same one, on a different
+provider.
+
+### A real hang, chased carefully, that turned out not to exist
+
+Driving a full `provider=ollama` batch run through the actual browser (not the CLI) appeared to
+hang — no response after 270+ seconds, `ollama ps`'s keep-alive counter counting down instead of
+refreshing (looked like idle, not active work). Rather than assume and patch, reproduced narrower
+and narrower:
+1. `narrate_ollama` called in a loop from inside a `concurrent.futures.ThreadPoolExecutor` thread
+   (mimicking FastAPI's execution model) — **succeeded**, 48.3s for 18 transactions.
+2. The exact `run_batch(..., audit_logger=..., calibration_history=...)` call the real API endpoint
+   makes, from the same kind of thread — **succeeded**, 150.4s.
+3. A plain `curl -X POST /api/run` directly against the real running FastAPI server, bypassing the
+   browser and Playwright entirely — **succeeded**, 141.0s, HTTP 200.
+
+Step 3 settled it: the backend was never hung. The earlier reading of `Get-Process`'s low CPU-time
+accumulation as evidence of a stall was a **misdiagnosis** — an I/O-bound process waiting on GPU
+inference over HTTP legitimately shows low CPU time while genuinely working; that's expected, not
+suspicious. The real lesson banked here, not just the specific bug: verify a suspected hang against
+the simplest possible reproduction (raw `curl`) before trusting a richer, harder-to-instrument one
+(a full browser session), and don't let "it's slower than I expected" become "it's broken" without
+a control to compare against.
+
+### A genuine architecture attempt, measured, and reverted honestly
+
+Given a 141-150s synchronous request is fragile regardless of whether it was ever truly hung, and
+per the user's explicit ask to make the architecture faster, implemented concurrent narrator
+dispatch: a `ThreadPoolExecutor` in `_process_batch` (`pipeline.py`) running up to 4 narration
+calls in parallel, since each call is I/O-bound (waiting on a response), not CPU-bound.
+
+**Measured it before keeping it — and it didn't help.** Re-ran the identical batch (seed 42, same
+sizes): wall clock **156.1s, not faster** than the 148.9-150.4s sequential baseline. `ollama ps`
+during the run showed no change in the model's GPU-serialization behavior — a single GPU-resident
+model instance processes one request at a time regardless of how many are dispatched
+client-side, so parallel dispatch just meant several idle Python threads waiting on the same
+serial queue, not genuine overlap.
+
+**Worse: it introduced a real, if modest, correctness cost.** `genuine_error` accuracy dropped to
+66.7% (6/9) from 85.7% (6/7) on the identical seed. Root cause, not guessed: `recall_similar_resolutions`
+reads `context.audit_log`, which is appended to as each narration completes — under concurrent
+dispatch, "prior resolutions so far in this run" becomes genuinely order-dependent (a transaction
+dispatched later can finish first and be visible to one dispatched earlier, or vice versa),
+changing what evidence the model sees for borderline classifications between runs of the identical
+input. GIL semantics mean this never *corrupts* data (`list.append` stays atomic), but it does mean
+this tool's answer is a non-deterministic snapshot under concurrency in a way it isn't sequentially.
+
+**Reverted, not kept "just in case."** No speed benefit and a real (if small-sample) accuracy cost
+is not a trade worth making, and the discipline that's applied to every external audit finding in
+this log — measure before believing an idea like "run finding real numbers rather than assume the
+improvement it makes anyone won" — applies exactly the same to a change I made myself. The correct,
+honest conclusion: the sequential design was already right for a single-GPU local deployment; the
+actual win here was replacing the *provider* (hosted, rate-limited → local, unlimited), not
+concurrency within it. If a future session wants to revisit real parallelism, the sanctioned lever
+is Ollama's own `OLLAMA_NUM_PARALLEL` server-side batching setting, not client-side threading — not
+attempted here given the same audit_log order-dependence would still apply, and the first attempt
+already showed the GPU itself is the bottleneck, not request dispatch.
+
+### What's shipped
+
+- `ollama` added to `requirements.txt`, `narrate_ollama` + generalized `_call_with_retry` in
+  `agent.py`, `"ollama"` added to the `narrate()` dispatcher and the frontend's provider dropdown
+  (`RunControls.tsx`) — labeled as the recommended option, `mock` kept as the UI default so the
+  dashboard still works with zero setup for anyone who hasn't installed Ollama.
+- New tests in `test_retry.py` proving the generalized `retry_on` parameterization is real: a
+  custom, non-Groq exception is retried when explicitly passed, and — the property that would have
+  silently broken narrator_ollama's retry path if this generalization were ever done carelessly —
+  is *not* caught by the default (Groq-only) exception tuple. 56/56 tests passing.
+- README.md rewritten to recommend Ollama first, with the Groq path kept as a documented
+  alternative rather than removed.
+
+---

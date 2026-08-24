@@ -50,19 +50,39 @@ python -m uvicorn app.main:app --reload --port 8000
 
 By default the narrator runs in **mock mode** — zero cost, deterministic, and it calls the exact
 same real tool functions the live narrator does (only the final "turn tool results into a
-category+confidence+reasoning" step is a fixed rule rather than an LLM call). To use the real
-agentic narrator:
+category+confidence+reasoning" step is a fixed rule rather than an LLM call). Two real-provider
+options exist:
+
+**Recommended: `ollama` — a fully local model, zero cost, zero rate limit, zero external
+dependency.**
+
+```bash
+winget install Ollama.Ollama       # or download from ollama.com — free, no account needed
+ollama pull qwen2.5:7b-instruct    # ~4.7GB, one-time download
+export LLM_PROVIDER=ollama
+```
+
+This runs entirely on your own machine (GPU-accelerated automatically if one is available, falls
+back to CPU otherwise) — no API key, no account, no rate limit, works fully offline. It's the
+result of evaluating every free-tier API alternative (Groq, Cerebras, Gemini, DeepSeek, GLM,
+SambaNova, OpenRouter, GitHub Models, Mistral — see BUILD_LOG.md for the full comparison) and
+finding each one hit either a hard per-minute ceiling, a one-time credit that expires, or a daily
+cap too small for a real batch. Real, verified result on this project's own hardware: a full batch
++ stress run (160 transactions, 55 narrated) in **~150 seconds**, 94%+ narrator accuracy — versus
+11-70 *minutes* for the same workload against Groq's free tier.
+
+**Alternative: `groq` — a real tool-calling loop against a hosted API.**
 
 ```bash
 export GROQ_API_KEY=your-key-here   # free tier at console.groq.com
 export LLM_PROVIDER=groq
 ```
 
-(or pass `"provider": "groq"` per-request in the `/api/run` body — see BUILD_LOG.md for why Groq
-was chosen over the originally-planned Claude API: it's free-tier, OpenAI-tool-call compatible,
-and this build is optimized to minimize running cost. Default model is `openai/gpt-oss-20b` —
-verified tool-calling support and the cheapest of the candidates tested. Free-tier accounts have a
-real per-minute token limit; the narrator retries rate limits with backoff automatically.)
+(or pass `"provider": "ollama"` / `"provider": "groq"` per-request in the `/api/run` body. Groq was
+chosen over the originally-planned Claude API for cost — see BUILD_LOG.md. Default model is
+`openai/gpt-oss-20b`. Free-tier accounts have a real per-minute token limit; the narrator retries
+rate limits with backoff automatically, but a full batch can still take many minutes. Kept as a
+second option, not required.)
 
 ### Frontend
 
@@ -83,10 +103,12 @@ cd backend
 python -m pytest tests/ -v
 ```
 
-51 tests covering the data generator's arithmetic invariants, the matching engine's deterministic
-resolution paths, the narrator's tool-based detection and retry/failure handling, the calibration
-layer's statistical behavior (including that mock-mode decisions can never earn auto-resolve),
-the Merkle-tree divergence pre-filter, the full pipeline, and the API layer.
+56 tests covering the data generator's arithmetic invariants, the matching engine's deterministic
+resolution paths, the narrator's tool-based detection and retry/failure handling (Groq-specific and
+provider-agnostic), the calibration layer's statistical behavior (including that mock-mode
+decisions can never earn auto-resolve, and that a category's earned trust can't be spent by a
+different decision that never itself earned it), the Merkle-tree divergence pre-filter, the full
+pipeline, and the API layer.
 
 ## What's real vs. mock
 
@@ -95,19 +117,32 @@ causal chain matching, deterministic exception resolution, calibration, audit lo
 full dashboard are all live with zero external dependencies, and mock mode calls the exact same
 real tool functions the live narrator does (only the final synthesis step is a fixed rule).
 
-The agentic Groq-backed narrator has been run against the live API twice, on two different random
-batches, with results genuinely persisted into the same `CalibrationHistory`/audit log the live
-dashboard reads from — not just a side file. **Run 1** (n=120 + full 100%-adversarial stress batch,
-n=40): 100% narrator accuracy across all three categories (17/18 via genuine tool-informed
-reasoning, 1/18 via a safe "did not converge" fallback that happened to match ground truth), 37/37
-correctly handled on the stress batch, 0 wrongly auto-resolved. **Run 2** (different seed): 4/4 and
-7/7 on two categories, 6/7 on the third — the one miss was a real API hiccup (an empty response,
-correctly caught and routed through the same fail-safe path) that happened to guess wrong this
-time; the fail-safe's *design* held regardless, since it always defaults to the one category that
-can never auto-resolve, so a real narrator failure produced a wrong classification but never a
-wrong autonomous action. Stress batch: 34/34 handled, 0 wrongly auto-resolved. Two runs with one
-honest miss are a more credible artifact than either run alone would be. Raw output:
-[run 1](docs/evidence/real-groq-run-2026-08-24.json),
+**Local (Ollama, qwen2.5:7b-instruct)** — the recommended real provider. Full batch + stress run
+(160 transactions, 55 narrated): **94.4% narrator accuracy** (17/18 correct on the main
+narration queue), 37/37 correctly handled on the stress batch, 0 wrongly auto-resolved, in
+**~150 seconds wall clock, GPU-accelerated, zero API cost.** The one miss carried confidence 0.0 —
+the same honest safe-fallback signature documented for the real Groq runs below, not a confident
+wrong guess. A genuine concurrent-dispatch attempt (running narration calls in parallel) was tried
+and measured: it delivered **no speedup** (Ollama serializes on its single GPU-resident model
+regardless of client-side concurrency) and introduced a real, if modest, accuracy cost from making
+the `recall_similar_resolutions` tool's "prior resolutions so far" answer order-dependent —
+reverted after measuring both effects rather than kept on the assumption that concurrency must
+help. Full narrative, including the provider-comparison research that led here, in BUILD_LOG.md.
+
+**Groq (openai/gpt-oss-20b)** — a second real option, run against the live API twice on two
+different random batches, with results genuinely persisted into the same
+`CalibrationHistory`/audit log the live dashboard reads from — not just a side file. **Run 1**
+(n=120 + full 100%-adversarial stress batch, n=40): 100% narrator accuracy across all three
+categories (17/18 via genuine tool-informed reasoning, 1/18 via a safe "did not converge" fallback
+that happened to match ground truth), 37/37 correctly handled on the stress batch, 0 wrongly
+auto-resolved. **Run 2** (different seed): 4/4 and 7/7 on two categories, 6/7 on the third — the
+one miss was a real API hiccup (an empty response, correctly caught and routed through the same
+fail-safe path) that happened to guess wrong this time; the fail-safe's *design* held regardless,
+since it always defaults to the one category that can never auto-resolve, so a real narrator
+failure produced a wrong classification but never a wrong autonomous action. Stress batch: 34/34
+handled, 0 wrongly auto-resolved. But both real Groq runs took 11-70 minutes of wall-clock time,
+almost entirely rate-limit backoff, not model inference — the reason Ollama is now the recommended
+default. Raw output: [run 1](docs/evidence/real-groq-run-2026-08-24.json),
 [run 2](docs/evidence/real-groq-run-2026-08-24b-persisted.json); full narrative in BUILD_LOG.md,
 including the real rate-limit hits and how they're handled (retry with backoff, honoring the API's
 own `retry-after` header, failing safe rather than crashing).

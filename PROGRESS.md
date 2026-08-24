@@ -15,11 +15,12 @@ Status legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blo
 - [x] Audit logger (spec §6.8) — SQLite, append-only, source-row links
 - [x] Pipeline orchestrator (`app/pipeline.py`) — full generate→chain→match→narrate→calibrate→audit→baseline→stress flow, 10/10 tests passing
 
-## Agentic layer (needs GROQ_API_KEY — free tier, see BUILD_LOG for provider-switch rationale)
+## Agentic layer — three providers now (see BUILD_LOG for the full provider-survey rationale)
 
 - [x] Mock backend (zero-cost, deterministic, uses real tool functions) — 100% on narration queue across 99-seed fuzz, see BUILD_LOG for why that number needs an asterisk
-- [x] Groq backend (openai/gpt-oss-20b, OpenAI-compatible, tool-calling loop) — **run for real twice 2026-08-24. Run 1: 100% accuracy on main batch (n=4/6/8 across 3 categories), 37/37 correct on stress batch, 0 wrongly auto-resolved (docs/evidence/real-groq-run-2026-08-24.json). Run 2 (properly persisted into the live CalibrationHistory this time): 4/4, 7/7, 6/7 — one honest miss caused by a real empty-API-response failure, correctly caught by the fail-safe and defaulted to the one category that can never auto-resolve; 34/34 correct on stress batch (docs/evidence/real-groq-run-2026-08-24b-persisted.json).** Retry-with-backoff added after hitting a real rate limit.
-- [x] Agentic discrepancy narrator + 4 tools (spec §6.4) — lookup_fee_schedule, check_sla_window, check_batch_anomalies (duplicate+netting, consolidated), recall_similar_resolutions
+- [x] **Ollama backend (local, `qwen2.5:7b-instruct`, zero cost, zero rate limit) — recommended default as of 2026-08-24.** Surveyed every free-tier API alternative (Cerebras, Gemini, DeepSeek, GLM, SambaNova, OpenRouter, GitHub Models, Mistral) and found each one either not actually permanently free or still bottlenecked by an RPM/TPM/daily ceiling for our access pattern — went local instead. Real result: full batch + stress (160 txns, 55 narrated) in **~150s**, 94%+ accuracy, GPU-accelerated, fully offline. A genuine concurrent-dispatch attempt was tried, measured (no speedup, real accuracy cost), and reverted — see BUILD_LOG.
+- [x] Groq backend (openai/gpt-oss-20b, OpenAI-compatible, tool-calling loop) — kept as a second real option. Run for real twice 2026-08-24: Run 1 100% accuracy (docs/evidence/real-groq-run-2026-08-24.json), Run 2 4/4, 7/7, 6/7 with one honest fail-safe miss (docs/evidence/real-groq-run-2026-08-24b-persisted.json). Both runs took 11-70 minutes — the reason Ollama is now the default recommendation.
+- [x] Agentic discrepancy narrator + 4 tools (spec §6.4) — lookup_fee_schedule, check_sla_window, check_batch_anomalies (duplicate+netting, consolidated), recall_similar_resolutions. Tool schema (`TOOL_SCHEMAS`) and the retry wrapper (`_call_with_retry`, now provider-parameterized) shared across Groq and Ollama.
 - [x] `recall_similar_resolutions` retrieval over audit log (spec §7) — in-memory per-run, grows as batch is narrated
 
 ## Polish / differentiators (cut first if behind schedule)

@@ -4,7 +4,17 @@ Only ever called for transactions the matching engine's deterministic Pass 1/2 c
 (duplicate_refund, netting_trap, genuine_error candidates — currency_rounding, fee_deduction,
 partial_refund, timing_lag, and clean_match are already resolved before this module runs at all).
 
-Two backends behind one `narrate()` entry point:
+Three backends behind one `narrate()` entry point:
+  - "ollama": a real tool-calling loop against a fully local model (qwen2.5:7b-instruct by default)
+    via Ollama. Zero cost, zero rate limits, zero external network dependency — added 2026-08-24
+    after Groq's free-tier TPM limit made real batch runs take 11-70 minutes, and after checking
+    every other API provider's free tier (Cerebras, Gemini, DeepSeek, GLM, SambaNova, OpenRouter,
+    GitHub Models, Mistral) turned up either a hard RPM/TPM ceiling, a one-time credit that expires,
+    or a daily cap too small for a real batch (see BUILD_LOG.md for the full comparison). Confirmed
+    GPU-accelerated on this machine (`ollama ps` reports 100% GPU); the model stays warm in VRAM
+    between calls, so only the first call in a session pays a load-time cost. This is the
+    recommended real-provider default going forward — no cost trade-off, no rate-limit risk, works
+    fully offline (no risk of an external API being slow/down during a live pitch recording).
   - "groq": a real tool-calling loop against Groq (openai/gpt-oss-20b by default — see BUILD_LOG.md
     for why this replaced the originally-planned Claude API, and why it's gpt-oss-20b rather than
     the llama-3.3-70b-versatile this file originally targeted, which Groq had retired by the time a
@@ -14,13 +24,14 @@ Two backends behind one `narrate()` entry point:
     `retry-after` header when present) before giving up, and falls back to an honest
     escalate-as-genuine_error rather than crashing the batch if the API is still unavailable after
     retrying. This is a real runtime failure mode, not a synthetic one, and the graceful-fallback
-    behavior is exactly what the "Failure Recovery" criterion is asking for.
+    behavior is exactly what the "Failure Recovery" criterion is asking for. Kept as a second real
+    option now that "ollama" exists, not removed.
   - "mock": zero-cost, deterministic. NOT a simulation of an LLM's reasoning — it calls the exact
     same real tool functions (so duplicate/netting detection is genuinely checked against data),
     and only stubs the final "turn tool results into a category+confidence+reasoning" step with a
-    fixed rule. Used so the rest of the pipeline can be built and tested without an API key.
+    fixed rule. Used so the rest of the pipeline can be built and tested without any model at all.
     `NarratorOutput.provider` always discloses which path produced a given result — real submission
-    numbers should come from "groq", not "mock".
+    numbers should come from "ollama" or "groq", not "mock".
 """
 
 import json
@@ -43,6 +54,7 @@ NARRATOR_CATEGORIES = ("duplicate_refund", "netting_trap", "genuine_error")
 # anyway; caught by an external audit 2026-08-24, see BUILD_LOG.md).
 
 DEFAULT_GROQ_MODEL = "openai/gpt-oss-20b"  # verified tool-calling support + cheapest of the candidates tried; swap via narrate_groq(model=...)
+DEFAULT_OLLAMA_MODEL = "qwen2.5:7b-instruct"  # strong local tool-calling reputation; confirmed GPU-accelerated on this machine
 
 SYSTEM_PROMPT = f"""You are a settlement reconciliation discrepancy narrator for Razorpay.
 You are given one transaction's causal chain (order -> payment -> fee -> refund -> settlement).
@@ -62,7 +74,7 @@ When you're done checking, respond with ONLY a JSON object, no prose and no mark
 {{"category": "...", "confidence": 0.0-1.0, "reasoning": "one line: which hop broke, by how much, and why"}}
 """
 
-GROQ_TOOL_SCHEMAS = [
+TOOL_SCHEMAS = [
     {
         "type": "function",
         "function": {
@@ -236,28 +248,46 @@ def narrate_mock(chain: CausalChain, context: ToolContext) -> NarratorOutput:
 _T = TypeVar("_T")
 
 
-def _call_with_retry(fn: Callable[[], _T], max_retries: int = 4, base_delay: float = 5.0) -> _T:
-    """Retries a real, observed failure mode: Groq's free tier enforces tokens-per-minute limits
-    tight enough to hit mid-batch (8000 TPM on openai/gpt-oss-20b, hit on request 4 of an
-    18-transaction run in this project's own testing — see BUILD_LOG.md). Honors the API's
-    `retry-after` header when present; falls back to exponential backoff otherwise. Re-raises after
-    `max_retries` so the caller can fail safe rather than retry forever."""
+def _default_groq_retry_exceptions() -> tuple[type[Exception], ...]:
     from groq import APIConnectionError, InternalServerError, RateLimitError
+
+    return (RateLimitError, APIConnectionError, InternalServerError)
+
+
+def _call_with_retry(
+    fn: Callable[[], _T],
+    max_retries: int = 4,
+    base_delay: float = 5.0,
+    retry_on: tuple[type[Exception], ...] | None = None,
+) -> _T:
+    """Generic retry-with-backoff, parameterized by which exceptions count as transient.
+
+    Originally Groq-only: retries a real, observed failure mode where Groq's free tier enforces
+    tokens-per-minute limits tight enough to hit mid-batch (8000 TPM on openai/gpt-oss-20b, hit on
+    request 4 of an 18-transaction run in this project's own testing — see BUILD_LOG.md). Honors
+    the API's `retry-after` header when the raised exception carries one (Groq's `RateLimitError`
+    does; a generic exception from another provider won't, and is skipped safely via `getattr`).
+    Generalized 2026-08-24 so `narrate_ollama` can retry its own transient errors (a local model
+    still loading, a momentary connection hiccup) through the same mechanism, rather than
+    duplicating the backoff loop per provider. Falls back to exponential backoff when no
+    `retry-after` is present. Re-raises after `max_retries` so the caller can fail safe rather than
+    retry forever."""
+    exceptions = retry_on if retry_on is not None else _default_groq_retry_exceptions()
 
     for attempt in range(max_retries + 1):
         try:
             return fn()
-        except (RateLimitError, APIConnectionError, InternalServerError) as e:
+        except exceptions as e:
             if attempt == max_retries:
                 raise
             delay = base_delay * (2**attempt)
-            if isinstance(e, RateLimitError):
-                header_value = e.response.headers.get("retry-after")
-                if header_value is not None:
-                    try:
-                        delay = float(header_value)
-                    except ValueError:
-                        pass
+            response = getattr(e, "response", None)
+            header_value = getattr(response, "headers", {}).get("retry-after") if response is not None else None
+            if header_value is not None:
+                try:
+                    delay = float(header_value)
+                except (ValueError, TypeError):
+                    pass
             time.sleep(delay)
     raise RuntimeError("unreachable")  # pragma: no cover
 
@@ -288,7 +318,7 @@ def narrate_groq(chain: CausalChain, context: ToolContext, model: str = DEFAULT_
         for _ in range(max_rounds):
             response = _call_with_retry(
                 lambda: client.chat.completions.create(
-                    model=model, messages=messages, tools=GROQ_TOOL_SCHEMAS, tool_choice="auto", temperature=0.1
+                    model=model, messages=messages, tools=TOOL_SCHEMAS, tool_choice="auto", temperature=0.1
                 )
             )
             msg = response.choices[0].message
@@ -331,10 +361,91 @@ def narrate_groq(chain: CausalChain, context: ToolContext, model: str = DEFAULT_
     return _fail_safe("Narrator did not converge within the tool-call budget; escalating rather than guessing.")
 
 
+def narrate_ollama(chain: CausalChain, context: ToolContext, model: str = DEFAULT_OLLAMA_MODEL, max_rounds: int = 4) -> NarratorOutput:
+    """Fully local tool-calling loop via Ollama — same protocol shape as narrate_groq, with two
+    real API differences: Ollama's ToolCall.function.arguments is already a parsed dict (not a
+    JSON string to decode), and its tool-result messages have no tool_call_id to correlate against
+    (Ollama matches by message order, not by id). No rate-limit retry needed (nothing to rate-limit
+    locally), but a light retry still covers transient issues (model still loading, a momentary
+    connection hiccup) rather than assuming a local service never fails."""
+    import httpx
+    from ollama import Client, RequestError, ResponseError
+
+    client = Client()
+    # explicit retry_on: without it, _call_with_retry defaults to Groq's exception tuple, which
+    # would silently never match an Ollama error at all -- this isn't a hypothetical, it's exactly
+    # the bug that would exist if this were left unspecified. httpx.ConnectError (server not
+    # running at all) does NOT subclass the builtin ConnectionError -- verified directly
+    # (httpx.ConnectError.__mro__) rather than assumed, since getting this wrong would mean a
+    # "start ollama serve" failure silently skips the retry path entirely.
+    ollama_retry_exceptions: tuple[type[Exception], ...] = (RequestError, ResponseError, httpx.ConnectError, httpx.TimeoutException)
+    messages: list[dict] = [
+        {"role": "system", "content": SYSTEM_PROMPT},
+        {"role": "user", "content": _describe_chain(chain)},
+    ]
+    tool_calls_log: list[ToolCallRecord] = []
+
+    def _fail_safe(reason: str) -> NarratorOutput:
+        output = NarratorOutput(
+            transaction_id=chain.transaction_id,
+            category="genuine_error",
+            confidence=0.0,
+            reasoning=reason,
+            tool_calls=tool_calls_log,
+            provider="ollama",
+        )
+        context.audit_log.append({"transaction_id": chain.transaction_id, "category": output.category, "confidence": output.confidence})
+        return output
+
+    try:
+        for _ in range(max_rounds):
+            response = _call_with_retry(
+                lambda: client.chat(model=model, messages=messages, tools=TOOL_SCHEMAS),
+                max_retries=2,
+                base_delay=2.0,
+                retry_on=ollama_retry_exceptions,
+            )
+            msg = response.message
+
+            if msg.tool_calls:
+                messages.append({"role": "assistant", "content": msg.content or "", "tool_calls": [tc.model_dump() for tc in msg.tool_calls]})
+                for tc in msg.tool_calls:
+                    args = dict(tc.function.arguments)  # already parsed, unlike Groq's JSON-string arguments
+                    result = _execute_tool(tc.function.name, args, chain, context)
+                    tool_calls_log.append(ToolCallRecord(tool=tc.function.name, arguments=args, result=result))
+                    messages.append({"role": "tool", "content": json.dumps(result)})  # no tool_call_id -- Ollama matches by order
+                continue
+
+            try:
+                parsed = _parse_json_response(msg.content or "")
+            except (json.JSONDecodeError, KeyError):
+                return _fail_safe(f"Narrator's final response could not be parsed as valid JSON: {(msg.content or '')[:200]!r}")
+
+            output = NarratorOutput(
+                transaction_id=chain.transaction_id,
+                category=parsed["category"],
+                confidence=float(parsed["confidence"]),
+                reasoning=parsed["reasoning"],
+                tool_calls=tool_calls_log,
+                provider="ollama",
+            )
+            context.audit_log.append({"transaction_id": chain.transaction_id, "category": output.category, "confidence": output.confidence})
+            return output
+    except ollama_retry_exceptions as e:
+        return _fail_safe(
+            f"Local narrator call failed after retries ({type(e).__name__}: {e}); escalating rather than guessing. "
+            f"Is `ollama serve` running and has `{model}` been pulled?"
+        )
+
+    return _fail_safe("Narrator did not converge within the tool-call budget; escalating rather than guessing.")
+
+
 def narrate(chain: CausalChain, context: ToolContext, provider: str | None = None) -> NarratorOutput:
     provider = provider or os.environ.get("LLM_PROVIDER", "mock")
     if provider == "mock":
         return narrate_mock(chain, context)
     if provider == "groq":
         return narrate_groq(chain, context)
-    raise ValueError(f"unknown LLM_PROVIDER: {provider!r} (expected 'mock' or 'groq')")
+    if provider == "ollama":
+        return narrate_ollama(chain, context)
+    raise ValueError(f"unknown LLM_PROVIDER: {provider!r} (expected 'mock', 'groq', or 'ollama')")
