@@ -8,6 +8,7 @@ posture (see BUILD_LOG.md, [[feedback-build-autonomy-and-cost]]).
 """
 
 import threading
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Literal
 
@@ -45,16 +46,45 @@ audit_logger = AuditLogger(db_path=DATA_DIR / "audit_log.db")
 calibration_history = CalibrationHistory(db_path=DATA_DIR / "calibration_history.db")
 
 
+@dataclass(frozen=True)
+class _RunSnapshot:
+    """One run's result/escalations/ground-truth, as a single immutable unit. The three fields are
+    always constructed together and never reassigned independently after that -- a plain read of
+    `state.latest` (one attribute access, atomic under the GIL by itself, no lock required) always
+    hands back a self-consistent triple from exactly one run, never a mix of one run's escalations
+    with a DIFFERENT, concurrently-committed run's ground truth. This closes the desync race for
+    ANY reader, including a future one that doesn't know to take `_state_lock` -- the discipline of
+    "remember to hold the lock" is exactly the kind of convention every one of this project's
+    concurrency bugs so far has broken; a structurally atomic commit doesn't depend on remembering
+    anything. `escalations_by_id` is still a plain mutable dict *within* the frozen snapshot
+    (frozen only blocks reassigning the three fields themselves) -- see api_resolve_escalation for
+    why popping from it in place is still correct."""
+
+    result: BatchRunResult | None = None
+    ground_truth: dict[str, str] = field(default_factory=dict)
+    escalations_by_id: dict[str, dict] = field(default_factory=dict)
+
+
 class _AppState:
-    latest_result: BatchRunResult | None = None
-    latest_ground_truth: dict[str, str] = {}
-    latest_escalations_by_id: dict[str, dict] = {}
+    def __init__(self) -> None:
+        self.latest = _RunSnapshot()
 
 
 state = _AppState()
-# guards the check-then-claim sequence in /api/escalations/resolve -- see that endpoint's own
-# comment for why this exists (a real race, reproduced live, not a theoretical one).
-_escalation_lock = threading.Lock()
+# Guards the compound read-and-mutate sequence in /api/escalations/resolve (pop one escalation,
+# then check it against that SAME snapshot's ground truth and threshold) so it happens as one
+# logical step, and the commit in /api/run for the same reason (compute everything first, touch
+# `state` only once at the end). The cross-field consistency itself no longer depends on this lock
+# -- _RunSnapshot's atomicity handles that structurally -- but the lock still matters for
+# "check-then-claim" on a specific escalation: two concurrent resolves of the same transaction_id
+# must not both see it as present. Reproduced live before either fix existed: rounds 10-11 found an
+# unlocked check-then-delete let two concurrent resolves double-count into calibration_history and
+# crash the second with a KeyError, and 32 concurrent /api/run calls (with amplified thread
+# scheduling -- a standard technique for exposing a real race, not manufacturing one) desynced the
+# old three-separate-writes version of `state` on the first trial. Realistic load (2, or even 8
+# concurrent requests, no amplification) never reproduced either bug in dozens of trials, but both
+# windows were real, so both are closed regardless of how hard they are to hit by accident.
+_state_lock = threading.Lock()
 
 
 class RunRequest(BaseModel):
@@ -109,8 +139,7 @@ def api_run(req: RunRequest) -> BatchRunResult:
             audit_logger=audit_logger,
             calibration_history=calibration_history,
         )
-        state.latest_result = result
-        state.latest_escalations_by_id = {e.transaction_id: e.model_dump() for e in result.escalations}
+        escalations_by_id = {e.transaction_id: e.model_dump() for e in result.escalations}
 
         # Ground truth is deliberately never part of BatchRunResult (the pipeline must not leak it
         # to the dashboard as if it were a known answer). Regenerating with the same seed is a
@@ -118,7 +147,18 @@ def api_run(req: RunRequest) -> BatchRunResult:
         # escalation" flow needs, mirroring how a human reviewer would confirm against the real
         # source records.
         main_batch, _ = generate(seed=req.seed, main_n=req.main_n, stress_n=req.stress_n)
-        state.latest_ground_truth = {g.transaction_id: g.true_label for g in main_batch.ground_truth}
+        ground_truth = {g.transaction_id: g.true_label for g in main_batch.ground_truth}
+
+        # Commit as one new _RunSnapshot -- see _RunSnapshot's docstring for why this is
+        # structurally atomic for any reader, not just ones that remember to take _state_lock.
+        # Everything above is pure computation on local variables, never touching `state`, so the
+        # lock (kept here for clarity/consistency with the compound sequence in
+        # api_resolve_escalation, though the swap alone is already atomic) is only ever held for
+        # one cheap assignment -- not for run_batch() itself, which can take anywhere from
+        # milliseconds (mock) to minutes (a real provider). Concurrent, unrelated requests are
+        # never blocked waiting on a slow batch run.
+        with _state_lock:
+            state.latest = _RunSnapshot(result=result, ground_truth=ground_truth, escalations_by_id=escalations_by_id)
 
         return result
     except Exception as e:
@@ -127,9 +167,9 @@ def api_run(req: RunRequest) -> BatchRunResult:
 
 @app.get("/api/runs/latest")
 def api_latest_run() -> BatchRunResult:
-    if state.latest_result is None:
+    if state.latest.result is None:
         raise HTTPException(404, "no run yet — POST /api/run first")
-    return state.latest_result
+    return state.latest.result
 
 
 @app.get("/api/calibration")
@@ -147,41 +187,53 @@ def api_resolve_escalation(req: ResolveRequest) -> ResolveResponse:
     # lock between them -- a real TOCTOU race under FastAPI's genuinely-concurrent threadpool
     # (round 10 already disproved the "effectively serialized" assumption once, for the SQLite
     # connections). Two concurrent resolves of the SAME escalation both passed the .get() check,
-    # both wrote a human-confirmed entry into calibration_history (silently double-counting one
-    # real data point as two independent observations, corrupting the Wilson interval's sample-
-    # independence assumption), and the second `del` then crashed with an uncaught KeyError --
-    # reproduced live before fixing. _escalation_lock makes "check and claim" one atomic step via
-    # dict.pop(key, None): only the request that actually removes the entry proceeds: the other
-    # correctly sees it as already resolved and 404s, same as if it had arrived a moment later.
-    with _escalation_lock:
-        escalation = state.latest_escalations_by_id.pop(req.transaction_id, None)
-    if escalation is None:
-        raise HTTPException(404, f"{req.transaction_id} is not a pending escalation from the latest run")
-    true_label = state.latest_ground_truth.get(req.transaction_id)
-    if true_label is None:
-        raise HTTPException(404, f"no source record on file for {req.transaction_id} (stale run?)")
+    # both wrote a human-confirmed entry into calibration_history (double-counting one real data
+    # point as two independent observations), and the second `del` crashed with an uncaught
+    # KeyError -- reproduced live before fixing. Locking just the pop closed that, but a follow-up
+    # round found the ground-truth and threshold reads just below were still unlocked -- a
+    # concurrent /api/run could commit a DIFFERENT run's ground truth in the gap between them,
+    # silently stranding this run's escalation as a permanent "stale run?" 404. Fixed at the root
+    # (see _RunSnapshot): `state.latest` is captured ONCE into `snapshot` right here, a single
+    # atomic reference read, and every field below comes from that same captured object -- always
+    # fully this run's data or fully a newer run's, never a mix, regardless of what /api/run
+    # commits concurrently. _state_lock is still held around the pop specifically, for the
+    # check-then-claim guarantee on this one transaction_id (a snapshot's escalations_by_id dict
+    # is still a plain mutable dict, shared with any other request that grabbed the same snapshot).
+    try:
+        with _state_lock:
+            snapshot = state.latest
+            escalation = snapshot.escalations_by_id.pop(req.transaction_id, None)
+            if escalation is None:
+                raise HTTPException(404, f"{req.transaction_id} is not a pending escalation from the latest run")
+            true_label = snapshot.ground_truth.get(req.transaction_id)
+            if true_label is None:
+                raise HTTPException(404, f"no source record on file for {req.transaction_id} (stale run?)")
+            threshold = snapshot.result.threshold if snapshot.result else 0.90
 
-    calibration_history.confirm_human_resolution(
-        transaction_id=req.transaction_id,
-        predicted_category=escalation["category"],
-        confirmed_true_label=true_label,
-        amount=escalation["amount"],
-        provider=escalation["provider"],
-    )
+        calibration_history.confirm_human_resolution(
+            transaction_id=req.transaction_id,
+            predicted_category=escalation["category"],
+            confirmed_true_label=true_label,
+            amount=escalation["amount"],
+            provider=escalation["provider"],
+        )
 
-    threshold = state.latest_result.threshold if state.latest_result else 0.90
-    return ResolveResponse(
-        transaction_id=req.transaction_id,
-        predicted_category=escalation["category"],
-        confirmed_true_label=true_label,
-        was_correct=escalation["category"] == true_label,
-        updated_calibration=calibration_history.report(threshold=threshold),
-    )
+        return ResolveResponse(
+            transaction_id=req.transaction_id,
+            predicted_category=escalation["category"],
+            confirmed_true_label=true_label,
+            was_correct=escalation["category"] == true_label,
+            updated_calibration=calibration_history.report(threshold=threshold),
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(422, f"Could not resolve this escalation ({type(e).__name__}: {e}).")
 
 
 @app.get("/api/audit")
 def api_audit(run_id: str | None = None) -> list[dict]:
-    run_id = run_id or (state.latest_result.run_id if state.latest_result else None)
+    run_id = run_id or (state.latest.result.run_id if state.latest.result else None)
     if run_id is None:
         raise HTTPException(404, "no run yet")
     return audit_logger.entries_for_run(run_id)
@@ -269,7 +321,7 @@ def api_evaluate_transactions(scenario: TransactionScenario) -> EvaluateResponse
         context = build_tool_context(batch, chains)
         provider = scenario.provider or os.environ.get("LLM_PROVIDER", "mock")
 
-        threshold = state.latest_result.threshold if state.latest_result else 0.90
+        threshold = state.latest.result.threshold if state.latest.result else 0.90
         # a judge-submitted transaction goes through the exact same calibration gate as a batch one
         # — accumulated trust decides auto-resolve vs. escalate here too, not a special-cased raw
         # dump of whatever the narrator said.

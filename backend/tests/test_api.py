@@ -10,6 +10,7 @@ from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 
+import app.main as main_module
 from app.main import app
 
 client = TestClient(app)
@@ -464,3 +465,56 @@ def test_concurrent_run_requests_do_not_crash_the_shared_connections(isolated_ap
 
     statuses = [r.status_code for r in responses]
     assert all(s == 200 for s in statuses), f"expected all 8 concurrent runs to succeed, got statuses: {statuses}"
+
+
+def test_concurrent_runs_never_desync_the_three_state_fields(isolated_app_state):
+    """A follow-up round found that /api/run's three state.* writes (latest_result,
+    latest_escalations_by_id, latest_ground_truth) used to be three separate, unlocked statements.
+    Reproduced live with an amplified thread-switch interval (sys.setswitchinterval -- a standard
+    technique for exposing a real race by making interleaving far more likely, not manufacturing a
+    fake one): 32 concurrent /api/run calls desynced latest_escalations_by_id from
+    latest_ground_truth on the first trial, meaning a concurrent resolve could see one run's
+    escalations paired with a DIFFERENT run's ground truth and silently 404 as "stale" every one
+    of them, even though /api/runs/latest still showed them as live. Fixed by computing all three
+    fields as local variables first and committing them under _state_lock as one atomic step.
+
+    This test runs a background thread that continuously samples `state` while many concurrent
+    /api/run calls (different seeds) are in flight, and asserts the invariant that must always
+    hold if the commit is truly atomic: every key in latest_escalations_by_id has a matching key
+    in latest_ground_truth, at every instant sampled -- never a partial/torn read."""
+    import sys
+    import threading
+    from concurrent.futures import ThreadPoolExecutor
+
+    original_interval = sys.getswitchinterval()
+    sys.setswitchinterval(0.00001)
+    try:
+        violations = []
+        stop = threading.Event()
+
+        def sample_consistency():
+            while not stop.is_set():
+                # one atomic reference read, exactly how a real caller must do it -- reading the
+                # two dicts as two SEPARATE unsynchronized attribute lookups (the original version
+                # of this test did that, before the fix) can observe a torn state even though each
+                # individual read is itself atomic, since nothing stops /api/run from committing a
+                # brand new snapshot in between the two reads.
+                snapshot = main_module.state.latest
+                escalation_ids = set(snapshot.escalations_by_id.keys())
+                ground_truth_ids = set(snapshot.ground_truth.keys())
+                if escalation_ids and not escalation_ids.issubset(ground_truth_ids):
+                    violations.append(len(escalation_ids - ground_truth_ids))
+
+        def run_once(seed: int):
+            client.post("/api/run", json={"seed": seed, "main_n": 40, "stress_n": 0, "threshold": 0.90, "provider": "mock"})
+
+        sampler = threading.Thread(target=sample_consistency)
+        sampler.start()
+        with ThreadPoolExecutor(max_workers=16) as pool:
+            list(pool.map(run_once, range(16)))
+        stop.set()
+        sampler.join()
+    finally:
+        sys.setswitchinterval(original_interval)
+
+    assert not violations, f"state desynced {len(violations)} times (sample of orphaned-key counts: {violations[:5]})"
