@@ -24,6 +24,7 @@ export interface CategoryCalibration {
   amount_total: number;
   amount_at_risk: number;
   mock_n: number;
+  distinct_transaction_count: number;
 }
 
 export interface CalibrationReport {

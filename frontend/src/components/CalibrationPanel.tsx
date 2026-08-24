@@ -90,6 +90,15 @@ export function CalibrationPanel({ initialReport, refreshKey, onReportChange }: 
               <td>{categoryLabel(c.category)}</td>
               <td>
                 {c.n}
+                {c.n !== c.distinct_transaction_count && (
+                  <span
+                    className="mock-n-note"
+                    title="Some real-provider decisions are the same case re-scored across multiple runs, not a new independent observation — auto-resolve requires enough DISTINCT cases, not just enough decisions."
+                  >
+                    {" "}
+                    ({c.distinct_transaction_count} distinct)
+                  </span>
+                )}
                 {c.mock_n > 0 && <span className="mock-n-note"> (+{c.mock_n} mock, not counted)</span>}
               </td>
               <td>{pct(c.accuracy)}</td>

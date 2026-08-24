@@ -89,8 +89,14 @@ _state_lock = threading.Lock()
 
 class RunRequest(BaseModel):
     seed: int = 42
-    main_n: int = 120
-    stress_n: int = 40
+    # bounded for symmetry with threshold/provider below -- neither crashes unbounded (a negative
+    # or zero value degrades gracefully to an empty batch, verified directly) but round 13 flagged
+    # the inconsistency with this project's otherwise-thorough input-bounding discipline, and an
+    # uncapped value is a mild availability risk (a fat-fingered huge main_n tying up a worker
+    # thread) worth closing cheaply. The frontend's `min` attributes on these fields are unenforced
+    # HTML hints, not real validation -- this is the actual boundary.
+    main_n: int = Field(120, ge=1, le=2000)
+    stress_n: int = Field(40, ge=0, le=2000)
     # ge/le rejects an out-of-range threshold (e.g. a negative value) at request-parsing time, with
     # a clean 422 -- an external audit 2026-08-24 found a negative threshold flipped the
     # calibration report's own gate to "auto_resolve" for categories that had never earned it,

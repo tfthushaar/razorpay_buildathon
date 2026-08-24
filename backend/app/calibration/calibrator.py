@@ -35,6 +35,21 @@ NEVER_AUTO_RESOLVE = {"genuine_error"}
 
 DEFAULT_THRESHOLD = 0.90
 
+# generate() is fully deterministic per seed (verified directly: three independent generate(seed=42,
+# ...) calls produce the identical 18-transaction narration queue, every time) and CalibrationHistory
+# never deduplicates by transaction_id -- an external audit 2026-08-24 (round 13) proved this is a
+# real gaming vector, no threading race required: repeatedly clicking "Run batch" on the same
+# (default) seed re-observes the SAME small set of cases and inflates `n` with correlated, not
+# independent, samples. Found live in this project's own committed evidence:
+# docs/evidence/real-ollama-run-2026-08-24.json reports duplicate_refund n=15, but seed=42 only ever
+# produces 4 DISTINCT duplicate_refund transactions -- the accumulated 15 could only have come from
+# re-scoring those same 4 cases across multiple runs. The Wilson bound alone can't catch this: given
+# enough repeated (not independent) trials at a genuinely high per-case accuracy, ci_lower approaches
+# the point estimate and would eventually clear 90% even with zero real distinct-case diversity. This
+# floor requires genuine variety of evidence (different seeds, different real-world cases) before
+# autonomy is granted, on top of the existing statistical-confidence requirement, not instead of it.
+MIN_DISTINCT_TRANSACTIONS_FOR_AUTO_RESOLVE = 15
+
 
 class ScoredDecision(BaseModel):
     transaction_id: str
@@ -56,6 +71,10 @@ class CategoryCalibration(BaseModel):
     amount_total: int  # total amount across ALL decisions (real + mock), for reporting
     amount_at_risk: int  # expected wrongly-auto-resolved amount at this threshold; 0 if escalated
     mock_n: int  # mock-mode decisions seen for this category -- tracked, never counted toward the gate
+    distinct_transaction_count: int  # DISTINCT real-provider transaction_ids behind n -- n itself can
+    # over-count the same re-scored case; this is what MIN_DISTINCT_TRANSACTIONS_FOR_AUTO_RESOLVE
+    # actually gates on, so the dashboard can show a judge the difference between "n=15 decisions"
+    # and "15 different real-world cases" instead of leaving the two indistinguishable.
 
 
 class CalibrationReport(BaseModel):
@@ -85,6 +104,7 @@ def calibrate(decisions: list[ScoredDecision], threshold: float = DEFAULT_THRESH
         accuracy = correct / n if n else 0.0
         ci_lower, ci_upper = wilson_score_interval(correct, n)
         amount_total = sum(d.amount for d in items)
+        distinct_transaction_count = len({d.transaction_id for d in real_items})
 
         if category in NEVER_AUTO_RESOLVE:
             decision: Literal["auto_resolve", "escalate"] = "escalate"
@@ -92,12 +112,26 @@ def calibrate(decisions: list[ScoredDecision], threshold: float = DEFAULT_THRESH
         elif n == 0:
             decision = "escalate"
             reason = f"no real-provider decisions yet for this category (mock_n={mock_n}) — mock-mode never counts toward auto-resolve"
+        elif distinct_transaction_count < MIN_DISTINCT_TRANSACTIONS_FOR_AUTO_RESOLVE:
+            decision = "escalate"
+            reason = (
+                f"only {distinct_transaction_count} distinct transaction(s) behind these {n} real-provider "
+                f"decisions — the same case(s) re-scored across multiple runs don't count as new evidence; "
+                f"needs at least {MIN_DISTINCT_TRANSACTIONS_FOR_AUTO_RESOLVE} distinct cases before "
+                f"auto-resolve is considered, regardless of the CI"
+            )
         elif ci_lower >= threshold:
             decision = "auto_resolve"
-            reason = f"95% CI lower bound {ci_lower:.1%} clears the {threshold:.0%} threshold (n={n} real-provider decisions)"
+            reason = (
+                f"95% CI lower bound {ci_lower:.1%} clears the {threshold:.0%} threshold "
+                f"(n={n} real-provider decisions across {distinct_transaction_count} distinct transactions)"
+            )
         else:
             decision = "escalate"
-            reason = f"95% CI lower bound {ci_lower:.1%} has not cleared {threshold:.0%} yet (n={n} real-provider decisions)"
+            reason = (
+                f"95% CI lower bound {ci_lower:.1%} has not cleared {threshold:.0%} yet "
+                f"(n={n} real-provider decisions across {distinct_transaction_count} distinct transactions)"
+            )
 
         amount_at_risk = round((1 - accuracy) * amount_total) if decision == "auto_resolve" else 0
 
@@ -114,6 +148,7 @@ def calibrate(decisions: list[ScoredDecision], threshold: float = DEFAULT_THRESH
                 amount_total=amount_total,
                 amount_at_risk=amount_at_risk,
                 mock_n=mock_n,
+                distinct_transaction_count=distinct_transaction_count,
             )
         )
 

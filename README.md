@@ -106,7 +106,7 @@ cd backend
 python -m pytest tests/ -v
 ```
 
-77 tests covering the data generator's arithmetic invariants, the matching engine's deterministic
+80 tests covering the data generator's arithmetic invariants, the matching engine's deterministic
 resolution paths, the narrator's tool-based detection, response-schema validation (an out-of-set
 category, a malformed/wrongly-shaped final answer, out-of-range confidence, an unusable tool call,
 plus an orchestration-level backstop for whatever the next unforeseen failure shape turns out to be
@@ -114,8 +114,10 @@ plus an orchestration-level backstop for whatever the next unforeseen failure sh
 Ollama's own client silently defaults to *no* timeout at all, unlike a bare `httpx.Client()`), and
 retry/failure handling (Groq-specific and provider-agnostic), the calibration layer's statistical
 behavior (including that mock-mode decisions can never earn auto-resolve, that a category's earned
-trust can't be spent by a different decision that never itself earned it, and that a concurrent
-history reset can never make a request's own just-added decisions vanish from its own report), the
+trust can't be spent by a different decision that never itself earned it, that a concurrent
+history reset can never make a request's own just-added decisions vanish from its own report, and
+that repeatedly re-scoring the same small set of deterministic cases can never satisfy the
+auto-resolve gate on its own — see BUILD_LOG.md), the
 Merkle-tree divergence pre-filter, the full pipeline, and the API layer (including that both
 live-input endpoints reject malformed input cleanly instead of crashing, an out-of-range threshold
 can't force the calibration gate open, 8 genuinely concurrent batch runs against the shared

@@ -357,6 +357,18 @@ def test_run_endpoint_rejects_an_out_of_range_threshold(isolated_app_state):
     assert resp.status_code == 422, f"expected a clean 422, got {resp.status_code}: {resp.text}"
 
 
+def test_run_endpoint_rejects_out_of_range_batch_sizes(isolated_app_state):
+    """Round 13 flagged main_n/stress_n as the one remaining unbounded pair on RunRequest,
+    inconsistent with threshold/provider already being bounded. Doesn't crash unbounded (a
+    negative main_n degrades gracefully to an empty batch, verified directly) -- this is about
+    closing the inconsistency and a mild availability risk, not a live crash."""
+    resp = client.post("/api/run", json={"seed": 1, "main_n": -5, "stress_n": 0, "provider": "mock"})
+    assert resp.status_code == 422, f"expected a clean 422, got {resp.status_code}: {resp.text}"
+
+    resp = client.post("/api/run", json={"seed": 1, "main_n": 10, "stress_n": -1, "provider": "mock"})
+    assert resp.status_code == 422, f"expected a clean 422, got {resp.status_code}: {resp.text}"
+
+
 def test_calibration_endpoint_rejects_an_out_of_range_threshold(isolated_app_state):
     resp = client.get("/api/calibration", params={"threshold": 1.5})
     assert resp.status_code == 422, f"expected a clean 422, got {resp.status_code}: {resp.text}"

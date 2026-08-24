@@ -1919,3 +1919,105 @@ code that assumed a single well-behaved caller or well-formed data." User's stop
 remains a hard 95.
 
 ---
+
+## 2026-08-24 — Judge-agent audit, round 13: gaming the gate without any race at all
+
+Thirteenth independent agent. Told the sixth threading instance had likely closed that specific
+vein and asked to (a) verify the `add_and_report` fix quickly, (b) check the one remaining
+untouched stateful piece (`AuditLogger`) for completeness, then (c) spend most of its effort on
+Bounded & Gated, Measured Accuracy, Real Problem, and Throughput specifically.
+
+**Score: 78/100** (AI Judgment 16/20, Failure Recovery 17/20, Measured Accuracy 11/15, Bounded &
+Gated 10/15, Throughput 8/10, Real Problem 8/10, Submission Readiness 8/10). Up 1 from round 12 —
+Failure Recovery jumped +5 on verified confirmation the fix holds and `AuditLogger` is genuinely
+clean, offset by real drops in Bounded & Gated and Measured Accuracy from a new, different kind of
+finding: not a race this time, gaming via an entirely ordinary sequence of legitimate calls.
+
+### `add_and_report` — verified, holds. `AuditLogger` — checked carefully, genuinely clean
+
+Traced `add_and_report`'s lock scope line by line and grepped the entire live app for any
+`.add(`/`.report()` pair outside it — none exist; the only two production call sites (`pipeline.py`,
+`confirm_human_resolution`) both correctly use the atomic path. Then checked whether `AuditLogger`
+had the identical gap and found a good, well-reasoned answer for why it doesn't: it has no
+destructive operation at all (no `clear()`, no delete endpoint) for anything to race against, each
+row is self-contained by `run_id`, and `/api/run` is fully synchronous — `log_many()` always
+completes before a `run_id` is ever returned to a client, so a client cannot structurally race its
+own read against its own write. First genuinely clean result in six rounds of checking this class
+of thing — worth trusting, not re-litigating every future round.
+
+### THE FINDING: the calibration gate can be gamed with zero threading race, using only the "Run batch" button
+
+`generate()` is fully deterministic per seed — verified directly, not assumed: three independent
+`generate(seed=42, ...)` calls produce the byte-identical 18-transaction narration queue, every
+single time (4 `duplicate_refund` / 6 `genuine_error` / 8 `netting_trap`). `CalibrationHistory` has
+never deduplicated by `transaction_id` — every `add`/`add_and_report` call inserts unconditionally,
+and `calibrate()` treats every row as an independent Wilson trial. The dashboard defaults the seed
+to 42 and never changes it unless a user explicitly clicks "Randomize."
+
+**Net effect, entirely without any race:** repeatedly clicking "Run batch" against a real provider
+re-observes the identical small set of cases and inflates the Wilson `n` with *correlated*, not
+independent, samples — a sequence of individually ordinary, legitimate API calls that undermines
+the exact thing the gate exists to guarantee. **This wasn't hypothetical — it was already visible in
+this project's own committed evidence**: `docs/evidence/real-ollama-run-2026-08-24.json` reports
+`duplicate_refund n=15`, but seed 42 alone only ever produces 4 distinct `duplicate_refund`
+transactions. The accumulated 15 could only have come from re-scoring those same 4 cases across
+several separate runs over the course of this build. Verified directly: `wilson_score_interval(40, 40)`
+(the shape a repeated-but-correct small case set produces) returns a lower bound of **91.2%** — which
+would have cleared the 90% threshold on 4 real-world cases, not 40, had accuracy stayed this high.
+No live wrong-auto-resolve has actually happened yet (every affected category's *current* CI still
+sits below 90% independent of this gap), but the mechanism was proven, not speculative — the single
+most central claim this whole project makes ("only auto-resolves what it's *proven* itself accurate
+on") was resting on an assumption about sample independence that nothing in the code enforced.
+
+### The fix: gate on distinct cases, not just decision count
+
+Added `MIN_DISTINCT_TRANSACTIONS_FOR_AUTO_RESOLVE = 15` and a new `distinct_transaction_count` field
+to `CategoryCalibration` (`len({d.transaction_id for d in real_items})`), checked *in addition to*
+the existing Wilson bound, not instead of it — the statistical-confidence requirement and the
+evidence-diversity requirement are both real and neither substitutes for the other. Considered
+folding distinct-count directly into the Wilson math instead (using it as the sample size in place
+of raw `n`) but rejected that: it would change what the extensively-tested existing `n`/`correct`/
+`ci_lower` fields mean, versus adding one new, independent, purely-additive check that can only ever
+turn an `auto_resolve` into an `escalate`, never the reverse — verified this against every existing
+test that asserts `decision == "auto_resolve"` before writing the fix (all of them already use ≥15
+distinct transaction_ids in their fixtures, so none needed changing).
+
+Surfaced in the UI too, not just the API: `CalibrationPanel.tsx`'s N column now shows `"15 (8
+distinct)"` when the two numbers differ, with a tooltip explaining why — a judge should be able to
+see this distinction without reading the source. Two new tests: one reproduces the exact gaming
+shape (4 distinct cases, each re-scored 10 times, 100% accurate, `ci_lower` alone would clear 90%)
+and asserts it still escalates; the other proves the fix doesn't over-block legitimate accumulation
+(40 *genuinely* distinct transactions at the same accuracy still auto-resolves past the floor).
+Verified live against the actual accumulated demo history after restarting the dev server (it had
+gone stale mid-session and needed a restart to pick up the change — caught by noticing the response
+didn't include the new field at all): `duplicate_refund` sits at 8 distinct (of this project's own
+real accumulated testing this session, not a synthetic example) — correctly still escalating, now
+with a reason string that says exactly why. `netting_trap` happens to sit at exactly 15 distinct —
+right at the floor — and correctly falls through to the (still-failing) Wilson check underneath,
+proving the two gates compose correctly rather than one silently overriding the other.
+
+### Two smaller Submission Readiness findings, also fixed
+
+- `PROGRESS.md`'s matching-engine line claimed "199-seed fuzz check" as part of its 6/6 passing
+  tests — that sweep was real, but a one-time manual verification during a specific bug fix
+  (BUILD_LOG's 2026-08-23 entry), not a committed automated test. Unreproducible via `pytest
+  tests/`, the README's own documented verification step — the same "stale/unreproducible claim"
+  class caught roughly seven times before, recurring once more in a spot not previously checked.
+  Reworded to separate the 6 committed fixed-seed tests from the historical one-time sweep.
+- `main_n`/`stress_n` on `RunRequest` had no bounds, unlike `threshold` and `provider` right next to
+  them. Doesn't crash unbounded (verified: a negative value degrades gracefully to an empty batch,
+  now also a committed regression test) — this was about closing the inconsistency and a mild
+  availability risk, not a live crash. `Field(ge=1, le=2000)` / `Field(ge=0, le=2000)` added for
+  symmetry.
+
+### Score trajectory so far
+
+Round 1: 71. Round 2: 79. Round 3: 84. Round 4: 83. Round 5: 72. Round 6: 70. Round 7: 74. Round 8:
+78. Round 9: 82. Round 10: 70. Round 11: 80. Round 12: 77. Round 13: 78. Still oscillating rather
+than climbing cleanly toward 95 — six threading-shaped findings are now genuinely closed and
+holding under repeated re-verification, but this round found a real gap in a completely different
+dimension (statistical validity of the evidence itself, not concurrency), which is a healthy sign
+the loop is still finding real things rather than exhausting a single vein. User's stopping target
+remains a hard 95.
+
+---

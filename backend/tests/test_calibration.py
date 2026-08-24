@@ -111,6 +111,53 @@ def test_human_feedback_loop_can_flip_a_category_across_threshold():
     assert next(c for c in after.categories if c.category == "netting_trap").decision == "auto_resolve"
 
 
+def test_repeated_scoring_of_the_same_small_case_set_cannot_auto_resolve():
+    """generate() is fully deterministic per seed (verified directly: repeated generate(seed=42,
+    ...) calls produce the identical narration queue every time), and nothing before this fix
+    deduplicated by transaction_id -- an external audit 2026-08-24 (round 13) found this is a real
+    gaming vector requiring no threading race: repeatedly running the same (default) seed
+    re-observes the SAME small set of cases and inflates the Wilson n with correlated, not
+    independent, samples. Proven with this project's own committed evidence:
+    docs/evidence/real-ollama-run-2026-08-24.json shows duplicate_refund n=15, but seed=42 only
+    ever produces 4 distinct duplicate_refund transactions -- the accumulated 15 could only have
+    come from re-scoring those same 4 cases across multiple runs.
+
+    This test reproduces the mechanism directly: 4 distinct transactions, each re-scored 10 times
+    (n=40, matching real API behavior where re-running a batch narrates the same cases again),
+    always correctly. wilson_score_interval(40, 40) alone clears the 90% threshold (91.2% lower
+    bound, verified separately) -- so before this fix, this exact shape of data would have wrongly
+    auto-resolved on 4 real-world cases, not 40."""
+    distinct_ids = [f"case{i}" for i in range(4)]
+    decisions = [
+        ScoredDecision(transaction_id=tid, predicted_category="duplicate_refund", true_label="duplicate_refund", amount=500_00, provider="groq")
+        for tid in distinct_ids
+        for _ in range(10)  # each of the 4 real cases re-scored 10 times -> n=40, distinct=4
+    ]
+    report = calibrate(decisions, threshold=0.90)
+    dup = next(c for c in report.categories if c.category == "duplicate_refund")
+    assert dup.n == 40
+    assert dup.distinct_transaction_count == 4
+    assert dup.ci_lower >= 0.90, "sanity check: the Wilson bound alone should already clear the threshold here"
+    assert dup.decision == "escalate", "must not auto-resolve on 4 distinct real-world cases just because they were re-scored many times"
+    assert "distinct" in dup.reason.lower()
+
+
+def test_genuinely_distinct_cases_can_still_auto_resolve_past_the_floor():
+    """The contrasting case: the floor added above must not block legitimate accumulation. Same
+    n=40, same 100% accuracy, but 40 GENUINELY DISTINCT transactions (e.g. accumulated across many
+    different random seeds, the way the dashboard's "Randomize" button is meant to be used) should
+    still auto-resolve exactly as before this fix."""
+    decisions = [
+        ScoredDecision(transaction_id=f"distinct{i}", predicted_category="duplicate_refund", true_label="duplicate_refund", amount=500_00, provider="groq")
+        for i in range(40)
+    ]
+    report = calibrate(decisions, threshold=0.90)
+    dup = next(c for c in report.categories if c.category == "duplicate_refund")
+    assert dup.n == 40
+    assert dup.distinct_transaction_count == 40
+    assert dup.decision == "auto_resolve"
+
+
 def test_mock_decisions_never_count_toward_the_gate():
     """The property this whole module exists to protect (added after an external audit found it
     missing 2026-08-24): mock-mode is a deterministic rule-based stand-in for zero-cost testing,
