@@ -1439,3 +1439,124 @@ Round 1: 71. Round 2: 79. Round 3: 84. Round 4: 83. Round 5: 72. Round 6: 70. Ro
 claimed and moved past. User's stopping target for this loop: ~90.
 
 ---
+
+## 2026-08-24 — Judge-agent audit, round 10: the third occurrence, this time on the endpoint that matters most
+
+Tenth independent agent, explicitly told round 9 found the "unguarded boundary" pattern once
+already (on a secondary endpoint) and asked to check whether it shows up a third time anywhere
+else, while also trying fresh attack angles against round 9's own fix rather than just re-confirming
+what round 9 already checked.
+
+**Score: 70/100** (AI Judgment 15/20, Failure Recovery 7/20, Measured Accuracy 14/15, Bounded &
+Gated 10/15, Throughput 8/10, Real Problem 9/10, Submission Readiness 7/10) — a real drop from round
+9's 82, and a deserved one: this round found the same underlying lesson a third time, on `/api/run`
+itself, the endpoint every ordinary batch run goes through, not a bonus demo path. It also found a
+second, entirely independent bug with a different root cause.
+
+### CRITICAL #1: the exact pattern, a third subsystem, the primary endpoint this time
+
+`narrate()`'s provider-validity check sat *before* its own `try` block — the round-8 backstop
+protects everything inside that block, and this line was never inside it:
+
+```python
+def narrate(chain, context, provider=None):
+    provider = provider or os.environ.get("LLM_PROVIDER", "mock")
+    if provider not in ("mock", "groq", "ollama"):
+        raise ValueError(...)   # <- outside the try/except below, unprotected
+    try:
+        ...
+    except Exception as e:
+        ...   # the backstop rounds 8-9 believed closed this whole class of bug
+```
+
+Live-reproduced against the real running server: `POST /api/run {"provider": "gpt4-turbo-not-a-real-provider"}` → bare HTTP 500. README.md itself documents `provider` as a normal per-request field
+(`§Setup`, "or pass `"provider": "ollama"` / `"provider": "groq"` per-request"), so this needs
+nothing adversarial — a typo or wrong capitalization is enough. **This had already been written down
+in this project's own audit trail and dropped**: round 7's auditor, diagnosing a different (since-
+fixed) bug, wrote in this very file that "`main.py` has no handler around `/api/run` or
+`/api/transactions/evaluate`." Round 9 fixed the second endpoint that sentence named. The first sat
+unfixed for three more rounds.
+
+**Fix**: moved the validity check inside `narrate()`'s own try block (closes it at the actual root —
+any future caller of `narrate()`, not just these two endpoints, now gets the same protection), and
+wrapped `/api/run`'s body in the same two-part backstop pattern already proven at
+`/api/transactions/evaluate`. Additionally — and this is the more useful fix for a real caller, not
+just a crash-proofing one — both `RunRequest.provider` and `TransactionScenario.provider` are now
+typed `Literal["mock", "groq", "ollama"] | None` instead of `str | None`, so a bad provider string
+is rejected immediately with one clear message at request-parsing time, before a whole batch runs
+and every narrated transaction fails safe individually with the same confusing repeated message.
+
+### CRITICAL #2: an independent bug — the shared SQLite connections were never actually safe under concurrent access
+
+`AuditLogger` and `CalibrationHistory` each hold one `sqlite3.connect(..., check_same_thread=False)`
+connection, with a code comment claiming this was "fine at this app's scale... effectively
+serialized request handling." **The auditor disproved that empirically**, not by inspection: fired 8
+simultaneous `POST /api/run` calls at a live server — 7 of 8 failed with `sqlite3.InterfaceError:
+bad parameter or other API misuse` or `SystemError: error return without exception set`. Even just 2
+simultaneous requests (an entirely ordinary "two tabs open" or "double-click" scenario, not an
+adversarial one) failed about half the time across repeated trials.
+
+The root cause is a real, well-known sqlite3 gotcha: `check_same_thread=False` only disables
+Python's *own* thread-affinity check — it does not make the underlying C-level connection safe for
+genuinely concurrent use from multiple threads at once, and FastAPI's sync-endpoint threadpool
+really does dispatch concurrent requests to real, different worker threads in parallel, not
+"effectively serialized" the way the comment assumed. Nobody had ever actually tested this claim
+before round 10 did.
+
+**Fix**: added a `threading.Lock` to both `AuditLogger` and `CalibrationHistory`, held around every
+operation that touches the shared connection (reads included, not just the writes the audit
+reproduced). Reproduced the exact failure independently before fixing (see below), then confirmed
+the fix holds under repeated runs, not just once — ran the new concurrency test 5 times in a row
+after the fix, 5/5 clean.
+
+### HIGH: an out-of-range threshold could force the calibration gate open
+
+`RunRequest.threshold` and `/api/calibration`'s query parameter had no bounds check. Live-
+reproduced: `POST /api/run {"threshold": -0.5, ...}` returned a calibration report marking
+`duplicate_refund` and `netting_trap` as `"decision": "auto_resolve"` on evidence that had never
+actually cleared 90% — the Wilson lower-bound gate itself, not just a single decision, flipped open.
+The auditor was careful to caveat what was and wasn't directly witnessed (didn't spend real API
+quota to force a live non-mock auto-resolution through this end-to-end; proved the calibration
+report's own gate mechanism flips, which is what any subsequent real-provider decision would be
+checked against) and confirmed this is unreachable via the shipped UI (the slider is clamped to
+`[0.5, 0.99]`, `RunControls.tsx` hardcodes `0.9`) but *is* reachable via direct API calls — exactly
+the interaction pattern the "break it" panel explicitly invites.
+
+**Fix**: `Field(ge=0.0, le=1.0)` on `RunRequest.threshold`, `fastapi.Query(0.90, ge=0.0, le=1.0)` on
+`/api/calibration`'s threshold parameter — the same structural-constraint pattern already used for
+`NarratorOutput.confidence` since round 7.
+
+### MEDIUM: duplicate primary keys silently drop a submitted transaction
+
+`build_all_chains` (`chain/builder.py`) builds internal dicts keyed by `order_id`/`payment_id` with
+no uniqueness check — two orders sharing an `order_id` in a submitted scenario silently returned 1
+result instead of 2, no error, no warning. **Fix**: a `model_validator` on `TransactionScenario`
+checking all four record types `build_all_chains` keys by (`order_id`, `payment_id`,
+`settlement_id`, `ledger_id`) for duplicates, not just the one shape the audit reproduced, since the
+same silent-overwrite risk applies structurally to any of the three dicts that function builds.
+
+### Verification, and a process note carried forward from round 9
+
+5 new tests (`test_api.py`): an unknown-provider rejection, an out-of-range threshold on both
+`/api/run` and `/api/calibration`, a duplicate-`order_id` rejection, and the concurrency test itself
+(8 parallel requests via `ThreadPoolExecutor` against the real `TestClient`, which dispatches
+through the same `run_in_threadpool` machinery a real server does). Written before the fix, verified
+against the actual pre-fix code via `git stash push -- <files>` / `git stash pop` (not `git
+checkout`, per the lesson recorded in round 9's own entry) — all 5 failed against the unfixed code,
+including the concurrency test, which reproduced the exact same `SystemError: error return without
+exception set` the auditor saw, spontaneously, confirming C2 independently a second time. All 5 pass
+after the fix; the concurrency test specifically was re-run 5 additional times to check it wasn't
+passing by luck. 73/73 tests passing.
+
+### Score trajectory so far
+
+Round 1: 71. Round 2: 79. Round 3: 84. Round 4: 83. Round 5: 72. Round 6: 70. Round 7: 74. Round 8:
+78. Round 9: 82. Round 10: 70. The second real dip in the loop, and — like round 6's dip before it —
+driven by a genuinely new, previously-undiscovered class of problem (concurrency safety) plus a
+third occurrence of a pattern believed closed twice already. Worth naming explicitly: the same
+underlying lesson ("an unguarded boundary where untrusted or unusual input meets code that assumed
+well-formed data") has now recurred in the narrator (rounds 5-8), the live evaluate endpoint (round
+9), and the primary run endpoint (round 10) — three subsystems, one lesson, each time closed only
+after being found live rather than anticipated. User's stopping target for this loop: ~90.
+
+---

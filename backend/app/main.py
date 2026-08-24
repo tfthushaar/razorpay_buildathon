@@ -8,11 +8,12 @@ posture (see BUILD_LOG.md, [[feedback-build-autonomy-and-cost]]).
 """
 
 from pathlib import Path
+from typing import Literal
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, model_validator
 
 load_dotenv()  # so LLM_PROVIDER / GROQ_API_KEY in backend/.env reach os.environ before any request
 
@@ -56,8 +57,17 @@ class RunRequest(BaseModel):
     seed: int = 42
     main_n: int = 120
     stress_n: int = 40
-    threshold: float = 0.90
-    provider: str | None = None  # None -> LLM_PROVIDER env var, default "mock"
+    # ge/le rejects an out-of-range threshold (e.g. a negative value) at request-parsing time, with
+    # a clean 422 -- an external audit 2026-08-24 found a negative threshold flipped the
+    # calibration report's own gate to "auto_resolve" for categories that had never earned it,
+    # since nothing previously checked this was a real probability.
+    threshold: float = Field(0.90, ge=0.0, le=1.0)
+    # Literal (not str), mirroring agent.py's VALID_PROVIDERS, so an unknown provider string is
+    # rejected here with one clear message instead of silently running the whole batch and having
+    # every narrated transaction fail-safe individually (each still correct, but far less useful
+    # than catching the actual mistake up front) -- see agent.py's narrate() for the matching fix
+    # at the function level, for callers other than these two endpoints.
+    provider: Literal["mock", "groq", "ollama"] | None = None  # None -> LLM_PROVIDER env var, default "mock"
     reset_history: bool = False
 
 
@@ -75,29 +85,40 @@ class ResolveResponse(BaseModel):
 
 @app.post("/api/run")
 def api_run(req: RunRequest) -> BatchRunResult:
-    if req.reset_history:
-        calibration_history.clear()
+    # Same backstop shape as /api/transactions/evaluate (round 9), applied here too after round 10
+    # found this endpoint -- the system's primary, default, most-used one -- had zero exception
+    # handling. Unlike the evaluate endpoint, run_batch's own inputs are generator-produced with
+    # referential integrity guaranteed by construction, so there's no equivalent KeyError shape to
+    # name specifically; this is the broad backstop alone, covering things like a concurrent-access
+    # error from the shared SQLite connections (see audit/logger.py and calibration/history.py for
+    # the actual concurrency fix -- this catches what that fix doesn't, not a substitute for it).
+    try:
+        if req.reset_history:
+            calibration_history.clear()
 
-    result = run_batch(
-        seed=req.seed,
-        main_n=req.main_n,
-        stress_n=req.stress_n,
-        threshold=req.threshold,
-        provider=req.provider,
-        audit_logger=audit_logger,
-        calibration_history=calibration_history,
-    )
-    state.latest_result = result
-    state.latest_escalations_by_id = {e.transaction_id: e.model_dump() for e in result.escalations}
+        result = run_batch(
+            seed=req.seed,
+            main_n=req.main_n,
+            stress_n=req.stress_n,
+            threshold=req.threshold,
+            provider=req.provider,
+            audit_logger=audit_logger,
+            calibration_history=calibration_history,
+        )
+        state.latest_result = result
+        state.latest_escalations_by_id = {e.transaction_id: e.model_dump() for e in result.escalations}
 
-    # Ground truth is deliberately never part of BatchRunResult (the pipeline must not leak it to
-    # the dashboard as if it were a known answer). Regenerating with the same seed is a cheap,
-    # deterministic, non-LLM call purely to recover the lookup the "resolve an escalation" flow
-    # needs, mirroring how a human reviewer would confirm against the real source records.
-    main_batch, _ = generate(seed=req.seed, main_n=req.main_n, stress_n=req.stress_n)
-    state.latest_ground_truth = {g.transaction_id: g.true_label for g in main_batch.ground_truth}
+        # Ground truth is deliberately never part of BatchRunResult (the pipeline must not leak it
+        # to the dashboard as if it were a known answer). Regenerating with the same seed is a
+        # cheap, deterministic, non-LLM call purely to recover the lookup the "resolve an
+        # escalation" flow needs, mirroring how a human reviewer would confirm against the real
+        # source records.
+        main_batch, _ = generate(seed=req.seed, main_n=req.main_n, stress_n=req.stress_n)
+        state.latest_ground_truth = {g.transaction_id: g.true_label for g in main_batch.ground_truth}
 
-    return result
+        return result
+    except Exception as e:
+        raise HTTPException(422, f"Could not complete this run ({type(e).__name__}: {e}); check the request parameters.")
 
 
 @app.get("/api/runs/latest")
@@ -108,7 +129,7 @@ def api_latest_run() -> BatchRunResult:
 
 
 @app.get("/api/calibration")
-def api_calibration(threshold: float = 0.90) -> CalibrationReport:
+def api_calibration(threshold: float = Query(0.90, ge=0.0, le=1.0)) -> CalibrationReport:
     """The live threshold dial: a cheap re-aggregation over the accumulated history, not a
     pipeline re-run (spec §6.5)."""
     return calibration_history.report(threshold=threshold)
@@ -169,7 +190,28 @@ class TransactionScenario(BaseModel):
     refunds: list[Refund] = []
     settlements: list[Settlement]
     ledger_entries: list[LedgerEntry]
-    provider: str | None = None
+    provider: Literal["mock", "groq", "ollama"] | None = None  # see RunRequest.provider's comment
+
+    @model_validator(mode="after")
+    def _no_duplicate_primary_keys(self) -> "TransactionScenario":
+        # build_all_chains (chain/builder.py) builds three dicts keyed by order_id/payment_id --
+        # a duplicate key there silently overwrites the earlier record with no error, dropping a
+        # submitted transaction with no indication anything was lost. An external audit 2026-08-24
+        # reproduced this with two orders sharing an order_id: the API returned 1 result, not 2.
+        # Checked here, once, for all four record types that build_all_chains keys by, rather than
+        # only the one shape that was actually reproduced.
+        for label, ids in (
+            ("order_id", [o.order_id for o in self.orders]),
+            ("payment_id", [p.payment_id for p in self.payments]),
+            ("settlement_id", [s.settlement_id for s in self.settlements]),
+            ("ledger_id", [l.ledger_id for l in self.ledger_entries]),
+        ):
+            seen = set()
+            for id_ in ids:
+                if id_ in seen:
+                    raise ValueError(f"duplicate {label} {id_!r} — every {label} in a submitted scenario must be unique")
+                seen.add(id_)
+        return self
 
 
 class EvaluatedTransaction(BaseModel):

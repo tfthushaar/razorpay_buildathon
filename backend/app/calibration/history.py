@@ -13,6 +13,7 @@ loop, §6.5) — not re-earned from zero every run.
 """
 
 import sqlite3
+import threading
 from pathlib import Path
 
 from app.calibration.calibrator import CalibrationReport, ScoredDecision, calibrate
@@ -25,8 +26,12 @@ class CalibrationHistory:
         self.db_path = Path(db_path)
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         # check_same_thread=False: see the identical note in audit/logger.py — FastAPI's sync
-        # endpoints run in a worker threadpool, not the thread this singleton was created in.
+        # endpoints run in a worker threadpool, not the thread this singleton was created in. That
+        # note used to claim a single connection was fine because request handling was "effectively
+        # serialized" -- an external audit 2026-08-24 disproved this empirically (concurrent
+        # /api/run calls crashed the shared connection). self._lock serializes access explicitly.
         self._conn = sqlite3.connect(self.db_path, check_same_thread=False)
+        self._lock = threading.Lock()
         self._init_schema()
 
     def _init_schema(self) -> None:
@@ -46,11 +51,12 @@ class CalibrationHistory:
     def add(self, decisions: list[ScoredDecision], source: str = "batch") -> None:
         if not decisions:
             return
-        self._conn.executemany(
-            "INSERT INTO scored_decisions (transaction_id, predicted_category, true_label, amount, provider, source) VALUES (?, ?, ?, ?, ?, ?)",
-            [(d.transaction_id, d.predicted_category, d.true_label, d.amount, d.provider, source) for d in decisions],
-        )
-        self._conn.commit()
+        with self._lock:
+            self._conn.executemany(
+                "INSERT INTO scored_decisions (transaction_id, predicted_category, true_label, amount, provider, source) VALUES (?, ?, ?, ?, ?, ?)",
+                [(d.transaction_id, d.predicted_category, d.true_label, d.amount, d.provider, source) for d in decisions],
+            )
+            self._conn.commit()
 
     def confirm_human_resolution(
         self, transaction_id: str, predicted_category: str, confirmed_true_label: str, amount: int, provider: str
@@ -74,15 +80,18 @@ class CalibrationHistory:
         )
 
     def all_decisions(self) -> list[ScoredDecision]:
-        cursor = self._conn.execute("SELECT transaction_id, predicted_category, true_label, amount, provider FROM scored_decisions")
-        return [ScoredDecision(transaction_id=r[0], predicted_category=r[1], true_label=r[2], amount=r[3], provider=r[4]) for r in cursor.fetchall()]
+        with self._lock:
+            cursor = self._conn.execute("SELECT transaction_id, predicted_category, true_label, amount, provider FROM scored_decisions")
+            return [ScoredDecision(transaction_id=r[0], predicted_category=r[1], true_label=r[2], amount=r[3], provider=r[4]) for r in cursor.fetchall()]
 
     def report(self, threshold: float = 0.90) -> CalibrationReport:
         return calibrate(self.all_decisions(), threshold=threshold)
 
     def clear(self) -> None:
-        self._conn.execute("DELETE FROM scored_decisions")
-        self._conn.commit()
+        with self._lock:
+            self._conn.execute("DELETE FROM scored_decisions")
+            self._conn.commit()
 
     def close(self) -> None:
-        self._conn.close()
+        with self._lock:
+            self._conn.close()

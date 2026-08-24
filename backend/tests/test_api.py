@@ -297,3 +297,134 @@ def test_audit_endpoint_returns_entries_for_the_latest_run(isolated_app_state):
     entries = audit_resp.json()
     assert len(entries) == 60
     assert all(e["run_id"] == run_id for e in entries)
+
+
+def test_run_endpoint_rejects_an_unknown_provider(isolated_app_state):
+    """An external audit (2026-08-24, round 10) found this endpoint -- the system's primary,
+    default, most-used one, not a secondary demo path -- crashed with a bare HTTP 500 on an
+    invalid `provider` string. README.md itself documents `provider` as a normal per-request
+    field, so a typo needs no adversarial intent. Root cause was narrate()'s own validity check
+    sitting outside its try block, upstream of the round-8 backstop. Fixed at both layers: this
+    test covers the request-validation layer (Literal on RunRequest.provider), which should catch
+    the mistake immediately with one clear message rather than silently running a whole batch
+    where every narrated transaction fails safe individually."""
+    resp = client.post("/api/run", json={"seed": 1, "main_n": 10, "stress_n": 0, "provider": "gpt4-turbo-not-a-real-provider"})
+    assert resp.status_code == 422, f"expected a clean 422, got {resp.status_code}: {resp.text}"
+
+
+def test_run_endpoint_rejects_an_out_of_range_threshold(isolated_app_state):
+    """Round 10 found a negative threshold flipped the calibration report's own gate to
+    "auto_resolve" for categories that had never earned it -- nothing previously checked this was
+    a real probability in [0.0, 1.0]."""
+    resp = client.post("/api/run", json={"seed": 1, "main_n": 10, "stress_n": 0, "threshold": -0.5, "provider": "mock"})
+    assert resp.status_code == 422, f"expected a clean 422, got {resp.status_code}: {resp.text}"
+
+
+def test_calibration_endpoint_rejects_an_out_of_range_threshold(isolated_app_state):
+    resp = client.get("/api/calibration", params={"threshold": 1.5})
+    assert resp.status_code == 422, f"expected a clean 422, got {resp.status_code}: {resp.text}"
+
+
+def test_evaluate_endpoint_rejects_duplicate_order_ids(isolated_app_state):
+    """build_all_chains (chain/builder.py) keys three internal dicts by order_id/payment_id -- a
+    duplicate silently overwrites the earlier record with no error. Round 10 reproduced this live:
+    two orders sharing an order_id returned 1 result instead of 2, with no indication one was
+    dropped. Submits the same order_id twice (with otherwise-valid, distinct payment/settlement/
+    ledger records) and checks the API catches it before ever reaching build_all_chains, rather
+    than silently losing one transaction's worth of data."""
+    order = {
+        "order_id": "demo_order_dup",
+        "merchant_id": "merchant_demo",
+        "amount": 500000,
+        "currency": "INR",
+        "created_at": "2026-01-01T10:00:00",
+        "rail": "upi",
+    }
+    scenario = {
+        "orders": [order, dict(order)],
+        "payments": [
+            {
+                "payment_id": "demo_pay_dup_1",
+                "order_id": "demo_order_dup",
+                "status": "captured",
+                "captured": True,
+                "captured_amount": 500000,
+                "fee_amount": 1500,
+                "tax_amount": 270,
+                "gateway": "HDFC",
+                "captured_at": "2026-01-01T10:05:00",
+            },
+            {
+                "payment_id": "demo_pay_dup_2",
+                "order_id": "demo_order_dup",
+                "status": "captured",
+                "captured": True,
+                "captured_amount": 500000,
+                "fee_amount": 1500,
+                "tax_amount": 270,
+                "gateway": "HDFC",
+                "captured_at": "2026-01-01T10:05:00",
+            },
+        ],
+        "refunds": [],
+        "settlements": [
+            {
+                "settlement_id": "demo_stl_dup_1",
+                "payment_id": "demo_pay_dup_1",
+                "settled_amount": 500000 - 1500 - 270,
+                "settlement_batch_id": "demo_batch_dup",
+                "utr": "123456789015",
+                "rail": "upi",
+                "settled_at": "2026-01-02T11:00:00",
+                "sla_days": 1,
+            },
+            {
+                "settlement_id": "demo_stl_dup_2",
+                "payment_id": "demo_pay_dup_2",
+                "settled_amount": 500000 - 1500 - 270,
+                "settlement_batch_id": "demo_batch_dup",
+                "utr": "123456789016",
+                "rail": "upi",
+                "settled_at": "2026-01-02T11:00:00",
+                "sla_days": 1,
+            },
+        ],
+        "ledger_entries": [
+            {
+                "ledger_id": "demo_ldg_dup_1",
+                "order_id": "demo_order_dup",
+                "expected_amount": 500000 - 1500 - 270,
+                "recorded_at": "2026-01-01T10:10:00",
+            }
+        ],
+        "provider": "mock",
+    }
+
+    resp = client.post("/api/transactions/evaluate", json=scenario)
+    assert resp.status_code == 422, f"expected a clean 422, got {resp.status_code}: {resp.text}"
+    # a pydantic model_validator's ValueError surfaces as FastAPI's standard validation-error shape
+    # -- detail is a list of error objects, not a plain string like the manually-raised
+    # HTTPExceptions elsewhere in this file.
+    detail_text = str(resp.json()["detail"])
+    assert "order_id" in detail_text
+    assert "demo_order_dup" in detail_text
+
+
+def test_concurrent_run_requests_do_not_crash_the_shared_connections(isolated_app_state):
+    """Round 10 fired concurrent /api/run requests at a live server and got 7 of 8 HTTP 500s from
+    the shared SQLite connections (sqlite3.InterfaceError / SystemError) -- check_same_thread=False
+    only disables Python's thread-affinity check, it does not make a single connection safe for
+    genuinely concurrent use, and FastAPI's sync-endpoint threadpool really does run requests in
+    parallel rather than serializing them the way an earlier code comment assumed. This fires 8
+    concurrent requests against the real TestClient (which dispatches through the same
+    run_in_threadpool machinery a real server does) and requires every one to succeed."""
+    from concurrent.futures import ThreadPoolExecutor
+
+    def run_once(i: int):
+        return client.post("/api/run", json={"seed": i, "main_n": 20, "stress_n": 0, "threshold": 0.90, "provider": "mock"})
+
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        responses = list(pool.map(run_once, range(8)))
+
+    statuses = [r.status_code for r in responses]
+    assert all(s == 200 for s in statuses), f"expected all 8 concurrent runs to succeed, got statuses: {statuses}"

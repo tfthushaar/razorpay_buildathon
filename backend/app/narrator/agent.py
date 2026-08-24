@@ -499,17 +499,29 @@ def narrate_ollama(chain: CausalChain, context: ToolContext, model: str = DEFAUL
     return _fail_safe("Narrator did not converge within the tool-call budget; escalating rather than guessing.")
 
 
+VALID_PROVIDERS = ("mock", "groq", "ollama")
+
+
 def narrate(chain: CausalChain, context: ToolContext, provider: str | None = None) -> NarratorOutput:
     provider = provider or os.environ.get("LLM_PROVIDER", "mock")
-    if provider not in ("mock", "groq", "ollama"):
-        raise ValueError(f"unknown LLM_PROVIDER: {provider!r} (expected 'mock', 'groq', or 'ollama')")
 
     try:
+        # the provider-validity check used to sit here, BEFORE this try block -- an unknown
+        # provider string (a typo in a raw API call; README.md documents "provider" as a normal
+        # per-request field, so this needs nothing adversarial) raised ValueError straight past the
+        # backstop below and crashed the whole batch through /api/run, the system's primary,
+        # default, most-used endpoint. Round 7's own audit had already named "/api/run has no
+        # handler" in BUILD_LOG.md; round 9 fixed the sibling endpoint that sentence also named
+        # (/api/transactions/evaluate) but this one was missed until round 10 reproduced it live.
+        # Moving the check inside the try, so it's caught by the same backstop as everything else,
+        # closes it at the actual root rather than adding a third near-duplicate guard.
         if provider == "mock":
             return narrate_mock(chain, context)
         if provider == "groq":
             return narrate_groq(chain, context)
-        return narrate_ollama(chain, context)
+        if provider == "ollama":
+            return narrate_ollama(chain, context)
+        raise ValueError(f"unknown LLM_PROVIDER: {provider!r} (expected one of {VALID_PROVIDERS})")
     except Exception as e:
         # Orchestration-level backstop (round 8's audit, 2026-08-24): rounds 5-8 each found a
         # *different* unguarded model-supplied value inside narrate_groq/narrate_ollama's own

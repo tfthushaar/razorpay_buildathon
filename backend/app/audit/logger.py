@@ -7,6 +7,7 @@ which is the human-readable twin of this machine-readable log).
 
 import json
 import sqlite3
+import threading
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -42,9 +43,16 @@ class AuditLogger:
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
         # check_same_thread=False: FastAPI runs sync endpoints in a worker threadpool, so this
         # connection (created once, at import time, in the main thread) gets used from a
-        # different thread on every request. A single global connection is fine at this app's
-        # scale (one demo session, effectively serialized request handling) — see BUILD_LOG.md.
+        # different thread on every request. check_same_thread=False only disables Python's own
+        # thread-affinity check -- it does NOT make the underlying connection safe for genuinely
+        # concurrent use from multiple threads at once, and FastAPI's threadpool really does run
+        # concurrent requests in parallel, not "effectively serialized" as an earlier version of
+        # this comment claimed. An external audit 2026-08-24 disproved that claim empirically: 7 of
+        # 8 concurrent /api/run calls failed with sqlite3.InterfaceError / SystemError from this
+        # connection. self._lock below serializes access explicitly instead of assuming the
+        # threadpool does it implicitly.
         self._conn = sqlite3.connect(self.db_path, check_same_thread=False)
+        self._lock = threading.Lock()
         self._init_schema()
 
     def _init_schema(self) -> None:
@@ -72,38 +80,41 @@ class AuditLogger:
 
     def log(self, entry: AuditEntry) -> int:
         stamped = entry.stamped()
-        cursor = self._conn.execute(
-            """INSERT INTO audit_log
-               (run_id, transaction_id, decision, category, confidence, reasoning, tool_calls_json,
-                order_id, payment_id, settlement_id, ledger_id, refund_ids_json, timestamp)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-            (
-                stamped.run_id,
-                stamped.transaction_id,
-                stamped.decision,
-                stamped.category,
-                stamped.confidence,
-                stamped.reasoning,
-                json.dumps(stamped.tool_calls),
-                stamped.order_id,
-                stamped.payment_id,
-                stamped.settlement_id,
-                stamped.ledger_id,
-                json.dumps(stamped.refund_ids),
-                stamped.timestamp,
-            ),
-        )
-        self._conn.commit()
-        return cursor.lastrowid  # type: ignore[return-value]
+        with self._lock:
+            cursor = self._conn.execute(
+                """INSERT INTO audit_log
+                   (run_id, transaction_id, decision, category, confidence, reasoning, tool_calls_json,
+                    order_id, payment_id, settlement_id, ledger_id, refund_ids_json, timestamp)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (
+                    stamped.run_id,
+                    stamped.transaction_id,
+                    stamped.decision,
+                    stamped.category,
+                    stamped.confidence,
+                    stamped.reasoning,
+                    json.dumps(stamped.tool_calls),
+                    stamped.order_id,
+                    stamped.payment_id,
+                    stamped.settlement_id,
+                    stamped.ledger_id,
+                    json.dumps(stamped.refund_ids),
+                    stamped.timestamp,
+                ),
+            )
+            self._conn.commit()
+            return cursor.lastrowid  # type: ignore[return-value]
 
     def log_many(self, entries: list[AuditEntry]) -> None:
         for entry in entries:
             self.log(entry)
 
     def entries_for_run(self, run_id: str) -> list[dict]:
-        cursor = self._conn.execute("SELECT * FROM audit_log WHERE run_id = ? ORDER BY id ASC", (run_id,))
-        cols = [c[0] for c in cursor.description]
-        return [dict(zip(cols, row)) for row in cursor.fetchall()]
+        with self._lock:
+            cursor = self._conn.execute("SELECT * FROM audit_log WHERE run_id = ? ORDER BY id ASC", (run_id,))
+            cols = [c[0] for c in cursor.description]
+            return [dict(zip(cols, row)) for row in cursor.fetchall()]
 
     def close(self) -> None:
-        self._conn.close()
+        with self._lock:
+            self._conn.close()
