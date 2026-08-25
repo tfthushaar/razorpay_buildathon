@@ -13,6 +13,12 @@ reason instead of guessing. Full design rationale:
 [docs/track04-settlement-reconciliation-copilot.md](docs/track04-settlement-reconciliation-copilot.md).
 Build history, including every bug found and how it was fixed: [BUILD_LOG.md](BUILD_LOG.md).
 
+**Live demo**: [razorpay-buildathon-five.vercel.app](https://razorpay-buildathon-five.vercel.app)
+(frontend on Vercel, backend on Render — deploys from this repo's `main` branch). Runs the `mock`
+narrator provider by default (zero cost, instant); the provider dropdown also offers real Groq
+inference for anyone who wants to see live LLM narration, at a smaller default batch size than this
+project's own internal dev-testing size specifically so that choice doesn't come with a long wait.
+
 ## The money story, in one real run
 
 The system safely auto-resolved **₹59,97,863.76 in netting-trap exceptions with zero human
@@ -449,9 +455,22 @@ and reviewed, not yet deployed to a live Netlify site in this session.
 in the Vercel dashboard, set the project's Root Directory to `frontend` — `vercel.json` (relative to
 that root) then supplies `buildCommand`, `outputDirectory`, the `vite` framework preset, and an
 SPA rewrite. Same `VITE_API_BASE_URL` / `ALLOWED_ORIGINS` wiring as the Netlify path above, just on
-Vercel's own dashboard instead. Backend deployed live on Render for the actual submission; see
-BUILD_LOG.md for the real, verified deployment trail (a hardcoded backend port that would have
-silently broken on Render, caught and fixed before it shipped).
+Vercel's own dashboard instead.
+
+**This is the actual live path for this submission**, not just a written-and-reviewed config: backend
+on Render at `razorpay-buildathon-a1p0.onrender.com`, frontend on Vercel at
+[razorpay-buildathon-five.vercel.app](https://razorpay-buildathon-five.vercel.app), `ALLOWED_ORIGINS`
+on Render pointed at the Vercel URL, and a free UptimeRobot monitor pinging the backend's
+`/api/health` every 5 minutes so Render's free-tier 15-minute idle sleep never kicks in — a judge
+opening the link gets an instant response instead of a 30-60s cold start, and calibration state
+(audit log, calibration history) stays intact across visits instead of resetting on every restart.
+Verified live end to end, not just health-checked: a real batch run was driven through the actual
+public URLs via Playwright (not local dev servers), zero console/network errors, every dashboard
+section — tiles, fee-leak analysis, ERP export, calibration table, escalation queue — populated with
+real data. Netlify itself didn't work out during setup (not diagnosed further, moved to Vercel
+instead) — its config is kept in the repo as a still-valid alternative for anyone else running this.
+See BUILD_LOG.md for the full deployment trail, including a hardcoded backend port that would have
+silently broken on Render and was caught and fixed before it shipped.
 
 ## Tests & evidence
 

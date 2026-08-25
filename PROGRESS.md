@@ -135,7 +135,8 @@ Round 5 found something rounds 1-4 all missed: `_final_decision()` (pipeline.py)
 - [x] "What broke / how fixed" narrative — BUILD_LOG.md, real bugs with root causes, fixes, and verification, not invented after the fact
 - [x] Reproducible setup instructions — README, followed independently by my audit loop
 - [x] Honest exception list surfaced in the UI — escalation queue with reasoning, never hidden
-- [!] **Rotate the GROQ_API_KEY before pushing publicly or recording the pitch video** — it was shared in this session's chat and is not committed, but should be rotated at console.groq.com as a precaution
+- [x] **Live, usable deployment (2026-08-25)** — frontend on Vercel (razorpay-buildathon-five.vercel.app), backend on Render, connected via `ALLOWED_ORIGINS`, kept warm with a free UptimeRobot ping so judges don't hit a cold start or a calibration-state reset. Verified end to end via Playwright against the actual public URLs, not local dev servers. Docker installed and genuinely verified along the way (previously only "reviewed, never run") — caught a real hardcoded-port bug that would have broken on Render before it shipped. See BUILD_LOG.md's "Actually deployed live" entry for the full trail.
+- [!] **Rotate the GROQ_API_KEY before recording the pitch video, or before setting it as `GROQ_API_KEY` on Render** — it was shared in this session's chat and is not committed, but should be rotated at console.groq.com as a precaution. The live deployment currently runs `LLM_PROVIDER=mock` only; this only matters if/when Groq gets added to the deployed environment.
 
 ---
 *This file is the resumption point if the session breaks mid-build — re-read it before starting again rather than re-deriving state.*

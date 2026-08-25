@@ -2743,3 +2743,63 @@ and finishes fast on every provider; verified live (Playwright, zero console err
 correctly) before committing. 137/137 backend tests still passing; frontend `npm run build` clean.
 
 ---
+
+## 2026-08-25 — Actually deployed live: Render + Vercel, judges can use it now
+
+Wanted judges to be able to use the real hosted app, not just read about it, which changed a few
+earlier assumptions. Checked (not assumed) whether anything better than Groq existed for a cloud-hosted
+real narrator: confirmed the earlier 10+-provider survey's conclusion still holds (every free hosted
+LLM tier is rate-limited by design, [[provider_survey_llm_narrator]] in my own notes) and separately
+confirmed Fly.io's free tier is gone as of 2026 (requires a card after a 2-hour trial) before ruling
+it out as a self-hosting-Ollama option. Landed on: **Render** for the backend (free, no card, real
+persistent-enough uptime with a keep-alive) with `LLM_PROVIDER=mock` as the deployed default and Groq
+available as an explicit per-run opt-in from the dashboard's own provider dropdown — nobody gets a
+slow run forced on them, and anyone curious can choose it themselves.
+
+**Netlify didn't work out during setup** (not diagnosed further at the user's call) — switched to
+**Vercel**. Vercel doesn't read `netlify.toml`, so added `frontend/vercel.json`
+(`buildCommand`/`outputDirectory`/`vite` framework preset/SPA rewrite) as the equivalent, scoped via
+Vercel's dashboard "Root Directory" set to `frontend`. First import attempt auto-detected the
+repo's `backend/` as a second deployable service (Vercel's newer multi-service monorepo preset) —
+correctly avoided letting it try to deploy the FastAPI backend too (same reason it never fit
+Netlify: stateful, SQLite, long-running narrator calls) by pointing Root Directory straight at
+`frontend` instead of accepting the auto-detected multi-service config.
+
+**Installed Docker for real this session first**, closing a gap the README had disclosed honestly
+since it was written ("reviewed but never run against a real Docker install"). Needed `wsl --install`
+(admin, required a reboot) then `winget install --exact --id Docker.DockerDesktop --force` — the
+first attempt, run from my own non-elevated shell, silently reported success without installing
+anything (a UAC elevation prompt with no interactive user able to click it); the real install only
+completed once the user ran the same command themselves from their own already-elevated PowerShell.
+`docker compose build`/`up` then verified for real: both images built, both containers started,
+`/api/health` responded, and a full batch run was driven live through the Dockerized frontend against
+the Dockerized backend via Playwright — zero console errors.
+
+**That verification caught a real, would-have-shipped deployment bug before it reached Render**:
+`backend/Dockerfile`'s `CMD` hardcoded `--port 8000` in exec form, which can't read environment
+variables. Render (and most PaaS Docker hosts) inject their own `PORT` and expect the container to
+bind to it — confirmed via WebSearch before touching code, not assumed. Fixed to shell-form
+`CMD uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}`. Also lowered the dashboard's default
+batch size (`RunControls.tsx`) from 120/40 — this project's own internal dev-testing size, the exact
+size that took 11-70 minutes on Groq's free tier — to 30/10, so a judge picking "groq" out of
+curiosity doesn't get a bad first impression through no fault of their own; verified live via
+Playwright before committing. Made CORS configurable via a new `ALLOWED_ORIGINS` env var
+(`backend/app/main.py`) — it was hardcoded to `localhost:5173` only, which would have silently
+blocked any deployed frontend from reaching the deployed backend.
+
+**Deployed and verified live**: backend on Render at `razorpay-buildathon-a1p0.onrender.com` (health
+endpoint and a real `POST /api/run` batch both verified directly via curl before the frontend was
+even up), frontend on Vercel at `razorpay-buildathon-five.vercel.app`, `ALLOWED_ORIGINS` on Render
+set to the Vercel URL. Drove the actual public site through a real batch run via Playwright — not
+local dev servers, the real deployed URLs — zero console/network errors, every dashboard section
+(tiles, fee-leak analysis, ERP export, calibration table, escalation queue) populated with real data,
+matching the earlier local Docker verification's numbers. Set up a free UptimeRobot monitor pinging
+`/api/health` every 5 minutes so Render's 15-minute idle sleep never triggers during a judging
+window — a judge gets an instant response instead of a cold start, and calibration state stays
+intact across visits instead of resetting on every restart.
+
+Commits: `c6505ce` (Dockerfile port fix, batch-size defaults, Docker verification), `7574e3b`
+(Vercel config). Each pushed with separate explicit user confirmation, same pattern as every prior
+push this session.
+
+---
