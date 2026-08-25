@@ -3148,3 +3148,32 @@ regresses the score set by round 21; the two findings are cosmetic... not misrep
 tests passing, no code changes this round beyond the one README clarity fix.
 
 ---
+
+## 2026-08-26 — Claiming the "tax-line matcher" example direction honestly
+
+Re-read Track 04's brief closely: it names four example directions (multi-source reconciliation,
+settlement Q&A agent, forward cash forecaster, tax-line matcher), not a checklist to complete, but
+worth checking whether anything already built covers more than one without saying so. This project's
+primary identity is unambiguously multi-source reconciliation. But the fee-leak detector's
+GST-wrong-base pattern (`app/feeleak/detector.py`) and the ERP journal's GST-on-fee ITC separation
+(`app/erp/journal.py`) are a real, tested, working instance of "tax-line matcher" too — not
+previously claimed as such, just built as part of the fee-leak/ERP work and never explicitly mapped
+back to that specific example direction.
+
+**Fixed by naming it plainly, not by building anything new** — the capability already existed and
+was already tested (`test_fee_leak.py`, `test_journal.py`); this was a documentation gap, not a code
+gap. Added one clause to README.md's "Audits the fee, not just the reconciliation" differentiator
+bullet, and a short paragraph to `docs/track04-settlement-reconciliation-copilot.md`'s fee-leak
+section naming the other three example directions explicitly and stating plainly that this project
+doesn't claim to be a tax-line matcher first — deliberately not overclaiming past what's true, the
+same discipline applied to every other claim in this project.
+
+**Considered and explicitly declined, for now**: a settlement Q&A agent (buildable cheaply — it would
+reuse the narrator's existing tool-calling loop and providers directly) and a forward cash forecaster
+(nothing in the current build supports it, would be built from zero this late and read as bolted-on).
+Recommended the Q&A agent as the one worth considering if there's appetite for more scope; the
+forecaster was recommended against. Neither built yet — a decision for later, not a gap overlooked.
+
+No code changes; a documentation-only pass.
+
+---

@@ -65,7 +65,10 @@ reproducible on a fresh clone, not just re-verified against local state.
 3. **Audits the fee, not just the reconciliation.** A transaction can reconcile perfectly — ledger
    and settlement agree on every rupee — while still being charged a fee inconsistent with the
    merchant's own contract. That's invisible to every check above; only comparing against the actual
-   contracted rate catches it. Detail: [docs/track04-*.md §12](docs/track04-settlement-reconciliation-copilot.md#12-beyond-the-original-spec-fee-leak-detection-and-erp-posting-added-post-build).
+   contracted rate catches it. One of its two patterns is specifically a tax-line check — GST computed
+   on the wrong base — and every transaction's correctly-computed GST-on-fee is separated into its own
+   ITC-eligible journal line, so this also covers the track's "tax-line matcher" direction, not just
+   fee auditing. Detail: [docs/track04-*.md §12](docs/track04-settlement-reconciliation-copilot.md#12-beyond-the-original-spec-fee-leak-detection-and-erp-posting-added-post-build).
 
 **Where the LLM actually sits, stated plainly:** 85% of a batch resolves deterministically, zero LLM
 calls — that's the design, not a shortfall. The model is reserved for the three exception categories

@@ -307,6 +307,13 @@ not. That's the real, documented blind spot `app/feeleak/detector.py` closes —
 axis of analysis from reconciliation, not a subset of it, run against its own dedicated batch of
 otherwise-clean transactions.
 
+Track 04 lists "Tax-line matcher" as one of four example directions alongside multi-source
+reconciliation (this project's primary identity), a settlement Q&A agent, and a forward cash
+forecaster. This project doesn't claim to be a tax-line matcher first — but the GST-wrong-base
+pattern below and the ERP journal's GST-on-fee ITC separation (§ ERP posting & ITC reclaim above) are
+a real, working, tested instance of that direction too, not a stretch of the fee-leak framing to fit
+a checklist.
+
 | Pattern | What's actually wrong | How it's caught |
 |---|---|---|
 | **Blended-rate overcharge** | A flat/blended rate (e.g. the card rate) applied instead of the instrument's own contracted rate — most visible on UPI, whose contracted rate is furthest from a blended card rate | Actual fee compared against `amount × contracted_rate[instrument]`; any excess beyond a rounding epsilon is flagged, ranked by ₹ impact |
