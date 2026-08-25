@@ -408,9 +408,13 @@ default — see `docker-compose.yml` for switching to `groq`/`ollama`, including
 Ollama running on the host machine isn't reachable from inside a container as `localhost`, so that
 path needs `OLLAMA_HOST=http://host.docker.internal:11434` set explicitly) and the frontend on
 `:5173`. SQLite state (audit log, calibration history) persists in a named volume across restarts.
-**Written and reviewed, not yet verified against a real Docker install** — this dev environment
-doesn't have Docker available to build against, so treat this as a solid starting point to check
-once, not a claim it's been run.
+**Actually built and run against a real Docker install (2026-08-25)**, not just reviewed: `docker
+compose build` succeeds for both services, `docker compose up` starts them, `/api/health` responds,
+and a real batch run through the Dockerized frontend against the Dockerized backend was driven live
+in a browser (Playwright) with zero console errors — matching tiles, fee-leak analysis, calibration
+table, and escalation queue all populated with real data, not a static page. This caught one real
+bug before it shipped: the backend `CMD` hardcoded `--port 8000`, which would have silently broken
+on any host (like Render) that injects its own `PORT` env var — fixed to read `${PORT:-8000}`.
 
 This containerizes the current single-instance implementation as-is — it doesn't itself add
 horizontal scaling, a message queue, or a real settlement-ledger webhook integration. Those are

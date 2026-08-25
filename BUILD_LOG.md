@@ -2708,3 +2708,38 @@ This is the recorded pre-push score for the connector work — consistent with t
 rule of running one focused round before a push and fixing what it finds rather than pushing past it.
 
 ---
+
+## 2026-08-25 — Docker, actually verified this time, plus a real deployment bug it caught
+
+Before pursuing a hosted deployment, went back to close a gap this project had disclosed honestly
+since it was written: the Dockerfiles/docker-compose.yml were reviewed but never run against a real
+Docker install, because this dev environment didn't have one. Installed Docker Desktop for real
+(needed WSL2 enabled first, then an elevated `winget install`, then a reboot -- one winget attempt
+silently "succeeded" without actually installing anything because the elevation prompt had no
+interactive user to approve it; the real install only completed once run from an already-elevated
+session with a human present to click through it).
+
+**A careful static read of the Dockerfile before running anything caught a real bug on its own**: the
+backend `CMD` hardcoded `--port 8000` in exec form, which can't read environment variables at all.
+Render (and most PaaS Docker hosts) inject their own `PORT` env var and expect the container to bind
+to it -- this would have silently deployed a container listening on the wrong port, unreachable from
+outside. Fixed by switching to shell-form `CMD uvicorn app.main:app --host 0.0.0.0 --port
+${PORT:-8000}`, which expands the env var if set and falls back to 8000 for plain `docker compose up`
+where PORT is never set.
+
+**Then actually verified it, not just reasoned about it**: `docker compose build` succeeded for both
+images, `docker compose up` started both containers, `/api/health` responded for real, and a full
+batch run was driven live through the Dockerized frontend against the Dockerized backend via
+Playwright -- zero console errors, tiles/fee-leak analysis/calibration table/escalation queue all
+populated with real data. This is the actual thing the README's own honest-scope section had been
+disclosing as unverified; it now is.
+
+Also lowered the dashboard's default batch size (`RunControls.tsx`, `mainN`/`stressN`) from 120/40 to
+30/10. 120/40 was this project's own internal dev-testing size -- the exact size that took 11-70
+minutes on Groq's free tier (see the earlier Ollama-pivot entry). Once this project gets a public
+URL, anyone curious enough to pick "groq" from the provider dropdown without knowing that history
+would get a bad first impression through no fault of their own. 30/10 still exercises every category
+and finishes fast on every provider; verified live (Playwright, zero console errors, tiles populated
+correctly) before committing. 137/137 backend tests still passing; frontend `npm run build` clean.
+
+---

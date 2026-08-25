@@ -16,8 +16,13 @@ const EXPECTATION_NOTE_THRESHOLD_SECONDS = 10;
 
 export function RunControls({ onRun, loading, error }: Props) {
   const [seed, setSeed] = useState(42);
-  const [mainN, setMainN] = useState(120);
-  const [stressN, setStressN] = useState(40);
+  // Smaller than this project's own internal dev-testing default (120/40) on purpose: that size
+  // is what took 11-70 minutes on Groq's free tier (see BUILD_LOG.md), a bad first impression for
+  // anyone picking "groq" from curiosity without knowing that. ~30/10 still exercises every
+  // category and is fast on every provider; anyone who wants a bigger run can just type a bigger
+  // number here.
+  const [mainN, setMainN] = useState(30);
+  const [stressN, setStressN] = useState(10);
   const [provider, setProvider] = useState("mock");
   const [resetHistory, setResetHistory] = useState(false);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
