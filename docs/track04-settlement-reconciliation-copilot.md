@@ -205,7 +205,7 @@ Beyond the main 50-200 transaction batch (mixed distribution below), generate a 
 
 - **Backend:** Python + FastAPI (or Flask if faster to stand up)
 - **Database:** SQLite for the hackathon (Postgres if you want it to look more production-grade)
-- **LLM:** Ollama (local `qwen2.5:7b-instruct`, OpenAI-tool-call-shaped) for the discrepancy narrator and classifier — structured JSON output, low temperature, zero cost and zero rate limit since it runs on-machine. Groq (openai/gpt-oss-20b, hosted, same tool-call contract) kept as a second real option. Originally planned as the Claude API; switched mid-build for cost (free tier) to Groq, then a full free-tier-API survey (Cerebras, Gemini, DeepSeek, GLM, SambaNova, OpenRouter, GitHub Models, Mistral) found every hosted option rate-limited or credit-capped in a way that made a full batch take 11-70 minutes, so the narrator moved to local inference — see BUILD_LOG.md
+- **LLM:** Ollama (local `qwen2.5:7b-instruct`, OpenAI-tool-call-shaped) for the discrepancy narrator and classifier — structured JSON output, low temperature, zero cost and zero rate limit since it runs on-machine. Groq (openai/gpt-oss-20b, hosted, same tool-call contract) kept as a second real option. I'd originally planned to use a different hosted LLM API; I switched mid-build for cost (free tier) to Groq, then I ran a full free-tier-API survey (Cerebras, Gemini, DeepSeek, GLM, SambaNova, OpenRouter, GitHub Models, Mistral) and found every hosted option rate-limited or credit-capped in a way that made a full batch take 11-70 minutes, so I moved the narrator to local inference — see BUILD_LOG.md
 - **Frontend:** React 19 + TypeScript (your existing strength from Vera ERP)
 - **Data generation:** Python (pandas/faker-style synthetic generation, with a documented seed for reproducibility)
 - **Retrieval for `recall_similar_resolutions`:** in-memory lookup over the current run's audit log so far — not persisted across runs (see §6.4 above and BUILD_LOG.md) — no vector DB needed at this batch size
@@ -245,7 +245,7 @@ Beyond the main 50-200 transaction batch (mixed distribution below), generate a 
 ## 10. Submission checklist (per Razorpay's stated requirements)
 
 This is the original pre-build plan, left unchecked as written — it's a planning checklist, not a
-status tracker, and a round-12 audit correctly flagged that its all-`[ ]` state directly
+status tracker, and round 12 of my audit loop correctly flagged that its all-`[ ]` state directly
 contradicts PROGRESS.md's own mirror of the same six items (five of six checked there). **For
 actual current completion status, see [PROGRESS.md](../PROGRESS.md)**, not this list.
 

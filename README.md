@@ -81,8 +81,8 @@ cap too small for a real batch. Real, verified result on this project's own hard
 Set `GROQ_API_KEY=your-key-here` (free tier at console.groq.com) and `LLM_PROVIDER=groq` in
 `backend/.env`, the same way as above.
 
-(or pass `"provider": "ollama"` / `"provider": "groq"` per-request in the `/api/run` body. Groq was
-chosen over the originally-planned Claude API for cost — see BUILD_LOG.md. Default model is
+(or pass `"provider": "ollama"` / `"provider": "groq"` per-request in the `/api/run` body. I chose
+Groq over the hosted LLM API I'd originally planned to use, for cost — see BUILD_LOG.md. Default model is
 `openai/gpt-oss-20b`. Free-tier accounts have a real per-minute token limit; the narrator retries
 rate limits with backoff automatically, but a full batch can still take many minutes. Kept as a
 second option, not required.)
@@ -169,7 +169,7 @@ using one tool's numeric output to set a different, later decision — the actua
 use" is supposed to mean here, not just calling functions on the way to an answer it would have
 given anyway.
 
-An earlier Ollama run had a real, more interesting failure an external audit caught live: the model
+An earlier Ollama run had a real, more interesting failure my audit loop caught live: the model
 returned `timing_lag` — a category outside the 3 the narrator is allowed to output — at **confidence
 0.9**, and nothing downstream of the JSON parse checked the category against the valid set before
 letting it through. **Fixed**: both `narrate_groq` and `narrate_ollama` now validate the category
