@@ -3074,3 +3074,42 @@ structurally stops, with each side of that line independently confirmed rather t
 145/145 tests passing.
 
 ---
+
+## 2026-08-25 — Making the real-data claim actually verifiable, and a live-demo sanity check
+
+A third-round review made a sharp, correct point: the real-data claim (order/payment/fee/refund from
+a live test account) lived only in prose — BUILD_LOG, PROGRESS, a source docstring — while a
+scoreboard row asserted it as fact. The 14 connector tests all mock `httpx.Client`, which correctly
+proves the *mapping* logic but not that the underlying API call ever happened. Every other number in
+this README already has a committed, independently-checkable artifact behind it; this was the one
+prose-only exception.
+
+**Fixed by dumping the actual raw API responses**, not another paraphrase: `GET
+/v1/payments/pay_TU5Ve4omwaz1c5` and `GET /v1/refunds` (plus a recent-payments listing for context),
+committed unmodified to `docs/evidence/razorpay-sandbox-2026-08-25.json`. One redaction made
+deliberately, going beyond what was asked: the payment's `contact` field held a phone number chosen
+semi-randomly during the earlier Checkout automation specifically to pass client-side validation —
+never confirmed to be fictitious, so redacted to `+91XXXXXXXXXX` out of caution rather than assumed
+safe to publish just because it sat in a test-mode API response. Everything else in the dump is
+Razorpay-internal test data with nothing sensitive.
+
+**Surfaced the 2.0%-vs-1.0% fee finding in the README itself**, not just the connector's docstring —
+one clause in the new scoreboard row's evidence cell. Kept the framing accurate to what was actually
+verified: the observed rate matches this project's own `FEE_PCT["card"]` constant, not
+`FEE_PCT["netbanking"]` — not a claim about Razorpay's real published rate card, which was never
+independently checked and would have been an overclaim to assert.
+
+**Checked whether the live demo cold-start concern was real, rather than assuming it either way**:
+`curl` against the Render backend right now returns in 0.16s, not the 30-60s a cold Render free-tier
+instance would show — the UptimeRobot keep-alive set up earlier this session is doing its job.
+Deliberately did NOT add a "may take ~30s to wake" disclaimer, since that would contradict measured
+reality; that caveat only becomes true if the keep-alive monitor stops, which isn't the current state.
+
+**Strengthened the `genuine_error` framing** the review flagged as a likely panel question, folded
+into the existing paragraph rather than a new one: a misclassification there costs a human a glance,
+never a wrong autonomous action — which is why it's excluded from auto-resolve by design, not a
+category this project tried and failed to improve.
+
+No code changes this round (evidence file + README wording only); 145/145 tests still passing.
+
+---

@@ -30,7 +30,7 @@ python -m uvicorn app.main:app --reload --port 8000   # then: cd ../frontend && 
 | Throughput | 5,508 tx/sec (mock, 50k scale) — 2.58 tx/sec (real LLM, measured, not extrapolated). The 2,000× gap is the deterministic/LLM split below, not two different systems | [docs/setup.md](docs/setup.md) |
 | Measured accuracy | Wilson 95% CI *lower bound* per category, not a raw point estimate | [below](#the-result) |
 | Honest exception list | Every escalation ships a reason + tool trace; full build gaps in [What this can't do](#what-this-cant-do-and-what-it-refuses-to-do) | ↓ |
-| Real Razorpay data | Order + payment + fee + refund are real API objects on a live test account; settlement is structurally unavailable in test mode, verified not assumed | [connector](backend/app/connectors/razorpay_sandbox.py) |
+| Real Razorpay data | Order + payment + fee + refund are real API objects on a live test account (observed test-mode fee: 2.0%, matching this project's own `card` rate constant, not `netbanking` — a real, disclosed discrepancy); settlement is structurally unavailable in test mode, verified not assumed | [raw API dump](docs/evidence/razorpay-sandbox-2026-08-25.json) |
 
 ## The result
 
@@ -45,9 +45,11 @@ good.
 
 The counterweight is the actual point. `genuine_error` sat at 80.3% measured accuracy across the same
 evidence and **stayed escalated anyway**, because it's the one category that never auto-resolves
-regardless of the numbers. A system willing to *not* act is the only reason a finance team would ever
-let it act. [Raw output](docs/evidence/verified-ollama-run-2026-08-25.json) — reproducible on a fresh
-clone, not just re-verified against local state.
+regardless of the numbers — a misclassification there costs a human a glance, never a wrong
+autonomous action, which is exactly why it's excluded from auto-resolve by design rather than a
+category this project tried and failed to improve. A system willing to *not* act is the only reason a
+finance team would ever let it act. [Raw output](docs/evidence/verified-ollama-run-2026-08-25.json) —
+reproducible on a fresh clone, not just re-verified against local state.
 
 ## Why it's not a flat matcher
 
