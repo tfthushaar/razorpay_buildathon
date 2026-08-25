@@ -2980,3 +2980,51 @@ with em-dash qualifications is exactly what let an inflated number survive its o
 Shorter, single-number paragraphs are the actual fix, not a style preference.
 
 ---
+
+## 2026-08-25 — Real data investigation: a genuine captured payment, and a hard platform wall
+
+User asked directly whether real Razorpay data was achievable anywhere in this project. Worth
+re-investigating properly rather than repeating the earlier "Cards don't work, moved on" conclusion
+verbatim -- Cards was the only payment method actually tried before; Netbanking and Wallet were never
+attempted.
+
+**Netbanking works, genuinely.** Selecting a bank (IDBI) on this account's real Checkout doesn't hit
+the same international-card rejection at all -- it opens Razorpay's own simulated bank page
+(`api.razorpay.com/v1/gateway/mocksharp/...`, literally titled "This is just a demo bank page. You
+can choose whether to make this payment successful or not") with a real Success/Failure choice.
+Clicking Success produced real, verified captured payments: `pay_TU5Ve4omwaz1c5` and
+`pay_TU5W7RbG3U1HDe`, both `status: "captured"`, `method: "netbanking"`, confirmed by querying
+`GET /v1/payments` directly, not assumed from the UI. This is a genuinely different result from the
+Cards path this account structurally cannot complete.
+
+**Running the connector against this real data caught another real bug**, the same discipline that
+caught the `notes: []` shape earlier: one of the real payments came back with `status: "created"` --
+a checkout session opened but never actually attempted, a real Razorpay status this project's
+`Payment.status` Literal never anticipated. `fetch_payments` crashed with a Pydantic validation
+error on the very first live run against the new data. Fixed properly, not suppressed: `"created"`
+payments are filtered out (they're not a completed attempt with fee/settlement data behind them, not
+reconciliation input at all), and any genuinely unrecognized status now raises loudly instead of
+being silently force-mapped -- the same fail-loud discipline this project's narrator fail-safes
+apply to a model's output, applied here to a real API's output. 2 new regression tests.
+
+**Then checked whether this actually unblocks the reconciliation demo, rather than declaring victory
+on a captured payment alone.** `GET /v1/settlements` still returned `[]` after the real capture --
+verified this isn't a timing issue by checking Razorpay's own documentation directly: test-mode
+payments are simulated and structurally isolated from the real settlement pipeline by design, full
+stop. "These transactions do not result in actual settlements... real settlements only occur with
+actual payments processed in live mode using production API keys and real customer funds." No number
+of further real captured test payments changes that -- this is a platform-level wall, not an
+account-configuration problem or something more Playwright automation could work around.
+
+**Honest conclusion**: real orders and real captured payments are both genuinely achievable now (and
+`sandbox_status()` / `fetch_payments()` correctly reflect that), but a real, full order → payment →
+settlement → ledger chain -- the actual shape this project's reconciliation engine needs -- is not
+achievable without a live Razorpay account processing real money, which is out of scope for a student
+buildathon submission (real KYC, a real bank account, real customer transactions). The synthetic data
+generator remains the project's real demo path for exactly this reason, now backed by a more complete
+and more honest understanding of exactly where the real API's ceiling is, not a vaguer "this account
+has limits" explanation.
+
+142/142 tests passing.
+
+---

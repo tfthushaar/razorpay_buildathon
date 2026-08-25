@@ -9,17 +9,31 @@ docs/track04-settlement-reconciliation-copilot.md §12 and BUILD_LOG.md for the 
 trail): `POST /v1/orders`, `GET /v1/payments`, and `GET /v1/settlements` are real,
 working endpoints on this account. `POST /v1/payments/test_payment` does not exist —
 there is no API that manufactures a captured payment directly in test mode. The only
-way to produce one is the Checkout.js browser flow, which on this account rejects
-every standard "domestic" test card (Visa `4111 1111 1111 1111` and Mastercard
-`5104 0155 5555 5558`) as `international_transaction_not_allowed` and does not even
-offer UPI as a payment method — this account's activation profile is narrower than
-a stock test account, and no card number swap fixes that. LedgerEntry has no Razorpay
-API equivalent at all: it is our own internal "amount we expected to receive," which a
-real merchant would record at order-creation time, not fetch from Razorpay.
+way to produce one is the Checkout.js browser flow.
 
-So `fetch_payments` / `fetch_settlements` against a fresh account genuinely return
-empty lists — that's a real authenticated response, not a mocked one. This connector
-proves the wiring is real; it does not claim to have captured a real payment.
+Cards don't work on this account: every standard "domestic" test card (Visa
+`4111 1111 1111 1111` and Mastercard `5104 0155 5555 5558`) is rejected as
+`international_transaction_not_allowed`, and UPI isn't offered as a payment method at
+all -- this account's activation profile is narrower than a stock test account, and no
+card number swap fixes that. **Netbanking does work**, and produces a genuinely
+`captured` payment: selecting a bank (e.g. IDBI) opens Razorpay's own simulated bank
+page (`api.razorpay.com/v1/gateway/mocksharp/...`, literally titled "This is just a demo
+bank page") with a real Success/Failure choice -- confirmed live, `pay_...` IDs with
+`status: "captured"`, `method: "netbanking"` really exist on this account (see BUILD_LOG.md).
+
+**Settlements never will, and that's not fixable from here.** Verified via Razorpay's
+own documentation: test-mode payments are simulated and isolated from the real
+settlement pipeline by design -- "these transactions do not result in actual
+settlements... real settlements only occur with actual payments processed in live mode
+using production API keys and real customer funds." No number of real captured test
+payments changes that; `GET /v1/settlements` will structurally return `[]` on this or
+any test-mode account, forever. LedgerEntry has no Razorpay API equivalent either: it's
+our own internal "amount we expected to receive," recorded at order-creation time, not
+fetched from Razorpay.
+
+So `fetch_payments` genuinely returns real captured payments now; `fetch_settlements`
+genuinely, permanently returns `[]` on any test-mode account -- both are real responses,
+not a mocked or incomplete implementation.
 
 `GET /v1/settlements`'s real response also has no per-settlement `payment_id` or
 `method`/rail field at all (verified against Razorpay's own docs: it's
@@ -87,6 +101,20 @@ def create_test_order(amount: int, receipt: str, rail: Rail = "upi", currency: s
     return order, ledger_entry
 
 
+_PAYMENT_STATUS_MAP: dict[str, str] = {
+    "captured": "captured",
+    "failed": "failed",
+    "refunded": "captured",  # was captured at some point; refund is tracked separately, not a status
+    "authorized": "pending",
+}
+# Real Razorpay accounts also produce "created" -- a checkout session opened but never actually
+# attempted (abandoned, or still in progress) -- found live against this account's own real payment
+# list, not anticipated in advance. That's not a completed payment attempt with fee/settlement data
+# behind it, so it's not reconciliation input at all; filtered out below rather than forced into
+# Payment's status Literal (which would misrepresent what actually happened).
+_IGNORED_PAYMENT_STATUSES = {"created"}
+
+
 def fetch_payments(count: int = 100) -> list[Payment]:
     """GET /v1/payments — real API call. Returns [] on a fresh/unfunded test account;
     that emptiness is itself the real response, not a placeholder."""
@@ -99,11 +127,18 @@ def fetch_payments(count: int = 100) -> list[Payment]:
     payments = []
     for item in items:
         status = item["status"]
+        if status in _IGNORED_PAYMENT_STATUSES:
+            continue
+        mapped_status = _PAYMENT_STATUS_MAP.get(status)
+        if mapped_status is None:
+            # An unforeseen status shape -- fail loud rather than silently mis-map a real payment's
+            # state, the same discipline this project applies to the narrator's own fail-safes.
+            raise RazorpaySandboxError(f"unrecognized payment status {status!r} on {item['id']} -- not yet mapped, not silently guessed")
         payments.append(
             Payment(
                 payment_id=item["id"],
                 order_id=item.get("order_id") or "",
-                status="captured" if status == "captured" else status,  # type: ignore[arg-type]
+                status=mapped_status,  # type: ignore[arg-type]
                 captured=bool(item.get("captured", False)),
                 captured_amount=item["amount"] if item.get("captured") else 0,
                 fee_amount=item.get("fee") or 0,
@@ -149,23 +184,26 @@ def fetch_settlements(count: int = 100) -> list[Settlement]:
 
 
 def sandbox_status() -> dict:
-    """Human-facing connectivity check: proves the credentials are real and live without
-    requiring a captured payment to exist. Used by GET /api/sandbox/status."""
+    """Human-facing connectivity check: proves the credentials are real and live. Used by
+    GET /api/sandbox/status."""
     try:
         _, ledger_entry = create_test_order(amount=100, receipt="sandbox_status_probe")
-        payments = fetch_payments(count=1)
-        settlements = fetch_settlements(count=1)
+        payments = fetch_payments(count=25)
+        settlements = fetch_settlements(count=25)
     except RazorpaySandboxError as exc:
         return {"connected": False, "error": str(exc)}
     return {
         "connected": True,
         "probe_order_id": ledger_entry.order_id,
         "payments_on_account": len(payments),
+        "captured_payments_on_account": sum(1 for p in payments if p.captured),
         "settlements_on_account": len(settlements),
         "note": (
-            "Real API, test-mode credentials. This account's Checkout activation profile "
-            "rejects standard domestic test cards as international and does not offer UPI, "
-            "so no captured payment has been produced yet -- payments/settlements counts "
-            "above are real, live responses, not placeholders."
+            "Real API, test-mode credentials. Netbanking payments genuinely capture on this "
+            "account (Cards don't -- rejected as international; UPI isn't offered as a method "
+            "at all). Settlements will always be 0 here regardless: test-mode payments are "
+            "structurally excluded from Razorpay's settlement pipeline, confirmed against "
+            "Razorpay's own docs, not an account-specific limitation or something more captured "
+            "payments would fix."
         ),
     }

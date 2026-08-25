@@ -135,6 +135,39 @@ def test_fetch_payments_maps_a_captured_payment(monkeypatch):
     assert p.tax_amount == 180
 
 
+def test_fetch_payments_filters_out_created_status_not_a_real_attempt(monkeypatch):
+    """Found live against the real account: a "created" payment is a checkout session opened but
+    never actually attempted (abandoned, or in progress) -- not a completed attempt with fee/
+    settlement data behind it, so it's not reconciliation input. Filtered out, not force-mapped
+    into Payment.status (whose Literal doesn't include it, and shouldn't)."""
+    monkeypatch.setenv("RAZORPAY_KEY_ID", "rzp_test_fake")
+    monkeypatch.setenv("RAZORPAY_KEY_SECRET", "fake_secret")
+    payments_body = {
+        "items": [
+            {"id": "pay_ABANDONED", "order_id": "order_X", "status": "created", "captured": False, "amount": 50000, "method": "netbanking", "created_at": 1735000100},
+            {"id": "pay_REAL", "order_id": "order_Y", "status": "captured", "captured": True, "amount": 50000, "fee": 100, "tax": 18, "method": "netbanking", "created_at": 1735000200},
+        ]
+    }
+    client = _mock_client({("GET", "/payments"): _resp(200, payments_body)})
+    with patch("app.connectors.razorpay_sandbox._client", return_value=client):
+        payments = fetch_payments()
+
+    assert len(payments) == 1
+    assert payments[0].payment_id == "pay_REAL"
+
+
+def test_fetch_payments_raises_loudly_on_a_genuinely_unrecognized_status(monkeypatch):
+    """An unmapped status should fail loud, not silently guess -- the same discipline the
+    narrator's own fail-safes apply to a model's output."""
+    monkeypatch.setenv("RAZORPAY_KEY_ID", "rzp_test_fake")
+    monkeypatch.setenv("RAZORPAY_KEY_SECRET", "fake_secret")
+    payments_body = {"items": [{"id": "pay_WEIRD", "order_id": "order_Z", "status": "some_new_status_razorpay_added", "captured": False, "amount": 100, "method": "card", "created_at": 1735000100}]}
+    client = _mock_client({("GET", "/payments"): _resp(200, payments_body)})
+    with patch("app.connectors.razorpay_sandbox._client", return_value=client):
+        with pytest.raises(RazorpaySandboxError):
+            fetch_payments()
+
+
 def test_fetch_payments_empty_account_returns_empty_list_not_an_error(monkeypatch):
     monkeypatch.setenv("RAZORPAY_KEY_ID", "rzp_test_fake")
     monkeypatch.setenv("RAZORPAY_KEY_SECRET", "fake_secret")

@@ -13,7 +13,7 @@ instead of guessing.
 
 ```bash
 git clone https://github.com/tfthushaar/razorpay_buildathon.git && cd razorpay_buildathon/backend
-python -m venv .venv && .venv/Scripts/activate && pip install -r requirements.txt
+python -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt   # Windows: .venv\Scripts\activate
 python -m uvicorn app.main:app --reload --port 8000   # then: cd ../frontend && npm install && npm run dev
 ```
 
@@ -26,7 +26,8 @@ python -m uvicorn app.main:app --reload --port 8000   # then: cd ../frontend && 
 | The bar (Razorpay's own) | This system | Verify |
 |---|---|---|
 | 50+ record batch | 50,000 (mock provider) / 120 (real Ollama) | [50k run](docs/evidence/50k-batch-run-2026-08-25.json) |
-| Throughput | 5,508 tx/sec (mock, 50k scale) — 2.58 tx/sec (real LLM, measured, not extrapolated) | [docs/setup.md](docs/setup.md) |
+| Match rate | 99.3% of settlement value reconciled (real Ollama run, 7 escalations of 120) | [below](#the-result) |
+| Throughput | 5,508 tx/sec (mock, 50k scale) — 2.58 tx/sec (real LLM, measured, not extrapolated). The 2,000× gap is the deterministic/LLM split below, not two different systems | [docs/setup.md](docs/setup.md) |
 | Measured accuracy | Wilson 95% CI *lower bound* per category, not a raw point estimate | [below](#the-result) |
 | Honest exception list | Every escalation ships a reason + tool trace; full build gaps in [What this can't do](#what-this-cant-do-and-what-it-refuses-to-do) | ↓ |
 
@@ -39,11 +40,13 @@ auto-resolved with zero human review**, not the same handful of transactions cou
 re-scoring (`duplicate_refund` earned the same status separately: 37 cases, 100% accuracy). Getting
 here took real setbacks — 100% accuracy at 29 distinct cases still didn't clear the bound, and a
 couple of genuine misclassifications happened before enough further evidence pulled it past 90% for
-good. The counterweight is the actual point: `genuine_error` sat at 80.3% measured accuracy across
-the same evidence and **stayed escalated anyway**, because it's the one category that never
-auto-resolves regardless of the numbers. A system willing to *not* act is the only reason a finance
-team would ever let it act. [Raw output](docs/evidence/verified-ollama-run-2026-08-25.json) —
-reproducible on a fresh clone, not just re-verified against local state.
+good.
+
+The counterweight is the actual point. `genuine_error` sat at 80.3% measured accuracy across the same
+evidence and **stayed escalated anyway**, because it's the one category that never auto-resolves
+regardless of the numbers. A system willing to *not* act is the only reason a finance team would ever
+let it act. [Raw output](docs/evidence/verified-ollama-run-2026-08-25.json) — reproducible on a fresh
+clone, not just re-verified against local state.
 
 ## Why it's not a flat matcher
 
@@ -60,6 +63,13 @@ reproducible on a fresh clone, not just re-verified against local state.
    merchant's own contract. That's invisible to every check above; only comparing against the actual
    contracted rate catches it. Detail: [docs/track04-*.md §12](docs/track04-settlement-reconciliation-copilot.md#12-beyond-the-original-spec-fee-leak-detection-and-erp-posting-added-post-build).
 
+**Where the LLM actually sits, stated plainly:** 85% of a batch resolves deterministically, zero LLM
+calls — that's the design, not a shortfall. The model is reserved for the three exception categories
+where real judgment is required (`duplicate_refund`, `netting_trap`, `genuine_error`), and every one
+of its calls is tool-grounded — it looks up the fee schedule, checks the SLA window, cross-references
+past resolutions — and audited, not a bare classification. Autonomy in bullet 2 above is earned by
+*that* judgment, specifically, not by the deterministic 85%.
+
 ## What this can't do, and what it refuses to do
 
 - **Not horizontally scaled** — one FastAPI instance, SQLite. Worker-pool narration and Postgres are
@@ -73,10 +83,12 @@ reproducible on a fresh clone, not just re-verified against local state.
   import cleanly.
 - **The fee-leak detector ships two patterns** (blended-rate overcharge, GST-wrong-base), not five —
   the taxonomy extends without a different architecture, but only these two are built and tested.
-- **The Razorpay Test Mode connector makes real API calls but has no captured payment to
-  reconcile** — this specific test account's Checkout profile rejects every documented domestic test
-  card and doesn't offer UPI; a real account-level finding, not a connector bug. Full trail:
-  [BUILD_LOG.md](BUILD_LOG.md).
+- **The Razorpay Test Mode connector now has genuinely captured real payments** (Netbanking works on
+  this account, even though every documented domestic test card is rejected and UPI isn't offered —
+  a real account-level finding) **but will never have a settlement to reconcile against, on any
+  test-mode account.** Confirmed against Razorpay's own documentation: test-mode payments are
+  structurally excluded from the real settlement pipeline — not a limitation of this account, or of
+  this connector, or something more captured payments would fix. Full trail: [BUILD_LOG.md](BUILD_LOG.md).
 
 ## Verify it yourself
 
@@ -84,7 +96,7 @@ Three commands, all working on a genuinely fresh clone — not read off a dashbo
 hand:
 
 ```bash
-cd backend && python -m pytest tests/ -v                                          # 140 tests
+cd backend && python -m pytest tests/ -v                                          # 142 tests
 python scripts/audit_calibration.py --db ../docs/evidence/verified_calibration_history.db  # the netting_trap/duplicate_refund result above, recomputed live
 python -c "from app.pipeline import run_batch; r = run_batch(seed=42, main_n=120, stress_n=40, provider='mock'); print(r.fee_leak_report.total_fee_recovery, r.total_itc_separated)"  # fee-leak + ITC figures
 ```
