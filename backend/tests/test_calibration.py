@@ -161,6 +161,39 @@ def test_repeated_scoring_of_the_same_small_case_set_cannot_auto_resolve():
     assert "distinct" in dup.reason.lower()
 
 
+def test_amount_total_and_amount_at_risk_are_not_inflated_by_repeated_rescoring():
+    """A real external review (2026-08-25) caught this project's own README quoting amount_total
+    as "money auto-resolved," when amount_total sums a transaction's rupee amount once per
+    observation, not once per distinct transaction -- for netting_trap, 36 real decisions across
+    only 15 distinct transactions produced an amount_total ~47x the real distinct money. This test
+    reproduces the mechanism directly: 20 distinct transactions, each re-scored 3 times (n=60,
+    distinct=20, clears the 15-distinct floor), 59/60 correct (91.1% Wilson lower bound, verified
+    separately) -- the one wrong observation placed mid-sequence, not at the tail, so it reads as
+    an old already-priced-in miss rather than a live drift regression (same convention as the
+    high-accuracy auto-resolve test above). amount_total inflates 3x as expected;
+    distinct_amount_total and amount_at_risk must NOT."""
+    distinct_ids = [f"case{i}" for i in range(20)]
+    decisions = [
+        ScoredDecision(transaction_id=tid, predicted_category="netting_trap", true_label="netting_trap", amount=1_000_00, provider="groq")
+        for tid in distinct_ids
+        for _ in range(3)  # each of the 20 real cases re-scored 3 times -> n=60
+    ]
+    decisions[30] = ScoredDecision(  # one wrong observation, placed mid-sequence
+        transaction_id=decisions[30].transaction_id, predicted_category="netting_trap", true_label="duplicate_refund", amount=1_000_00, provider="groq"
+    )
+    report = calibrate(decisions, threshold=0.90)
+    nt = next(c for c in report.categories if c.category == "netting_trap")
+
+    assert nt.n == 60
+    assert nt.correct == 59
+    assert nt.distinct_transaction_count == 20
+    assert nt.decision == "auto_resolve", "sanity check: 59/60 correct should clear the 90% CI lower bound (91.1%, verified separately)"
+    assert nt.amount_total == 60 * 1_000_00, "amount_total legitimately counts every observation, inflation included"
+    assert nt.distinct_amount_total == 20 * 1_000_00, "distinct money must count each transaction exactly once, not once per re-score"
+    assert nt.amount_at_risk == round((1 - nt.accuracy) * nt.distinct_amount_total)
+    assert nt.amount_at_risk != round((1 - nt.accuracy) * nt.amount_total), "sanity check: the two formulas must actually differ here, or this test isn't exercising the bug"
+
+
 def test_genuinely_distinct_cases_can_still_auto_resolve_past_the_floor():
     """The contrasting case: the floor added above must not block legitimate accumulation. Same
     n=40, same 100% accuracy, but 40 GENUINELY DISTINCT transactions (e.g. accumulated across many

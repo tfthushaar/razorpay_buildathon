@@ -69,8 +69,17 @@ class CategoryCalibration(BaseModel):
     ci_upper: float
     decision: Literal["auto_resolve", "escalate"]
     reason: str
-    amount_total: int  # total amount across ALL decisions (real + mock), for reporting
-    amount_at_risk: int  # expected wrongly-auto-resolved amount at this threshold; 0 if escalated
+    amount_total: int  # total amount across ALL decisions (real + mock), for reporting -- NOTE: a
+    # category re-scored across many runs (same transactions observed repeatedly) sums the same
+    # rupee amount once per observation, not once per distinct transaction. Real, distinct money
+    # is distinct_amount_total below; don't headline this field as "money resolved" (a real external
+    # audit caught exactly that misuse in this project's own README -- see BUILD_LOG.md 2026-08-25).
+    distinct_amount_total: int  # sum of amount across DISTINCT real-provider transaction_ids only
+    # (first occurrence each) -- the honest "real money behind these decisions" figure, immune to
+    # the same re-scoring inflation amount_total has. This is what a headline claim should quote.
+    amount_at_risk: int  # expected wrongly-auto-resolved amount at this threshold; 0 if escalated.
+    # Computed off distinct_amount_total, not amount_total -- risk exposure should reflect real
+    # distinct money, not an artifact of how many times the same transactions got re-scored.
     mock_n: int  # mock-mode decisions seen for this category -- tracked, never counted toward the gate
     distinct_transaction_count: int  # DISTINCT real-provider transaction_ids behind n -- n itself can
     # over-count the same re-scored case; this is what MIN_DISTINCT_TRANSACTIONS_FOR_AUTO_RESOLVE
@@ -111,6 +120,14 @@ def calibrate(decisions: list[ScoredDecision], threshold: float = DEFAULT_THRESH
         ci_lower, ci_upper = wilson_score_interval(correct, n)
         amount_total = sum(d.amount for d in items)
         distinct_transaction_count = len({d.transaction_id for d in real_items})
+        # First-occurrence-per-transaction_id, not a second sum-then-dedupe pass -- a transaction
+        # re-scored across multiple runs contributes its amount exactly once here regardless of n.
+        seen_transaction_ids: set[str] = set()
+        distinct_amount_total = 0
+        for d in real_items:
+            if d.transaction_id not in seen_transaction_ids:
+                seen_transaction_ids.add(d.transaction_id)
+                distinct_amount_total += d.amount
 
         # real_items is chronological (history.py's SELECT is explicitly ORDER BY id ASC) so this
         # outcome sequence genuinely reflects "oldest real-provider decision first" -- EWMA drift
@@ -153,7 +170,7 @@ def calibrate(decisions: list[ScoredDecision], threshold: float = DEFAULT_THRESH
                 f"(n={n} real-provider decisions across {distinct_transaction_count} distinct transactions)"
             )
 
-        amount_at_risk = round((1 - accuracy) * amount_total) if decision == "auto_resolve" else 0
+        amount_at_risk = round((1 - accuracy) * distinct_amount_total) if decision == "auto_resolve" else 0
 
         categories.append(
             CategoryCalibration(
@@ -166,6 +183,7 @@ def calibrate(decisions: list[ScoredDecision], threshold: float = DEFAULT_THRESH
                 decision=decision,
                 reason=reason,
                 amount_total=amount_total,
+                distinct_amount_total=distinct_amount_total,
                 amount_at_risk=amount_at_risk,
                 mock_n=mock_n,
                 distinct_transaction_count=distinct_transaction_count,

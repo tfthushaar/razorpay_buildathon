@@ -2849,3 +2849,83 @@ it stands, with two small, now-fixed rough edges rather than anything that would
 break under real use.
 
 ---
+
+## 2026-08-25 — A real external review caught a genuinely inflated headline number
+
+A detailed, evidence-based external review (framed as a hiring judge's assessment) checked this
+project by cloning it, running the test suite, reading the core modules, and checking the committed
+evidence files against the code that produced them -- not a skim. Given this session's own standing
+discipline of fact-checking every external document before acting on it (two of three prior
+strategy documents this session contained real errors), every claim in the review was independently
+re-verified before touching anything, not trusted on account of how detailed it sounded.
+
+**The core claim, verified true.** The README's headline -- "the system safely auto-resolved
+₹59,97,863.76 in netting-trap exceptions with zero human review" -- was `amount_total` from the
+committed evidence JSON, and `calibrator.py`'s own code comment already said what that field is:
+"total amount across ALL decisions (real + mock)." For netting_trap specifically: 36 real decisions
+across only 15 *distinct* transactions, plus 444 mock decisions never shown in the headline. Every
+re-scoring of the same handful of transactions across accumulated development history added that
+transaction's rupee amount again. Reproduced independently: `generate(seed=42, main_n=120,
+stress_n=0)`'s actual netting_trap set is 8 distinct transactions totaling exactly ₹1,27,500 -- the
+review's own reproduction, confirmed to the rupee.
+
+**The second claim, also verified true.** The README told a judge to run `python
+scripts/audit_calibration.py` to independently verify the calibration numbers. `backend/data/*.db`
+is correctly gitignored (it's the live app's mutable local state, not source) -- so on an actual
+fresh clone, that command has nothing to read. Confirmed directly: on a clean sandbox with no local
+history, it exits with a clear "no calibration history... run a batch first" message (not literally
+the empty-table output the review's transcript showed, a minor discrepancy in exact wording, but the
+substance -- a judge cannot reproduce the headline claim -- was fully correct).
+
+**Checked, not assumed, whether the live dashboard had the same bug.** Grepped the frontend: only
+`amount_at_risk` is ever rendered (`CalibrationPanel.tsx`), never `amount_total` directly. Since
+`amount_at_risk = (1 - accuracy) * amount_total` and netting_trap's accuracy was 100% at the time,
+`(1 - 1.0) * anything = 0` -- the live product was never actually showing an inflated number to a
+user. But the formula itself was a latent bug: any category that ever auto-resolved at *less* than
+100% real accuracy would have inherited the exact same inflation in a real, user-facing field.
+
+**Fixed at the root, not patched at the README.** Added a genuinely correct `distinct_amount_total`
+field to `CategoryCalibration` (`app/calibration/calibrator.py`) -- summed once per distinct
+transaction_id, immune to re-scoring inflation by construction -- and changed `amount_at_risk`'s
+formula to use it instead of `amount_total`. `amount_total` itself is kept (still legitimately useful
+for "total value touched including mock," clearly commented now for what it is and isn't). New
+regression test reproduces the exact mechanism: 20 distinct transactions each re-scored 3 times,
+1 wrong, `amount_total` correctly inflates 3x while `distinct_amount_total`/`amount_at_risk` don't.
+
+**Then went further than a formula fix, since the underlying evidence itself was the real problem.**
+Wrote `scripts/generate_verified_evidence.py`, which builds a fresh, dedicated calibration history
+from real Ollama batches at different seeds accumulated together -- the honest way to earn
+auto-resolve trust (several genuinely different real-world batches, exactly how a real production
+system would), not a shortcut. Ran it live: the first 4 batches reached 100% accuracy on
+netting_trap across 29 distinct transactions and still hadn't cleared the 90% Wilson lower bound
+(88.3%) -- small-sample conservatism working exactly as designed, even at perfect accuracy. A couple
+of genuine real misclassifications along the way (a live model, not a scripted answer) pushed the
+point estimate to 97-98% before enough further real evidence pulled the lower bound past 90% for
+good, at 8 accumulated batches: netting_trap (n=59, distinct=59, 98.3% accuracy, lower bound 91.0%,
+₹4,86,473.13 real distinct money) and duplicate_refund (n=37, distinct=37, 100% accuracy, lower
+bound 90.6%, ₹1,52,312.37) both genuinely earned auto-resolve. The gate paying off is directly
+visible within the last single run too: 18 narrated, only 7 escalated (all `genuine_error`, correctly
+never-auto-resolving) -- 11 transactions resolved without a human touching them, live, in that run.
+
+Committed the resulting `docs/evidence/verified_calibration_history.db` (small, dedicated,
+NOT covered by the `backend/data/*.db` gitignore rule that correctly excludes live app state) --
+`python scripts/audit_calibration.py --db ../docs/evidence/verified_calibration_history.db` now
+actually reproduces the headline claim on a genuinely fresh clone. README rewritten around the real
+numbers throughout: the money-story headline, the "Calibrated autonomy" section (now honestly
+describing an 8-batch accumulation with real setbacks along the way, not a clean one-shot win --
+arguably a stronger story than the original), the reproducibility instructions, and the stress-test
+figure (updated to the new evidence's own 40/40, also fixed from a lesser-verified 37/37). One
+smaller finding from the same review, also fixed: fee-leak README copy said a review "found"
+₹2,634.50 in overcharges -- accurate for the detection mechanism, but the specific injected examples
+are checked against the same `FEE_PCT` table they were generated from (correct and necessary for
+labeled synthetic test data, but "found" overstates it) -- reworded to lead with the real result
+(zero false positives against 260 ordinary transactions) instead.
+
+Not fixed, flagged instead: the review's point that the README has grown to ~7,300 words (up
+further with this fix) and buries its best material past the fold. That's a real, correct
+observation, but restructuring or cutting a document this many people have iterated on this
+session is an editorial call for the project owner, not something to unilaterally execute mid-fix.
+
+140/140 backend tests passing, frontend build clean.
+
+---

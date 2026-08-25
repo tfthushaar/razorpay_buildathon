@@ -60,6 +60,10 @@ def main() -> None:
             f"{c.category:<20} {c.n:>9} {c.distinct_transaction_count:>9} {c.accuracy:>8.1%} "
             f"{ci:>18} {c.ewma_accuracy:>7.1%} {c.decision:>14}{drift_flag}"
         )
+        # distinct_amount_total, not amount_total -- the latter sums the same transaction's amount
+        # once per re-scoring, not once per distinct transaction (a real external review caught this
+        # project's own README quoting amount_total as "money resolved," see BUILD_LOG.md 2026-08-25).
+        print(f"{'':<20} real distinct money behind this category: Rs.{c.distinct_amount_total / 100:,.2f}")
         if c.mock_n:
             print(f"{'':<20} ({c.mock_n} additional mock-mode decisions recorded, never counted toward the gate above)")
 

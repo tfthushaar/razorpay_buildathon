@@ -22,6 +22,7 @@ export interface CategoryCalibration {
   decision: "auto_resolve" | "escalate";
   reason: string;
   amount_total: number;
+  distinct_amount_total: number;
   amount_at_risk: number;
   mock_n: number;
   distinct_transaction_count: number;

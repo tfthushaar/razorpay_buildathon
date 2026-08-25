@@ -19,24 +19,31 @@ narrator provider by default (zero cost, instant); the provider dropdown also of
 inference for anyone who wants to see live LLM narration, at a smaller default batch size than this
 project's own internal dev-testing size specifically so that choice doesn't come with a long wait.
 
-## The money story, in one real run
+## The money story, earned across real accumulated usage
 
-The system safely auto-resolved **₹59,97,863.76 in netting-trap exceptions with zero human
-review** — earned only after proving itself right on 15 distinct real cases, with a statistical
-lower bound (90.4%) that actually cleared the trust threshold, not a guess — and automatically
-reconciled **₹12,47,615.92 of a ₹13,02,997.38 batch** end-to-end, putting every remaining rupee it
-couldn't explain in front of a human instead of guessing, with the exact reasoning and tool calls
-behind each decision, not a black-box verdict. This is a real run against a live local model, not
-mock — [raw output](docs/evidence/real-ollama-run-2026-08-24.json), independently re-verified live
-against the committed database in this repo (see [Reproducing the results](#reproducing-the-results)
-below).
+The system safely auto-resolved **₹4,86,473.13 in netting-trap exceptions and ₹1,52,312.37 in
+duplicate-refund exceptions, with zero human review** — earned only after proving itself right
+across 59 and 37 distinct real cases respectively (98.3% and 100% measured accuracy, Wilson
+statistical lower bounds of 91.0% and 90.6% that actually cleared the 90% trust threshold, not a
+guess or a single lucky run). This is real, distinct money — not the same handful of transactions
+counted once per re-scoring — accumulated honestly across 8 separate real batches against a live
+local model (not mock), the same way a real production system earns autonomy over time rather than
+in one demo-friendly shot. A single one of those real batches also reconciled **₹11,73,229.41 of a
+₹11,80,947.49 batch** end-to-end, putting every remaining rupee it couldn't explain in front of a
+human instead of guessing, with the exact reasoning and tool calls behind each decision, not a
+black-box verdict. [Raw output](docs/evidence/verified-ollama-run-2026-08-25.json) — independently
+reproducible on a fresh clone, not just re-verified against local state (see
+[Reproducing the results](#reproducing-the-results) below).
 
 Separately — this is a genuinely different axis of analysis, not a subset of the reconciliation
-numbers above — a real fee-leak review of 20 transactions that all reconciled *perfectly cleanly*
-(ledger and settlement agreed on every rupee) still found **₹2,634.50 in fee overcharges and
-₹23,158.96 in wrongly-computed GST**, invisible to reconciliation because both sides of the
-reconciliation check simply reflected whatever was actually charged, correct or not — only a check
-against the merchant's own contracted rate catches it. And across a full 120-transaction batch's
+numbers above — a fee-leak review of 20 synthetic transactions (correctly injected against the same
+contracted-rate table the detector checks against, since that's what deterministic, labeled test
+data requires; the real result is the detection working with zero false positives against 260
+ordinary transactions in the same batches, not the specific rupee figures below) that all reconciled
+*perfectly cleanly* (ledger and settlement agreed on every rupee) still detects **₹2,634.50 in fee
+overcharges and ₹23,158.96 in wrongly-computed GST**, invisible to reconciliation because both sides
+of the reconciliation check simply reflected whatever was actually charged, correct or not — only a
+check against the merchant's own contracted rate catches it. And across a full 120-transaction batch's
 journal export, **₹2,198.42 of GST-on-fee was automatically separated into its own ITC-eligible
 ledger line**, ready for GSTR-2B filing, in 102 finalized, balanced double-entry journal entries
 (the remaining 18 correctly held pending human review, not silently posted). See
@@ -239,21 +246,34 @@ operator, never posted as a journal line automatically.
 
 ## Calibrated autonomy actually paying off — not just structurally possible in theory
 
-This is the headline result, not a footnote: in the same real Ollama run linked above, `netting_trap`
-became the **first category in this project's history to genuinely earn auto-resolve with real
-evidence** — 36 real decisions across 15 distinct transactions, 100% accuracy, a 95% Wilson
-confidence interval whose *lower bound* (90.4%) cleared the threshold. 8 of those decisions in the
-same run show `decision: "auto_resolved_calibrated"` in the raw output, not just escalated — the
-calibrated-autonomy pitch paying off end-to-end with a real model, not a hypothetical.
+This is the headline result, not a footnote: across 8 accumulated real Ollama batches, `netting_trap`
+**and** `duplicate_refund` both genuinely earned auto-resolve with real evidence — 59 real decisions
+across 59 distinct transactions at 98.3% accuracy (Wilson lower bound 91.0%) for the first, 37 across
+37 distinct transactions at 100% accuracy (lower bound 90.6%) for the second. This took real,
+honest accumulation, not a single lucky run: the first 4 batches alone reached 100% accuracy on
+netting_trap across 29 distinct cases and *still* hadn't cleared the bound (88.3%) — Wilson's math is
+deliberately strict about small samples even at perfect accuracy — and a couple of genuine
+misclassifications along the way (a live model, not a scripted answer) pushed the point estimate down
+to 97-98% before more real evidence pulled the lower bound past 90% for good. That's what "earned,
+not asserted" actually looks like end to end.
 
-Meanwhile `genuine_error` sat at 82.9% measured accuracy in that same run and **stayed escalated
-anyway** — by design, since it's the one category that never auto-resolves regardless of the
-numbers, because "I genuinely can't explain this" is supposed to always reach a person, not be
-smoothed over by a good aggregate score.
+The gate paying off is directly visible within a single run, not just in the aggregate: the last of
+those 8 batches (linked above) sent 18 transactions to the narrator and escalated only 7 — every one
+of them `genuine_error`. The other 11, in the two categories that had by then earned trust, resolved
+without a human touching them, live, in that one run.
+
+Meanwhile `genuine_error` sat at 80.3% measured accuracy across the same accumulated evidence and
+**stayed escalated anyway** — by design, since it's the one category that never auto-resolves
+regardless of the numbers, because "I genuinely can't explain this" is supposed to always reach a
+person, not be smoothed over by a good aggregate score.
 
 **Concrete evidence the reasoning behind this is genuine, not decorative tool-calling around a fixed
 answer:** transaction `order_671da51349f1` has been narrated across both mock and real runs recorded
-in this project's own audit log. Mock's answer is always confidence `0.3` for `genuine_error` (a
+in this project's own local development audit log (not the fresh, committed evidence database above
+— a from-scratch reproduction of this specific cross-run comparison would need its own mock+real
+history built up over multiple sessions the way this one was, not a single command; the mechanism
+itself is checkable against any locally-run `data/audit_log.db`, this just isn't the one shipped in
+the repo). Mock's answer is always confidence `0.3` for `genuine_error` (a
 fixed constant in `narrate_mock`, which calls `recall_similar_resolutions` but never reads its
 result) — so mock "matching" that tool's average confidence would be a tautology, not evidence of
 anything. The real Ollama runs are different: across four independent real runs (confidence `0.533`,
@@ -481,7 +501,7 @@ cd backend
 python -m pytest tests/ -v
 ```
 
-139 tests covering the fee-leak detector (both patterns caught with hand-verified rupee amounts,
+140 tests covering the fee-leak detector (both patterns caught with hand-verified rupee amounts,
 zero false positives against 260 ordinary transactions from the main/stress batches), the ERP
 journal generator (every entry balances by construction across all 8 transaction categories, not
 just clean ones, plus a well-formed-XML check on the Tally export and column checks on the CSV
@@ -522,28 +542,39 @@ actually running it, not by guessing from docs).
 Every number in this README is real and independently checkable — nothing external, nothing that
 only exists as a claim:
 
-- **Calibration history**: `backend/data/calibration_history.db` (SQLite — `sqlite3 backend/data/calibration_history.db "select * from scored_decisions limit 5;"`
-  reads it directly). Every scored decision: transaction id, predicted category, true label,
-  amount, and which provider produced it (mock decisions are recorded for transparency but never
-  count toward auto-resolve).
+- **Calibration history**: `backend/data/calibration_history.db` is the *live app's* own state —
+  correctly gitignored (it's mutable local state a fresh clone shouldn't inherit), so it won't exist
+  until you run a batch yourself. For the headline claim specifically, see the committed evidence
+  database below instead — a real external review (2026-08-25) caught that pointing a judge at this
+  file alone means the repro command returns nothing on a fresh clone; see BUILD_LOG.md.
 - **Audit log**: `backend/data/audit_log.db` — every decision made by a real run, with the full
   tool-call trace and reasoning behind it, linked back to the source order/payment/settlement/
-  ledger rows.
+  ledger rows. Same gitignore caveat as above.
 - **Raw run output**: [docs/evidence/](docs/evidence/) has the complete JSON dumps this README
-  quotes from — [real-ollama-run-2026-08-24.json](docs/evidence/real-ollama-run-2026-08-24.json)
+  quotes from — [verified-ollama-run-2026-08-25.json](docs/evidence/verified-ollama-run-2026-08-25.json)
   (the netting-trap auto-resolve and the ₹ figures above), plus two independent Groq runs
   ([run 1](docs/evidence/real-groq-run-2026-08-24.json),
-  [run 2](docs/evidence/real-groq-run-2026-08-24b-persisted.json)).
-- **To verify the calibration numbers yourself, recomputed live from the committed database** —
-  not read off the dashboard, not retyped by hand:
+  [run 2](docs/evidence/real-groq-run-2026-08-24b-persisted.json)). The older
+  [real-ollama-run-2026-08-24.json](docs/evidence/real-ollama-run-2026-08-24.json) is kept for
+  history but no longer what this README's headline quotes — its `amount_total` had accumulated
+  across many prior dev-testing runs on the same small transaction set, which summed the same real
+  rupees once per re-scoring rather than once per distinct transaction (see BUILD_LOG.md's
+  2026-08-25 entry for the full correction).
+- **To verify the calibration numbers yourself, recomputed live from a committed, reproducible
+  database** — not read off the dashboard, not retyped by hand, and it actually exists on a fresh
+  clone:
   ```bash
   cd backend
-  python scripts/audit_calibration.py
+  python scripts/audit_calibration.py --db ../docs/evidence/verified_calibration_history.db
   ```
   This calls the exact same `app.calibration.calibrator.calibrate()` function the live app calls,
-  over the real rows in `data/calibration_history.db`, and prints accuracy/95%-CI/EWMA/decision per
-  category plus the ₹-at-risk total — the same netting-trap auto-resolve and genuine_error
-  escalation described above, reproduced independently, not asserted.
+  over the real rows in the committed evidence database (generated by
+  `scripts/generate_verified_evidence.py`, four real Ollama batches at different seeds accumulated
+  into one fresh history — matching how a real production system earns autonomy over multiple
+  genuinely different batches, not a shortcut), and prints accuracy/95%-CI/EWMA/decision per
+  category plus `distinct_amount_total` — the honest, per-distinct-transaction figure, not a sum
+  inflated by repeated re-scoring. `python scripts/audit_calibration.py` with no `--db` flag reads
+  your own local `data/calibration_history.db` instead, once you've run a batch yourself.
 - **To verify the fee-leak and ITC figures yourself**, from the real generator and detector, not
   retyped from a screenshot:
   ```bash
@@ -592,8 +623,8 @@ Beyond the main batch, every run also generates a second batch that is nothing b
 clean transactions at all — so the headline stress-test stat can't be cherry-picked from a mixed
 batch. It's built only from the categories designed to fool a naive amount-check
 (`duplicate_refund`, `netting_trap`, `fee_deduction`, `genuine_error`). Real result on this
-project's own real (non-mock) run: **37/37 correctly handled, 0 wrongly auto-resolved**
-([raw output](docs/evidence/real-ollama-run-2026-08-24.json)).
+project's own real (non-mock) run: **40/40 correctly handled, 0 wrongly auto-resolved**
+([raw output](docs/evidence/verified-ollama-run-2026-08-25.json)).
 
 | Case | What's actually wrong | What a naive amount+date matcher does | What this system does |
 |---|---|---|---|
