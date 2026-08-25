@@ -3028,3 +3028,49 @@ has limits" explanation.
 142/142 tests passing.
 
 ---
+
+## 2026-08-25 — One hop further: a real refund, real fee/tax, and where the wall actually is
+
+Direct follow-up to the real-data investigation above, after being told (correctly) not to chase live
+mode, but to check whether test mode had one more real hop left in it: a refund against the real
+captured payment, and whether the payment's own fee/tax fields were populated or null.
+
+**Both real.** `POST /v1/payments/pay_TU5Ve4omwaz1c5/refund` with `amount: 15000` (a deliberate
+partial, not a full reversal) returned a real `rfnd_TU5fHLaqzIZE3e`, `status: "processed"` on
+recheck, and the parent payment updated to reflect it (`amount_refunded: 15000, refund_status:
+"partial"`) -- confirmed by re-fetching the payment, not assumed from the refund response alone.
+Separately, `GET /v1/payments/pay_TU5Ve4omwaz1c5` shows `fee: 1180, tax: 180` -- real, non-null
+values, not the zero/null this account's Checkout limitations might have suggested.
+
+**Checked the fee number honestly instead of declaring a clean match.** The pre-tax base
+(1180/1.18 = 1000 paise, i.e. Rs.10.00) works out to 2.0% of the Rs.500.00 payment -- matching this
+project's `FEE_PCT["card"]` (2%), not `FEE_PCT["netbanking"]` (1%), even though the payment method
+*was* netbanking. Razorpay's test-mode fee simulation apparently doesn't vary by instrument the way
+this project's synthetic contracted rates do (or uses one flat demo rate unrelated to real production
+MDR agreements) -- worth stating plainly rather than either hiding the mismatch or overclaiming
+"calibrated against observed reality." `FEE_PCT` was deliberately NOT changed to match this one
+sandbox data point: the fee-leak detector's whole premise is auditing against a merchant's own
+*negotiated contract*, and one test-mode observation from Razorpay's own simulator isn't more
+authoritative than that -- treating a sandbox default as ground truth would repeat the same kind of
+unverified assumption this project has caught and fixed elsewhere, just in the other direction. The
+18% GST math does check out exactly (180 = 18% of the 1000-paise base), independently confirming
+`GST_RATE`.
+
+**Built `fetch_refunds()` properly**, not as a one-off script: `GET /v1/refunds` is real and lists
+refunds directly, but the response never says full vs. partial -- Razorpay only exposes that via the
+parent payment's own `amount`/`amount_refunded`, so `fetch_refunds` cross-references the payment list
+(fetched internally if not passed in) to derive `refund_type` correctly. `sandbox_status()` now
+reports `refunds_on_account` alongside the existing payment/settlement counts. 4 new tests (a real
+partial refund's shape, a full-refund case, and the fetch-payments-itself default path), all mocked
+against the real shapes captured live first, same discipline as every other connector test.
+
+**The honest final shape, four hops real, one structurally not**: order, captured payment (with real
+fee/tax), and refund are genuine Razorpay API objects on a live test account. Settlement is not, and
+cannot be, on any test-mode account -- verified against Razorpay's own documentation, not an account
+limitation or something more real data would ever fix. That's the actual finding worth keeping: not
+"we used real data," but a precisely mapped boundary of exactly how far test mode goes and where it
+structurally stops, with each side of that line independently confirmed rather than assumed.
+
+145/145 tests passing.
+
+---

@@ -30,6 +30,7 @@ python -m uvicorn app.main:app --reload --port 8000   # then: cd ../frontend && 
 | Throughput | 5,508 tx/sec (mock, 50k scale) — 2.58 tx/sec (real LLM, measured, not extrapolated). The 2,000× gap is the deterministic/LLM split below, not two different systems | [docs/setup.md](docs/setup.md) |
 | Measured accuracy | Wilson 95% CI *lower bound* per category, not a raw point estimate | [below](#the-result) |
 | Honest exception list | Every escalation ships a reason + tool trace; full build gaps in [What this can't do](#what-this-cant-do-and-what-it-refuses-to-do) | ↓ |
+| Real Razorpay data | Order + payment + fee + refund are real API objects on a live test account; settlement is structurally unavailable in test mode, verified not assumed | [connector](backend/app/connectors/razorpay_sandbox.py) |
 
 ## The result
 
@@ -83,12 +84,11 @@ past resolutions — and audited, not a bare classification. Autonomy in bullet 
   import cleanly.
 - **The fee-leak detector ships two patterns** (blended-rate overcharge, GST-wrong-base), not five —
   the taxonomy extends without a different architecture, but only these two are built and tested.
-- **The Razorpay Test Mode connector now has genuinely captured real payments** (Netbanking works on
-  this account, even though every documented domestic test card is rejected and UPI isn't offered —
-  a real account-level finding) **but will never have a settlement to reconcile against, on any
-  test-mode account.** Confirmed against Razorpay's own documentation: test-mode payments are
-  structurally excluded from the real settlement pipeline — not a limitation of this account, or of
-  this connector, or something more captured payments would fix. Full trail: [BUILD_LOG.md](BUILD_LOG.md).
+- **Four of five causal-chain hops are real Razorpay API objects** (order, captured payment, fee/tax,
+  refund); the fifth, settlement, is structurally excluded from test mode on any account, confirmed
+  against Razorpay's own docs, not an account limitation or something more real data would fix. The
+  synthetic generator covers the settlement leg alone, for exactly this reason — full trail:
+  [BUILD_LOG.md](BUILD_LOG.md).
 
 ## Verify it yourself
 
@@ -96,7 +96,7 @@ Three commands, all working on a genuinely fresh clone — not read off a dashbo
 hand:
 
 ```bash
-cd backend && python -m pytest tests/ -v                                          # 142 tests
+cd backend && python -m pytest tests/ -v                                          # 145 tests
 python scripts/audit_calibration.py --db ../docs/evidence/verified_calibration_history.db  # the netting_trap/duplicate_refund result above, recomputed live
 python -c "from app.pipeline import run_batch; r = run_batch(seed=42, main_n=120, stress_n=40, provider='mock'); print(r.fee_leak_report.total_fee_recovery, r.total_itc_separated)"  # fee-leak + ITC figures
 ```

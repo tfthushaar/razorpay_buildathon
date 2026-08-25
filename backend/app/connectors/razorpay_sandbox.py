@@ -2,7 +2,14 @@
 
 Uses `RAZORPAY_KEY_ID` / `RAZORPAY_KEY_SECRET` (test-mode credentials) to talk to the
 real Razorpay API over HTTP Basic Auth and map responses onto this project's own
-Order/Payment/Settlement/LedgerEntry schemas (`app/data_gen/schemas.py`).
+Order/Payment/Refund/Settlement/LedgerEntry schemas (`app/data_gen/schemas.py`).
+
+Of this project's five causal-chain hops (order -> payment -> fee -> refund ->
+settlement), four are real Razorpay API objects on this account: a real order, a real
+captured payment with real `fee`/`tax` fields (confirmed non-null -- see below), and a
+real refund against it. The fifth, settlement, is structurally unavailable in test mode
+on any account, verified rather than assumed (see below) -- not a gap this connector
+left unfixed.
 
 Scope, verified by hand against the live API before this was written (see
 docs/track04-settlement-reconciliation-copilot.md §12 and BUILD_LOG.md for the full
@@ -21,6 +28,28 @@ page (`api.razorpay.com/v1/gateway/mocksharp/...`, literally titled "This is jus
 bank page") with a real Success/Failure choice -- confirmed live, `pay_...` IDs with
 `status: "captured"`, `method: "netbanking"` really exist on this account (see BUILD_LOG.md).
 
+The captured payment carries real `fee`/`tax` fields, not null or zero: `pay_TU5Ve4omwaz1c5`
+on a Rs.500.00 (50000 paise) Netbanking payment shows `fee: 1180, tax: 180` -- a real
+Rs.11.80 total fee including Rs.1.80 GST. Worth stating honestly rather than declaring a
+clean match: the pre-tax base (Rs.10.00 = 1180/1.18) works out to 2.0% of the payment,
+matching this project's `FEE_PCT["card"]` constant, not `FEE_PCT["netbanking"]`
+(1.0%) -- Razorpay's test-mode fee simulation apparently doesn't vary by instrument the
+way this project's synthetic contracted rates do, or uses a flat demo rate unrelated to
+real production MDR agreements. `FEE_PCT` was deliberately NOT recalibrated to this one
+sandbox observation: the whole point of the fee-leak detector is auditing against a
+merchant's own *negotiated contract* rate, and one test-mode data point from Razorpay's
+own simulator isn't more authoritative than that for a real merchant's actual terms --
+if anything, treating a sandbox default as ground truth would be the same kind of
+unverified assumption this project has caught and fixed elsewhere. The 18% GST math
+does check out exactly (180 = 18% of the 1000-paise base fee), confirming `GST_RATE`.
+
+A real partial refund was also issued and confirmed: `rfnd_TU5fHLaqzIZE3e`,
+Rs.150.00 of the Rs.500.00 payment, via `POST /v1/payments/{id}/refund`. The payment
+object updates to reflect it (`amount_refunded: 15000, refund_status: "partial"`), and
+`GET /v1/refunds` lists it with a real `status` -- `fetch_refunds` below maps this,
+deriving `refund_type` (full vs. partial) by comparing against the parent payment's
+captured amount, since Razorpay's own refund object doesn't self-report that distinction.
+
 **Settlements never will, and that's not fixable from here.** Verified via Razorpay's
 own documentation: test-mode payments are simulated and isolated from the real
 settlement pipeline by design -- "these transactions do not result in actual
@@ -31,9 +60,10 @@ any test-mode account, forever. LedgerEntry has no Razorpay API equivalent eithe
 our own internal "amount we expected to receive," recorded at order-creation time, not
 fetched from Razorpay.
 
-So `fetch_payments` genuinely returns real captured payments now; `fetch_settlements`
-genuinely, permanently returns `[]` on any test-mode account -- both are real responses,
-not a mocked or incomplete implementation.
+So `fetch_payments` genuinely returns real captured payments (with real fee/tax) now,
+`fetch_refunds` genuinely returns real refunds against them, and `fetch_settlements`
+genuinely, permanently returns `[]` on any test-mode account -- all three are real
+responses, not a mocked or incomplete implementation.
 
 `GET /v1/settlements`'s real response also has no per-settlement `payment_id` or
 `method`/rail field at all (verified against Razorpay's own docs: it's
@@ -50,7 +80,7 @@ from datetime import datetime, timezone
 
 import httpx
 
-from app.data_gen.schemas import LedgerEntry, Order, Payment, Rail, Settlement
+from app.data_gen.schemas import LedgerEntry, Order, Payment, Rail, Refund, Settlement
 
 API_BASE = "https://api.razorpay.com/v1"
 
@@ -150,6 +180,48 @@ def fetch_payments(count: int = 100) -> list[Payment]:
     return payments
 
 
+_REFUND_STATUS_MAP: dict[str, str] = {"processed": "processed", "pending": "pending"}
+
+
+def fetch_refunds(count: int = 100, payments: list[Payment] | None = None) -> list[Refund]:
+    """GET /v1/refunds — real API call, confirmed live 2026-08-25: a real partial refund
+    (rfnd_TU5fHLaqzIZE3e, Rs.150.00 of a Rs.500.00 payment) was issued via
+    POST /v1/payments/{id}/refund and shows up here with real status/amount, not simulated.
+
+    Razorpay's refund object never says full vs. partial itself -- refund_type is derived by
+    comparing against the parent payment's captured_amount, so this needs the payment list too
+    (fetched internally if not passed in, matching fetch_settlements' self-contained style)."""
+    if payments is None:
+        payments = fetch_payments(count=count)
+    captured_amount_by_payment_id = {p.payment_id: p.captured_amount for p in payments}
+
+    with _client() as client:
+        resp = client.get("/refunds", params={"count": count})
+        if resp.status_code != 200:
+            raise RazorpaySandboxError(f"refunds fetch failed: {resp.status_code} {resp.text}")
+        items = resp.json().get("items", [])
+
+    refunds = []
+    for item in items:
+        status = item["status"]
+        mapped_status = _REFUND_STATUS_MAP.get(status)
+        if mapped_status is None:
+            raise RazorpaySandboxError(f"unrecognized refund status {status!r} on {item['id']} -- not yet mapped, not silently guessed")
+        payment_captured_amount = captured_amount_by_payment_id.get(item["payment_id"])
+        refund_type = "full" if item["amount"] == payment_captured_amount else "partial"
+        refunds.append(
+            Refund(
+                refund_id=item["id"],
+                payment_id=item["payment_id"],
+                amount=item["amount"],
+                status=mapped_status,  # type: ignore[arg-type]
+                created_at=datetime.fromtimestamp(item["created_at"], tz=timezone.utc),
+                refund_type=refund_type,  # type: ignore[arg-type]
+            )
+        )
+    return refunds
+
+
 def fetch_settlements(count: int = 100) -> list[Settlement]:
     """GET /v1/settlements — real API call. Returns [] until a real captured payment
     exists on this account and Razorpay has run a settlement cycle against it."""
@@ -189,6 +261,7 @@ def sandbox_status() -> dict:
     try:
         _, ledger_entry = create_test_order(amount=100, receipt="sandbox_status_probe")
         payments = fetch_payments(count=25)
+        refunds = fetch_refunds(count=25, payments=payments)
         settlements = fetch_settlements(count=25)
     except RazorpaySandboxError as exc:
         return {"connected": False, "error": str(exc)}
@@ -197,13 +270,15 @@ def sandbox_status() -> dict:
         "probe_order_id": ledger_entry.order_id,
         "payments_on_account": len(payments),
         "captured_payments_on_account": sum(1 for p in payments if p.captured),
+        "refunds_on_account": len(refunds),
         "settlements_on_account": len(settlements),
         "note": (
-            "Real API, test-mode credentials. Netbanking payments genuinely capture on this "
-            "account (Cards don't -- rejected as international; UPI isn't offered as a method "
-            "at all). Settlements will always be 0 here regardless: test-mode payments are "
-            "structurally excluded from Razorpay's settlement pipeline, confirmed against "
-            "Razorpay's own docs, not an account-specific limitation or something more captured "
-            "payments would fix."
+            "Real API, test-mode credentials. Order, captured payment (Netbanking -- Cards are "
+            "rejected as international, UPI isn't offered), fee/tax, and refund are all real "
+            "Razorpay API objects on this account. Settlements will always be 0 here regardless: "
+            "test-mode payments are structurally excluded from Razorpay's settlement pipeline, "
+            "confirmed against Razorpay's own docs -- not an account-specific limitation, and not "
+            "something more captured payments or refunds would fix. The synthetic generator covers "
+            "the settlement leg alone for exactly this reason."
         ),
     }

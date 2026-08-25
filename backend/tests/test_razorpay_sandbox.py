@@ -16,9 +16,11 @@ from app.connectors.razorpay_sandbox import (
     RazorpaySandboxError,
     create_test_order,
     fetch_payments,
+    fetch_refunds,
     fetch_settlements,
     sandbox_status,
 )
+from app.data_gen.schemas import Payment
 
 
 def _mock_client(response_map):
@@ -176,6 +178,65 @@ def test_fetch_payments_empty_account_returns_empty_list_not_an_error(monkeypatc
         assert fetch_payments() == []
 
 
+def test_fetch_refunds_maps_a_real_partial_refund(monkeypatch):
+    """Real shape confirmed live 2026-08-25 (BUILD_LOG.md): a real Rs.150.00 partial refund
+    against a real Rs.500.00 captured payment. refund_type isn't in the real /v1/refunds response
+    at all -- Razorpay only tells you via the parent payment's amount, so this test's mocked
+    payment list is what fetch_refunds cross-references to derive "partial" here."""
+    monkeypatch.setenv("RAZORPAY_KEY_ID", "rzp_test_fake")
+    monkeypatch.setenv("RAZORPAY_KEY_SECRET", "fake_secret")
+    refunds_body = {
+        "items": [
+            {
+                "id": "rfnd_TESTABC",
+                "entity": "refund",
+                "amount": 15000,
+                "currency": "INR",
+                "payment_id": "pay_TESTPARENT",
+                "status": "processed",
+                "created_at": 1735003700,
+            }
+        ]
+    }
+    client = _mock_client({("GET", "/refunds"): _resp(200, refunds_body)})
+    fake_payments = [Payment(payment_id="pay_TESTPARENT", order_id="order_X", status="captured", captured=True, captured_amount=50000, fee_amount=1180, tax_amount=180, gateway="netbanking", captured_at=datetime.now(timezone.utc))]
+    with patch("app.connectors.razorpay_sandbox._client", return_value=client):
+        refunds = fetch_refunds(payments=fake_payments)
+
+    assert len(refunds) == 1
+    r = refunds[0]
+    assert r.refund_id == "rfnd_TESTABC"
+    assert r.payment_id == "pay_TESTPARENT"
+    assert r.amount == 15000
+    assert r.status == "processed"
+    assert r.refund_type == "partial"
+
+
+def test_fetch_refunds_identifies_a_full_refund_correctly(monkeypatch):
+    monkeypatch.setenv("RAZORPAY_KEY_ID", "rzp_test_fake")
+    monkeypatch.setenv("RAZORPAY_KEY_SECRET", "fake_secret")
+    refunds_body = {"items": [{"id": "rfnd_FULL", "amount": 50000, "payment_id": "pay_TESTPARENT", "status": "processed", "created_at": 1735003700}]}
+    client = _mock_client({("GET", "/refunds"): _resp(200, refunds_body)})
+    fake_payments = [Payment(payment_id="pay_TESTPARENT", order_id="order_X", status="captured", captured=True, captured_amount=50000, fee_amount=1180, tax_amount=180, gateway="netbanking", captured_at=datetime.now(timezone.utc))]
+    with patch("app.connectors.razorpay_sandbox._client", return_value=client):
+        refunds = fetch_refunds(payments=fake_payments)
+
+    assert refunds[0].refund_type == "full"
+
+
+def test_fetch_refunds_fetches_payments_itself_when_not_provided(monkeypatch):
+    monkeypatch.setenv("RAZORPAY_KEY_ID", "rzp_test_fake")
+    monkeypatch.setenv("RAZORPAY_KEY_SECRET", "fake_secret")
+    refunds_body = {"items": [{"id": "rfnd_X", "amount": 5000, "payment_id": "pay_UNKNOWN", "status": "pending", "created_at": 1735003700}]}
+    client = _mock_client({("GET", "/refunds"): _resp(200, refunds_body), ("GET", "/payments"): _resp(200, {"items": []})})
+    with patch("app.connectors.razorpay_sandbox._client", return_value=client):
+        refunds = fetch_refunds()
+
+    assert len(refunds) == 1
+    assert refunds[0].status == "pending"
+    assert refunds[0].refund_type == "partial"  # no matching payment found -> can't be confirmed full
+
+
 def test_fetch_settlements_maps_the_real_response_shape(monkeypatch):
     """Real /v1/settlements items are {id, entity, amount, status, fees, tax, utr,
     created_at} -- no payment_id, no method. This mock deliberately does NOT include
@@ -221,6 +282,7 @@ def test_sandbox_status_reports_connected_with_real_counts(monkeypatch):
         {
             ("POST", "/orders"): _resp(200, order_body),
             ("GET", "/payments"): _resp(200, {"items": []}),
+            ("GET", "/refunds"): _resp(200, {"items": []}),
             ("GET", "/settlements"): _resp(200, {"items": []}),
         }
     )
@@ -230,6 +292,7 @@ def test_sandbox_status_reports_connected_with_real_counts(monkeypatch):
     assert status["connected"] is True
     assert status["probe_order_id"] == "order_PROBE1"
     assert status["payments_on_account"] == 0
+    assert status["refunds_on_account"] == 0
     assert status["settlements_on_account"] == 0
 
 
