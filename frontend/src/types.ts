@@ -52,6 +52,28 @@ export interface StressScorecard {
   wrongly_auto_resolved: number;
 }
 
+export interface FeeLeakFinding {
+  transaction_id: string;
+  rail: string;
+  pattern: "blended_rate_overcharge" | "gst_wrong_base";
+  pattern_label: string;
+  contracted_fee: number;
+  actual_fee: number;
+  fee_variance: number;
+  contracted_gst: number;
+  actual_gst: number;
+  gst_variance: number;
+  total_impact: number;
+  dispute_template: string;
+}
+
+export interface FeeLeakReport {
+  findings: FeeLeakFinding[];
+  total_fee_recovery: number;
+  total_gst_correction: number;
+  by_pattern: Record<string, number>;
+}
+
 export interface BatchRunResult {
   run_id: string;
   seed: number;
@@ -69,9 +91,19 @@ export interface BatchRunResult {
   deterministic_only_resolved_count: number;
   deterministic_only_amount_reconciled: number;
   stress: StressScorecard;
+  fee_leak_report: FeeLeakReport;
+  total_itc_separated: number;
   elapsed_seconds: number;
   narrated_count: number;
   transactions_per_second: number;
+}
+
+export interface JournalExportResponse {
+  format: "tally" | "zoho" | "generic";
+  content: string;
+  entry_count: number;
+  finalized_count: number;
+  pending_count: number;
 }
 
 export interface ResolveResponse {

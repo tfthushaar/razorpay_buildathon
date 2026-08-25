@@ -2,10 +2,15 @@
 
 **Razorpay AI Buildathon 2026 — Track 04: AI Finance Controller**
 
-An agent that reconciles merchant ledger data against settlement data across UPI/card/netbanking,
-narrates *exactly which hop* in the transaction's causal chain broke, and only auto-resolves the
-exception categories it has statistically earned trust on — everything else escalates with a
-stated reason. Full design rationale: [docs/track04-settlement-reconciliation-copilot.md](docs/track04-settlement-reconciliation-copilot.md).
+Every settlement Razorpay sends a merchant is a black box: one bank credit standing in for hundreds
+of transactions, net of fees, GST, refund offsets, and timing variance. Turning that into books a
+finance team can close on is normally a manual, error-prone, multi-hour job, every settlement
+cycle. This system explodes that credit back into its transactions, narrates *exactly which hop*
+in each one's causal chain broke, only auto-resolves the exception categories it has statistically
+earned trust on, checks every fee actually charged against the merchant's own contract to catch
+overcharges standard reconciliation can't see, and posts what it can prove straight into
+ERP-ready, GST/ITC-separated journal entries — escalating the rest with a stated reason instead of
+guessing. Full design rationale: [docs/track04-settlement-reconciliation-copilot.md](docs/track04-settlement-reconciliation-copilot.md).
 Build history, including every bug found and how it was fixed: [BUILD_LOG.md](BUILD_LOG.md).
 
 ## The money story, in one real run
@@ -19,6 +24,46 @@ the trust threshold, not a guess. On the same run, it automatically reconciled *
 ₹13,02,997.38 batch** end-to-end, and put every remaining rupee it couldn't explain in front of a
 human instead of guessing — with the exact reasoning and tool calls that led to each decision, not a
 black-box verdict.
+
+Separately — this is a genuinely different axis of analysis, not a subset of the reconciliation
+numbers above — a real fee-leak review of 20 transactions that all reconciled *perfectly cleanly*
+(ledger and settlement agreed on every rupee) still found **₹2,634.50 in fee overcharges and
+₹23,158.96 in wrongly-computed GST**, invisible to reconciliation because both sides of the
+reconciliation check simply reflected whatever was actually charged, correct or not — only a check
+against the merchant's own contracted rate catches it. And across a full 120-transaction batch's
+journal export, **₹2,198.42 of GST-on-fee was automatically separated into its own ITC-eligible
+ledger line**, ready for GSTR-2B filing, in 102 finalized, balanced double-entry journal entries
+(the remaining 18 correctly held pending human review, not silently posted). See
+[Fee leak detection](#fee-leak-detection-catching-what-reconciliation-cant-see) and
+[ERP posting & ITC reclaim](#erp-posting--itc-reclaim) below for the real numbers behind each figure.
+
+## Where this fits in Razorpay's own stack
+
+Not built in a vacuum — checked against what already exists before claiming any of this is
+different, not just assumed. [Razorpay Recon](https://razorpay.com/newsroom/razorpay-pos-launches-industry-first-ai-powered-razorpay-recon-to-automate-reconciliation-for-businesses-boosting-financial-operations-efficiency-by-80/)
+(launched December 2024) is real, AI-powered, rule-based batch matching across 200M+ transactions/month
+— built for offline POS reconciliation at volume, not for narrating *why* one specific transaction
+broke or auditing fee correctness per instrument.
+[Settlement Insights](https://razorpay.com/blog/agent-studio-ai-agents-by-razorpay/) (launched as
+part of Agent Studio, March 12, 2026) sends a daily WhatsApp settlement summary — genuinely useful,
+and genuinely a different job: a summary of what happened, not a causal explanation of *why* a
+specific transaction diverges or a fee correctness audit. Neither product classifies an exception's
+root cause with a tool-call trace, tracks its own per-category accuracy before trusting itself to
+auto-resolve, or separates GST-on-fee into an ITC-ready journal line. This system starts where
+those stop — at the moment a settlement needs to become an audited, ERP-ready set of books, not
+just a matched or summarized one. `POST /api/transactions/evaluate` is a plausible integration
+point for output either product already produces.
+
+One regulatory note, corrected here rather than glossed over: an earlier draft of this system's
+fee-leak framing treated "any MDR on UPI/RuPay debit" as unconditionally illegal, citing the
+zero-MDR mandate under [Section 10A of the Payment and Settlement Systems Act](https://www.pib.gov.in/PressReleasePage.aspx?PRID=2114335&reg=48&lang=2)
+(in force since January 2020). That mandate was **amended by Parliament on 4 August 2026** —
+three weeks before this was written — replacing the blanket prohibition with a
+government-notification framework under which specific modes can be selectively exempted. A
+blanket legal claim would have gone stale the week this feature shipped. So the fee-leak detector
+checks the actual fee against **this merchant's own contracted rate** instead (see below) — correct
+regardless of how the notification framework evolves, which a hardcoded legal assumption never
+could be.
 
 ## Screenshots
 
@@ -43,6 +88,14 @@ not a black-box verdict:**
 
 **The guided tour, walking through escalate → resolve → recalibrate:**
 ![Guided tour](docs/screenshots/05-guided-tour.png)
+
+**Fee leak analysis — ranked by ₹ impact, each finding expandable to a ready-to-send dispute
+template:**
+![Fee leak analysis](docs/screenshots/06-fee-leak-analysis.png)
+
+**ERP journal export — real balanced double-entry lines, Tally/Zoho/generic formats, a live
+preview before download:**
+![ERP journal export](docs/screenshots/07-erp-export.png)
 
 ## Quick start
 
@@ -86,6 +139,77 @@ amounts and real reasoning:
   precisely one refund amount. `check_batch_anomalies` cross-references the refund registry itself
   rather than trusting the settlement total, and flags the double-deduction instead of quietly
   treating it as "a bigger refund than expected."
+
+## Fee leak detection: catching what reconciliation can't see
+
+A transaction can reconcile *perfectly* — ledger and settlement agree on every rupee — while still
+being charged a fee inconsistent with the merchant's own contract. Standard reconciliation has no
+way to see this: both sides of the check just reflect whatever was actually deducted, correctly or
+not. Without an instrument-level audit against the rate card, a finance team has no signal at all
+that anything is wrong. That's the real, documented blind spot `app/feeleak/detector.py` closes —
+a genuinely separate axis of analysis from reconciliation, not a subset of it, run against its own
+dedicated batch of otherwise-clean transactions.
+
+Two patterns, both with real synthetic examples and real detection tests (`test_fee_leak.py`), not
+just described:
+
+| Pattern | What's actually wrong | How it's caught |
+|---|---|---|
+| **Blended-rate overcharge** | A flat/blended rate (e.g. the card rate) applied instead of the instrument's own contracted rate — most visible on UPI, whose contracted rate is furthest from a blended card rate | Actual fee compared against `amount × contracted_rate[instrument]`; any excess beyond a rounding epsilon is flagged, ranked by ₹ impact |
+| **GST computed on the wrong base** | GST (18%) computed on the gross transaction amount instead of the gateway fee — the fee is what's actually taxed | Actual GST compared against `18% × actual_fee_charged`, isolated from the fee-amount check so the two error types are never conflated |
+
+Real result from a 20-transaction review batch (reproducible: see
+[Reproducing the results](#reproducing-the-results) below for the exact one-line command, or read
+it straight off any `POST /api/run`'s `fee_leak_report` field): **10 blended-rate overcharges
+totaling ₹2,634.50 in recoverable fees, and 10 GST-wrong-base findings totaling ₹23,158.96 in
+miscalculated tax** — every finding also carries a ready-to-send dispute template naming the
+transaction, the instrument, and the exact variance. Verified with zero false positives against
+260 ordinary transactions from the main/stress batches (`test_zero_false_positives_against_every_existing_category`)
+— a detector that flags correctly-charged transactions would be worse than useless.
+
+This detector's pattern taxonomy is designed to extend to more leak types (refund-MDR retention,
+chargeback-fee inflation, subscription-addon splitting, instrument reclassification) without a
+different architecture — the same "compare actual against a known reference" check generalizes —
+but only the two patterns above have real synthetic examples and tests behind them today. Framed
+honestly as what's built, not what's designed-for; see [What it doesn't do yet](#what-it-doesnt-do-yet--honest-scope).
+
+## ERP posting & ITC reclaim
+
+A resolved transaction isn't useful to a finance team until it's a journal entry. `app/erp/journal.py`
+turns every transaction's causal chain into double-entry lines — Revenue (credit, gross captured
+amount), Bank Account (debit, actual settled amount), Payment Gateway Charges, Input Tax Credit
+Receivable (GST-on-fee, always a *separate* line from the fee itself — the entire point, since
+merging it makes ITC reclaim from GSTR-2B impossible to automate), Refunds, and a Reconciliation
+Suspense line that absorbs whatever's genuinely unexplained.
+
+That suspense line is the honest part: it's derived algebraically to be exactly zero — and omitted
+entirely — for any transaction the pipeline has fully explained, and a real, visible, correctly-sized
+number for anything it hasn't. **Every journal entry balances by construction, proven across all 8
+transaction categories in `test_journal.py`, not just clean ones** — the failure mode this module
+exists to avoid is a real accountant importing an entry that doesn't balance. A transaction still
+sitting in the escalation queue posts with `finalized: false` and a "pending human review" note
+instead of a silently-forced entry.
+
+Real result from a full 120-transaction batch: **120 journal entries, all balanced, 102 finalized
+and 18 correctly held pending human review** (matching the batch's own escalation count exactly),
+with **₹2,198.42 of GST-on-fee automatically separated into the ITC Receivable ledger** across the
+whole batch — a different, larger-scope number than the fee-leak review's own GST-correction figure
+above, since this one covers every transaction's *correctly-computed* GST, not just the wrongly-computed
+ones. Export in three real formats, all tested (`test_journal.py`):
+
+- **Tally XML** — structure verified directly against [Tally's own published sample XML](https://help.tallysolutions.com/sample-xml/)
+  before writing the exporter, including the (unusual, but confirmed correct) sign convention where
+  a debit line carries a *negative* `AMOUNT` and a credit line a positive one.
+- **Zoho Books CSV** and a **generic double-entry CSV** — a standard, defensible column shape, not
+  independently verified against Zoho's current live import template the way Tally's structure was
+  — disclosed honestly rather than presented with the same confidence.
+
+TDS under [Section 393(1) of the Income-tax Act 2025](https://www.terra-insight.com/insights/section-393-tds-new-income-tax-act-reconciliation/)
+(the recodified Section 194O, 0.1% on gross, effective 1 April 2026) is deliberately **not** applied
+by default — it taxes an e-commerce *operator's* payouts to marketplace *participants*, not a direct
+merchant's own gateway settlement, which is this project's actual scenario. `tds_note()` exists as
+an opt-in, clearly-labeled informational helper for a merchant who is themselves an e-commerce
+operator, never posted as a journal line automatically.
 
 ## Calibrated autonomy actually paying off — not just structurally possible in theory
 
@@ -157,6 +281,16 @@ the ₹200 rounding question nobody cares about.
    retry-with-backoff cycle. *(A rate-limit storm or a downed provider degrades a batch's wall-clock
    time in seconds, not minutes — the difference between a demo that recovers gracefully and one
    that visibly hangs.)*
+6. **Audits the fee, not just the reconciliation** — a fee-leak detector checks every fee actually
+   charged against the merchant's own contracted rate, catching overcharges that reconcile
+   perfectly cleanly and are invisible to every other check in this list. *(This is the difference
+   between "your books match your bank statement" and "your bank statement is itself correct" —
+   most reconciliation tools only ever answer the first question.)*
+7. **Produces books, not just a verdict** — every resolved transaction becomes a balanced,
+   ERP-ready journal entry with GST separated into its own ITC-eligible line, exportable to Tally,
+   Zoho Books, or a generic CSV. *(The output isn't "here's what we found," it's "here's what's
+   already in your books" — the actual deliverable a finance team needs, not an intermediate
+   report they still have to act on by hand.)*
 
 ## How it's built
 
@@ -285,7 +419,11 @@ cd backend
 python -m pytest tests/ -v
 ```
 
-105 tests covering the data generator's arithmetic invariants (including that every requested batch
+128 tests covering the fee-leak detector (both patterns caught with hand-verified rupee amounts,
+zero false positives against 260 ordinary transactions from the main/stress batches), the ERP
+journal generator (every entry balances by construction across all 8 transaction categories, not
+just clean ones, plus a well-formed-XML check on the Tally export and column checks on the CSV
+exports), the data generator's arithmetic invariants (including that every requested batch
 size 0-150 produces exactly that many transactions at both the default and non-default clean ratios,
 not off-by-one on a rounding edge case, and that a large-scale/realistically-sparse batch — e.g.
 50,000 records at 97% clean — produces exactly the requested proportions), the matching engine's
@@ -341,6 +479,15 @@ only exists as a claim:
   over the real rows in `data/calibration_history.db`, and prints accuracy/95%-CI/EWMA/decision per
   category plus the ₹-at-risk total — the same netting-trap auto-resolve and genuine_error
   escalation described above, reproduced independently, not asserted.
+- **To verify the fee-leak and ITC figures yourself**, from the real generator and detector, not
+  retyped from a screenshot:
+  ```bash
+  cd backend
+  python -c "from app.pipeline import run_batch; r = run_batch(seed=42, main_n=120, stress_n=40, provider='mock'); print(f'{len(r.fee_leak_report.findings)} findings, Rs.{r.fee_leak_report.total_fee_recovery/100:,.2f} fee recovery, Rs.{r.fee_leak_report.total_gst_correction/100:,.2f} GST correction, Rs.{r.total_itc_separated/100:,.2f} ITC separated')"
+  ```
+  Or via the API directly: `POST /api/run`, then inspect the `fee_leak_report` and
+  `total_itc_separated` fields of the response, or `GET /api/journal/export?format=generic` for the
+  full balanced journal.
 
 **Groq real-run detail** (a second real provider, run against the live API twice on two different
 random batches, with results genuinely persisted into the same `CalibrationHistory`/audit log the
@@ -408,5 +555,32 @@ project's own real (non-mock) run: **37/37 correctly handled, 0 wrongly auto-res
   in separate services), not shipped as a false performance win. See BUILD_LOG.md.
 - **No committed Playwright test spec** for the frontend (manual + scripted live-browser
   verification exists throughout BUILD_LOG.md, but not as a checked-in, re-runnable suite).
+- **The Tally XML export's structure was verified against Tally's own published sample docs, not a
+  real Tally install** (no license available in this dev environment) — well-formed and structurally
+  correct per the documented format, but not confirmed to import cleanly into live TallyPrime. The
+  Zoho Books CSV column shape is a defensible standard, not independently verified against Zoho's
+  current live import template.
+- **The fee-leak detector ships two patterns with real synthetic examples and tests** (blended-rate
+  overcharge, GST-wrong-base) — the pattern taxonomy is designed to extend to others (refund-MDR
+  retention, chargeback-fee inflation, subscription-addon splitting, instrument reclassification)
+  without a different architecture, but only these two are actually built and tested today.
 - **The pitch video isn't recorded yet** — everything above is real and reproducible today; the
   5-minute walkthrough itself is the one remaining submission artifact.
+
+## What I'd build next, inside Razorpay
+
+A rough sense of where this goes past a Buildathon submission, not a commitment:
+
+**Near-term** — wire `POST /api/transactions/evaluate` to Razorpay Recon's own escalation output,
+so merchants already using Recon get causal-chain narration and fee-leak review automatically for
+whatever Recon itself can't resolve, without a new merchant-facing surface to build or adopt.
+
+**Medium-term** — per-merchant contract ingestion: a merchant uploads their actual negotiated rate
+card once, and the fee-leak detector calibrates to it instead of a generic default, generating
+dispute language that cites the merchant's own contract clause rather than a general pattern.
+
+**Longer-term** — calibration as a shared signal, not just a per-merchant one: exception patterns
+that consistently auto-resolve across many merchants (a netting-trap shape that recurs across a
+whole industry vertical, say) are a real candidate for becoming new deterministic rules upstream,
+in Recon itself — the same "earn trust with evidence before acting on it" discipline this project
+already applies per-category, applied one level up.

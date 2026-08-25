@@ -15,7 +15,7 @@ import random
 import string
 from datetime import datetime, timedelta
 
-from app.data_gen.fee_schedule import BASE_SLA_DAYS, NETBANKING_SLA_RANGE, SLA_TOLERANCE_DAYS, fee_and_tax
+from app.data_gen.fee_schedule import BASE_SLA_DAYS, FEE_PCT, GST_RATE, NETBANKING_SLA_RANGE, SLA_TOLERANCE_DAYS, fee_and_tax
 from app.data_gen.schemas import (
     GroundTruthEntry,
     LedgerEntry,
@@ -404,6 +404,108 @@ class SyntheticDataGenerator:
         self.rng.shuffle(batches)
         return self._merge(batches)
 
+    def _gen_fee_leak_blended_rate(self):
+        """Fee-leak pattern (app/feeleak/detector.py): the merchant's contracted rate for this
+        instrument (fee_schedule.py's FEE_PCT) is not what was actually deducted -- the actual fee
+        was computed at a higher, blended rate instead, as if a flat card-grade rate were applied
+        regardless of instrument. Unlike every other category in this generator, this does NOT
+        create a reconciliation exception: the ledger and settlement both consistently reflect the
+        (overcharged) actual fee, so run_pass1 sees ledger_gap == 0 and calls it clean -- the leak
+        is invisible to standard reconciliation, exactly the real-world blind spot the fee-leak
+        detector exists to close (it compares the actual fee against the contract, a check no
+        reconciliation-only pipeline performs at all).
+
+        Deliberately UPI-weighted: UPI's contracted rate (0.3%) is the furthest from the blended
+        card rate (2%), producing the largest, clearest leaks to detect. Framed as a contract-vs-
+        actual comparison specifically, NOT a blanket "UPI MDR is illegal" claim -- the August 2026
+        PSS Act amendment replaced the blanket zero-MDR mandate with a government-notification
+        framework, so the legally safe, permanently-correct check is against what THIS merchant's
+        OWN contract says, not an assumption about the current regulatory notification state."""
+        rail: Rail = self.rng.choice(["upi", "upi", "netbanking"])
+        amount = self._rand_amount()
+        created_at = self._rand_created_at()
+        order_id = self._new_id("order")
+        payment_id = self._new_id("pay")
+        overcharge_rate = FEE_PCT["card"]  # the blended rate mistakenly applied instead of the contracted one
+        fee = round(amount * overcharge_rate)
+        tax = round(fee * GST_RATE)
+        captured_at = created_at + timedelta(minutes=self.rng.randint(1, 45))
+        order = Order(order_id=order_id, merchant_id=self.rng.choice(self.merchant_ids), amount=amount, currency="INR", created_at=created_at, rail=rail)
+        payment = Payment(
+            payment_id=payment_id,
+            order_id=order_id,
+            status="captured",
+            captured=True,
+            captured_amount=amount,
+            fee_amount=fee,
+            tax_amount=tax,
+            gateway=self.rng.choice(GATEWAYS),
+            captured_at=captured_at,
+        )
+        net = amount - fee - tax
+        settlement = self._build_settlement(payment_id, rail, net, captured_at)
+        ledger = self._build_ledger(order_id, net, created_at + timedelta(minutes=5))
+        gt = GroundTruthEntry(
+            transaction_id=order_id,
+            true_label="clean_match",
+            injected_by_you=True,
+            internal_note=f"fee_leak:blended_rate rail={rail} contracted_rate={FEE_PCT[rail]} actual_rate={overcharge_rate}",
+        )
+        return [order], [payment], [], [settlement], [ledger], [gt]
+
+    def _gen_fee_leak_gst_wrong_base(self):
+        """Fee-leak pattern: GST computed on the gross transaction amount instead of the fee
+        itself -- correct GST law taxes the service (the gateway fee), not the transaction value.
+        Like the blended-rate pattern above, this reconciles cleanly (ledger/settlement agree on
+        the actual, wrongly-computed numbers) and is only visible by checking tax_amount against
+        fee_amount, exactly what the fee-leak detector does and standard reconciliation doesn't."""
+        rail = self._pick_rail()
+        amount = self._rand_amount()
+        created_at = self._rand_created_at()
+        order_id = self._new_id("order")
+        payment_id = self._new_id("pay")
+        fee = round(amount * FEE_PCT[rail])  # the fee itself is correctly contracted
+        tax = round(amount * GST_RATE)  # but GST is wrongly based on gross amount, not the fee
+        captured_at = created_at + timedelta(minutes=self.rng.randint(1, 45))
+        order = Order(order_id=order_id, merchant_id=self.rng.choice(self.merchant_ids), amount=amount, currency="INR", created_at=created_at, rail=rail)
+        payment = Payment(
+            payment_id=payment_id,
+            order_id=order_id,
+            status="captured",
+            captured=True,
+            captured_amount=amount,
+            fee_amount=fee,
+            tax_amount=tax,
+            gateway=self.rng.choice(GATEWAYS),
+            captured_at=captured_at,
+        )
+        net = amount - fee - tax
+        settlement = self._build_settlement(payment_id, rail, net, captured_at)
+        ledger = self._build_ledger(order_id, net, created_at + timedelta(minutes=5))
+        gt = GroundTruthEntry(
+            transaction_id=order_id,
+            true_label="clean_match",
+            injected_by_you=True,
+            internal_note=f"fee_leak:gst_wrong_base rail={rail} fee={fee} correct_gst={round(fee * GST_RATE)} actual_gst={tax}",
+        )
+        return [order], [payment], [], [settlement], [ledger], [gt]
+
+    def generate_fee_leak_batch(self, n: int = 20) -> SyntheticBatch:
+        """A separate, additional batch of transactions that reconcile perfectly cleanly (no
+        ledger/settlement exception at all) but were charged fees inconsistent with the merchant's
+        own contract -- the blind spot standard reconciliation can't see, and the reason this is a
+        genuinely different axis of analysis from everything else this generator produces. Never
+        blended into the main/stress batches' reported accuracy, same convention as
+        generate_stress_batch."""
+        batches = []
+        for i in range(n):
+            if i % 2 == 0:
+                batches.append(self._gen_fee_leak_blended_rate())
+            else:
+                batches.append(self._gen_fee_leak_gst_wrong_base())
+        self.rng.shuffle(batches)
+        return self._merge(batches)
+
     def generate_stress_batch(self, n: int = 40) -> SyntheticBatch:
         """Dedicated 100%-adversarial stress batch (spec §4, "A separate 100%-adversarial
         stress batch"). Never blended into the main batch's reported accuracy — scored and
@@ -430,3 +532,12 @@ def generate(
     stress_gen = SyntheticDataGenerator(seed=seed + 1)  # distinct stream so the stress batch isn't a replay of the main one
     stress_batch = stress_gen.generate_stress_batch(stress_n)
     return main_batch, stress_batch
+
+
+def generate_fee_leak_batch(seed: int = 42, n: int = 20) -> SyntheticBatch:
+    """Independent of generate()'s main/stress batches -- a distinct rng stream (seed+2) so it's
+    never a replay of either, and never mixed into their reported reconciliation accuracy, since
+    fee-leak detection is a genuinely separate axis of analysis (see generate_fee_leak_batch on
+    SyntheticDataGenerator, and app/feeleak/detector.py)."""
+    gen = SyntheticDataGenerator(seed=seed + 2)
+    return gen.generate_fee_leak_batch(n)

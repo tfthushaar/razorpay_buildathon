@@ -1,0 +1,77 @@
+import { useState } from "react";
+import type { BatchRunResult } from "../types";
+import { rupees } from "../formatters";
+
+export function FeeLeakAnalysis({ result }: { result: BatchRunResult }) {
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  // Backend already sorts by -abs(total_impact) (app/feeleak/detector.py) -- re-sorting here
+  // defensively rather than trusting it blindly, since a sort defined once in the API contract is
+  // cheap to re-assert on the display side and doesn't cost anything if the backend already did it.
+  const findings = [...result.fee_leak_report.findings].sort((a, b) => b.total_impact - a.total_impact);
+
+  const handleCopy = async (transactionId: string, template: string) => {
+    try {
+      await navigator.clipboard.writeText(template);
+      setCopiedId(transactionId);
+      setTimeout(() => setCopiedId((id) => (id === transactionId ? null : id)), 1500);
+    } catch (err) {
+      // Clipboard access can be blocked (permissions, insecure context, browser policy) -- fails
+      // quietly into the console rather than throwing, same posture as the rest of this app's
+      // non-critical side effects.
+      console.error(err);
+    }
+  };
+
+  return (
+    <section className="panel">
+      <h2>Fee leak analysis — overcharged vs. contracted rate</h2>
+      <p className="panel-sub">
+        A separate batch of transactions that reconcile perfectly cleanly but were billed above the merchant's own fee
+        contract — blended-rate overcharges and GST computed on the wrong base. Ranked by ₹ impact, highest first.
+      </p>
+      {findings.length === 0 && (
+        <p className="empty-row">No fee leaks detected in this batch.</p>
+      )}
+      {findings.length > 0 && (
+        <ul className="escalation-list">
+          {findings.map((f) => {
+            const isOpen = expandedId === f.transaction_id;
+            return (
+              <li key={f.transaction_id} className="escalation-item">
+                <div className="escalation-header">
+                  <span className="badge badge-neutral">{f.transaction_id}</span>
+                  <span className="badge badge-warn">{f.pattern_label}</span>
+                  <span className="escalation-confidence">{f.rail}</span>
+                  <span className="escalation-amount">{rupees(f.total_impact)} impact</span>
+                </div>
+                <p className="escalation-reasoning">
+                  Contracted fee <strong>{rupees(f.contracted_fee)}</strong> vs. actual{" "}
+                  <strong>{rupees(f.actual_fee)}</strong> (variance {rupees(f.fee_variance)}) · contracted GST{" "}
+                  <strong>{rupees(f.contracted_gst)}</strong> vs. actual <strong>{rupees(f.actual_gst)}</strong>{" "}
+                  (variance {rupees(f.gst_variance)})
+                </p>
+                <button
+                  type="button"
+                  className="link-button tool-call-toggle"
+                  onClick={() => setExpandedId(isOpen ? null : f.transaction_id)}
+                >
+                  {isOpen ? "▾" : "▸"} Dispute template
+                </button>
+                {isOpen && (
+                  <div className="dispute-template-block">
+                    <pre className="dispute-template-text">{f.dispute_template}</pre>
+                    <button type="button" className="secondary-button" onClick={() => handleCopy(f.transaction_id, f.dispute_template)}>
+                      {copiedId === f.transaction_id ? "Copied ✓" : "Copy to clipboard"}
+                    </button>
+                  </div>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </section>
+  );
+}

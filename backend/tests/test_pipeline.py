@@ -21,6 +21,37 @@ def test_full_pipeline_runs_end_to_end_with_mock_provider():
     assert result.escalated_count >= 0
 
 
+def test_run_batch_includes_a_real_fee_leak_report():
+    """Fee leak detection (Pillar 2) is a genuinely separate axis from reconciliation -- runs
+    against its own dedicated batch (generate_fee_leak_batch), never mixed into
+    total_transactions/amount_reconciled, but surfaced on every BatchRunResult."""
+    result = run_batch(seed=42, main_n=50, stress_n=0, provider="mock")
+    report = result.fee_leak_report
+    assert report.findings, "the fee-leak batch should always produce real findings"
+    assert report.total_fee_recovery >= 0
+    assert report.total_gst_correction >= 0
+    assert set(report.by_pattern) <= {"blended_rate_overcharge", "gst_wrong_base"}
+    # confirms this genuinely didn't leak into the main reconciliation numbers
+    assert result.total_transactions == 50
+
+
+def test_fee_leak_report_is_reproducible_for_the_same_seed():
+    a = run_batch(seed=7, main_n=30, stress_n=0, provider="mock")
+    b = run_batch(seed=7, main_n=30, stress_n=0, provider="mock")
+    assert [f.transaction_id for f in a.fee_leak_report.findings] == [f.transaction_id for f in b.fee_leak_report.findings]
+    assert a.fee_leak_report.total_fee_recovery == b.fee_leak_report.total_fee_recovery
+
+
+def test_total_itc_separated_is_real_and_distinct_from_the_fee_leak_correction():
+    """total_itc_separated is computed from the WHOLE main batch's journal (every transaction's
+    GST-on-fee, correctly separated), not the fee-leak sample's own gst_correction figure -- the
+    two numbers measure genuinely different things and must not be conflated or accidentally
+    equal by construction."""
+    result = run_batch(seed=42, main_n=120, stress_n=40, threshold=0.90, provider="mock")
+    assert result.total_itc_separated > 0
+    assert result.total_itc_separated != result.fee_leak_report.total_gst_correction
+
+
 def test_throughput_is_measured_not_estimated():
     """Spec explicitly names Throughput as a judged criterion (§9, §11) -- this must be a real
     measured number attached to the result, not just quoted in prose (an external audit flagged

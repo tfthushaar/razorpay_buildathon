@@ -1,4 +1,4 @@
-import type { AuditEntry, BatchRunResult, CalibrationReport, EvaluateResponse, ResolveResponse } from "./types";
+import type { AuditEntry, BatchRunResult, CalibrationReport, EvaluateResponse, JournalExportResponse, ResolveResponse } from "./types";
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
 
@@ -59,3 +59,6 @@ export const evaluateScenario = (scenarioJson: object) =>
     method: "POST",
     body: JSON.stringify(scenarioJson),
   });
+
+export const exportJournal = (format: "tally" | "zoho" | "generic") =>
+  request<JournalExportResponse>(`/api/journal/export?format=${format}`);

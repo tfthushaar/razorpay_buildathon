@@ -8,6 +8,8 @@ import { BaselineComparison } from "./components/BaselineComparison";
 import { CalibrationPanel } from "./components/CalibrationPanel";
 import { EscalationQueue } from "./components/EscalationQueue";
 import { StressScorecard } from "./components/StressScorecard";
+import { FeeLeakAnalysis } from "./components/FeeLeakAnalysis";
+import { ErpExport } from "./components/ErpExport";
 import { AuditLogView } from "./components/AuditLogView";
 import { BreakItPanel } from "./components/BreakItPanel";
 import { GuidedTour } from "./components/GuidedTour";
@@ -97,6 +99,8 @@ function App() {
             <BaselineComparison result={result} />
             <StressScorecard stress={result.stress} />
           </div>
+          <FeeLeakAnalysis result={result} />
+          <ErpExport result={result} />
           <CalibrationPanel initialReport={result.calibration} refreshKey={refreshKey} onReportChange={setLiveCalibration} />
           <EscalationQueue
             escalations={result.escalations}

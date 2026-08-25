@@ -269,3 +269,22 @@ actual current completion status, see [PROGRESS.md](../PROGRESS.md)**, not this 
 | Failure Recovery | Adversarial cases + a dedicated 100%-adversarial stress batch + audit log + human-feedback loop that visibly re-earns trust + unscripted/live pitch-video "break it" moment |
 | Real problem, not cherry-picked | Baseline comparison + stress-batch scorecard prove the lift and the safety are real, not staged |
 | Domain fluency | Data model mirrors Razorpay's real Payments/Settlements/Refunds API field shapes, not generic finance jargon |
+
+## 12. Beyond the original spec: fee-leak detection and ERP posting (added post-build)
+
+Two additions past everything above, found during the build rather than planned upfront (see
+BUILD_LOG.md for the full narrative): a **fee-leak detector** (`app/feeleak/`) that checks every
+fee actually charged against the merchant's own contracted rate, catching overcharges on
+transactions that reconcile perfectly cleanly and are invisible to the causal-chain matching this
+spec otherwise describes — a genuinely separate axis of analysis, not a subset of §6.3's matching
+engine. And an **ERP journal generator** (`app/erp/`) that turns a resolved transaction into a
+balanced double-entry journal entry, GST-on-fee always separated into its own ITC-eligible line,
+exportable to Tally XML, Zoho Books CSV, or a generic CSV.
+
+Before building either, checked (not assumed) whether the strategy behind them held up: the named
+competing Razorpay products (Recon, Settlement Insights) turned out to be real; the flagship
+fee-leak framing ("MDR on UPI is always illegal") turned out to be legally stale as of a 4 August
+2026 amendment to the Payment and Settlement Systems Act, so the detector checks the merchant's own
+contract instead of a blanket legal claim — correct regardless of how the regulatory notification
+framework evolves. Full detail, including the real numbers these produce on this project's own
+generated data, in README.md's "Fee leak detection" and "ERP posting & ITC reclaim" sections.

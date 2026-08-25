@@ -8,6 +8,7 @@ export function SummaryTiles({ result }: { result: BatchRunResult }) {
   // HTML hint a user can still type past. Caught by an external audit 2026-08-24.
   const reconciledPct = result.total_amount > 0 ? result.amount_reconciled / result.total_amount : 0;
   const escalatedPct = result.total_transactions > 0 ? result.escalated_count / result.total_transactions : 0;
+  const leakCount = result.fee_leak_report.findings.length;
 
   return (
     <section className="tiles">
@@ -39,6 +40,18 @@ export function SummaryTiles({ result }: { result: BatchRunResult }) {
           {result.elapsed_seconds >= 0.01 && ` · ${result.transactions_per_second.toFixed(1)}/s`}
           {result.elapsed_seconds < 0.01 && " (mock — no network calls)"}
         </span>
+      </div>
+      <div className="tile tile-warn">
+        <span className="tile-label">Fee recovery</span>
+        <span className="tile-value">{rupees(result.fee_leak_report.total_fee_recovery)}</span>
+        <span className="tile-sub">
+          {leakCount} leak{leakCount === 1 ? "" : "s"} found — overcharged vs. contracted fee
+        </span>
+      </div>
+      <div className="tile tile-good">
+        <span className="tile-label">ITC separated</span>
+        <span className="tile-value">{rupees(result.total_itc_separated)}</span>
+        <span className="tile-sub">GST-on-fee split into its own ledger line across the batch's journal, ready for GSTR-2B</span>
       </div>
     </section>
   );

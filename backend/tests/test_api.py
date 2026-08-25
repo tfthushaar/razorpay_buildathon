@@ -325,6 +325,55 @@ def test_evaluate_endpoint_returns_a_clean_422_on_an_unexpected_processing_error
     assert "unforeseen failure mode" in resp.json()["detail"]
 
 
+def test_journal_export_rejects_before_any_run(isolated_app_state):
+    resp = client.get("/api/journal/export")
+    assert resp.status_code == 404
+
+
+def test_journal_export_generic_reflects_pending_vs_finalized(isolated_app_state):
+    run_resp = client.post("/api/run", json={"seed": 42, "main_n": 80, "stress_n": 0, "threshold": 0.90, "provider": "mock"})
+    escalated = run_resp.json()["escalations"]
+
+    resp = client.get("/api/journal/export", params={"format": "generic"})
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["format"] == "generic"
+    assert body["entry_count"] == 80
+    assert body["pending_count"] == len(escalated)
+    assert body["finalized_count"] == 80 - len(escalated)
+    # header row + at least one line per entry
+    assert body["content"].startswith("date,transaction_id,account,debit,credit,description,finalized")
+
+    if escalated:
+        # resolving one pending escalation should move it from pending to finalized on the next export
+        client.post("/api/escalations/resolve", json={"transaction_id": escalated[0]["transaction_id"]})
+        resp2 = client.get("/api/journal/export", params={"format": "generic"})
+        body2 = resp2.json()
+        assert body2["finalized_count"] == body["finalized_count"] + 1
+        assert body2["pending_count"] == body["pending_count"] - 1
+
+
+def test_journal_export_tally_is_well_formed_xml(isolated_app_state):
+    import xml.etree.ElementTree as ET
+
+    client.post("/api/run", json={"seed": 42, "main_n": 60, "stress_n": 0, "threshold": 0.90, "provider": "mock"})
+    resp = client.get("/api/journal/export", params={"format": "tally"})
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["format"] == "tally"
+    root = ET.fromstring(body["content"])  # raises on malformed XML
+    assert root.tag == "ENVELOPE"
+    assert len(root.findall(".//VOUCHER")) == body["entry_count"]
+
+
+def test_journal_export_zoho_has_the_documented_columns(isolated_app_state):
+    client.post("/api/run", json={"seed": 42, "main_n": 40, "stress_n": 0, "threshold": 0.90, "provider": "mock"})
+    resp = client.get("/api/journal/export", params={"format": "zoho"})
+    assert resp.status_code == 200
+    first_line = resp.json()["content"].splitlines()[0]
+    assert first_line == "Journal Date,Journal Number,Account,Debit,Credit,Description,Reference Number"
+
+
 def test_audit_endpoint_returns_entries_for_the_latest_run(isolated_app_state):
     run_resp = client.post("/api/run", json={"seed": 3, "main_n": 60, "stress_n": 0, "threshold": 0.90, "provider": "mock"})
     run_id = run_resp.json()["run_id"]

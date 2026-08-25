@@ -16,8 +16,10 @@ from app.audit.logger import AuditEntry, AuditLogger
 from app.calibration.calibrator import CalibrationReport, ScoredDecision, calibrate
 from app.calibration.history import CalibrationHistory
 from app.chain.builder import CausalChain, build_all_chains
-from app.data_gen.generate import generate
+from app.data_gen.generate import generate, generate_fee_leak_batch
 from app.data_gen.schemas import SyntheticBatch
+from app.erp.journal import generate_journal_entries
+from app.feeleak.detector import FeeLeakReport, run_fee_leak_detection
 from app.matching.baseline import run_naive_baseline
 from app.matching.engine import MatchResult, run_matching_engine
 from app.matching.escalation import EscalationItem, build_escalation_item, triage
@@ -61,6 +63,18 @@ class BatchRunResult(BaseModel):
     deterministic_only_amount_reconciled: int
 
     stress: StressScorecard
+
+    # Fee leak detection (Pillar 2) -- a genuinely separate axis of analysis from reconciliation
+    # (see app/feeleak/detector.py's module docstring for why): runs against its own dedicated
+    # batch of transactions that reconcile perfectly cleanly but were charged fees inconsistent
+    # with the merchant's own contract, the real-world blind spot standard reconciliation can't
+    # see. Never mixed into total_transactions/amount_reconciled above.
+    fee_leak_report: FeeLeakReport
+
+    # Real GST-on-fee separated into its own ITC-eligible ledger line across the whole main batch's
+    # journal (app/erp/journal.py) -- distinct from fee_leak_report.total_gst_correction, which is
+    # specifically the wrongly-computed-GST correction found in the separate fee-leak sample.
+    total_itc_separated: int
 
     # Throughput (spec's own explicitly-named criterion) — measured, not estimated. Covers the
     # main batch only, not the separately-scored stress batch, so it reflects what a merchant's
@@ -243,6 +257,14 @@ def run_batch(
     if audit_logger is not None:
         audit_logger.log_many(audit_entries)
 
+    # Real ITC-eligible GST across the WHOLE main batch's journal (app/erp/journal.py), not the
+    # fee-leak sample's own correction figure -- a genuinely different number: this is "GST on the
+    # gateway fee, correctly separated into its own ledger line instead of merged into 'gateway
+    # charges'", which is true and useful for every transaction, leaked or not.
+    finalized_ids = set(chains.keys()) - {e.transaction_id for e in escalations}
+    journal_entries = generate_journal_entries(chains, finalized_ids)
+    total_itc_separated = sum(l.debit for e in journal_entries for l in e.lines if l.account == "Input Tax Credit Receivable")
+
     baseline_clean_count = sum(1 for r in baseline_results.values() if r.clean)
     baseline_false_negative_timing_lag = sum(
         1 for txn_id, label in gt_by_id.items() if label == "timing_lag" and baseline_results[txn_id].clean
@@ -252,6 +274,11 @@ def run_batch(
     )
 
     stress = _stress_scorecard(stress_batch, provider, auto_resolve_categories)
+
+    # Independent of seed's main/stress streams (generate_fee_leak_batch uses seed+2 internally,
+    # see data_gen/generate.py) -- deterministic per seed, same convention as everything else here.
+    fee_leak_batch = generate_fee_leak_batch(seed=seed, n=20)
+    fee_leak_report = run_fee_leak_detection(fee_leak_batch.orders, fee_leak_batch.payments)
 
     return BatchRunResult(
         run_id=run_id,
@@ -270,6 +297,8 @@ def run_batch(
         deterministic_only_resolved_count=deterministic_only_resolved_count,
         deterministic_only_amount_reconciled=deterministic_only_amount_reconciled,
         stress=stress,
+        fee_leak_report=fee_leak_report,
+        total_itc_separated=total_itc_separated,
         elapsed_seconds=elapsed_seconds,
         narrated_count=len(narrator_outputs),
     )

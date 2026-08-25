@@ -2393,4 +2393,95 @@ fix demanded now.
 No critical or high findings. Test count confirmed 105/105, all diff scope matched what was
 described going in, nothing unrelated slipped through.
 
+### Two new pillars: fee-leak detection and ERP posting — and a real regulatory correction along the way
+
+I was handed a detailed strategy document proposing a genuine repositioning: not just a
+reconciliation copilot, but the layer that audits fees against the merchant's own contract and
+posts resolved transactions straight into ERP-ready, GST/ITC-separated journal entries. Before
+building any of it, I checked the document's own load-bearing claims rather than trusting them,
+because the whole pitch rested on them: are the named competing Razorpay products (Recon,
+Settlement Insights) real, and is the regulatory citation behind the flagship fee-leak pattern
+actually current?
+
+Both named products turned out to be real — Razorpay Recon (Dec 2024, AI-powered rule-based batch
+matching across 200M+ transactions/month) and Settlement Insights (launched March 12, 2026 as part
+of Agent Studio, a WhatsApp daily-summary agent — not quite the "Q&A dashboard" the document
+described, closer to a plain summary push). But the regulatory citation was a real problem: the
+document's Pattern 1 asserted that any MDR charged on UPI/RuPay debit is unconditionally illegal,
+citing Section 10A of the Payment and Settlement Systems Act's zero-MDR mandate (in force since
+January 2020). Parliament amended that Act on 4 August 2026 — three weeks before I checked this —
+replacing the blanket prohibition with a government-notification framework. Shipping the blanket
+claim would have gone stale the week this feature launched, in front of judges who would plausibly
+know about a change to a six-year-old, high-profile payments law. I flagged this before writing any
+code and got the call to build everything else in the document but fix that one framing.
+
+**The fix, and why it's actually the more robust design, not just a workaround**: instead of
+checking a fee against "what the law currently allows," the detector checks it against **this
+merchant's own contracted rate** (`fee_schedule.py`'s existing `FEE_PCT`, which was already the
+contracted-rate reference every clean transaction in this generator has used from day one). That's
+correct regardless of how the regulatory notification framework evolves — a contract-vs-actual
+comparison doesn't go stale the way a hardcoded legal assumption does.
+
+**Fee leak detection** (`app/feeleak/detector.py`, `app/data_gen/generate.py`'s
+`generate_fee_leak_batch`): a genuinely separate axis of analysis from reconciliation, not folded
+into the matching engine's own categories. The generator's key design insight: a fee-leak
+transaction must reconcile *perfectly cleanly* (ledger and settlement both consistently reflect the
+actual, overcharged fee) — that's the real-world blind spot, since standard reconciliation only
+checks whether the two sides agree with each other, never whether what they agree on is itself
+correct. Two patterns, both with real synthetic examples and real tests: a blended-rate overcharge
+(a flat rate applied instead of the instrument's own contracted one, most visible on UPI) and GST
+computed on the gross amount instead of the fee. `test_zero_false_positives_against_every_existing_category`
+is the test that actually matters most here — 260 ordinary transactions from the main/stress
+batches, zero false positives, verified directly rather than assumed, since a detector that flags
+correctly-charged transactions would undermine the whole "honest numbers" discipline this project
+holds itself to everywhere else.
+
+**ERP journal generation** (`app/erp/journal.py`, `app/erp/exporters.py`): turns a resolved
+transaction's causal chain into balanced double-entry journal lines. Designed the balance to be
+provable algebraically, not just empirically: Revenue always credits at the chain's own gross
+captured amount; Bank/Fee/GST/Refund debit at their recorded amounts; and a Reconciliation Suspense
+line absorbs exactly `-settlement_delta`, which I verified by hand holds for both positive and
+negative delta before writing the test — meaning every entry balances by construction, proven
+across all 8 real transaction categories in `test_journal.py`, not hand-picked clean ones. GST-on-fee
+always posts to its own Input Tax Credit Receivable line, never merged into the fee expense — the
+actual mechanism that makes ITC reclaim automatable instead of a manual bookkeeping exercise.
+
+Three real export formats. Before writing the Tally XML exporter, I fetched Tally's own published
+sample XML (help.tallysolutions.com/sample-xml/) rather than reconstruct the format from memory,
+and it revealed a real, non-obvious detail I'd have gotten wrong otherwise: a debit line's `AMOUNT`
+is negative and a credit line's is positive in Tally's own documented convention — the opposite of
+what I'd have assumed. `test_journal.py` checks this sign convention explicitly, not just that the
+XML parses. The Zoho Books CSV and generic CSV use a standard, defensible column shape that wasn't
+independently verified against Zoho's current live template the same way — disclosed as such,
+consistent with how every other unverified claim in this project has been handled.
+
+Wired both into the pipeline (`pipeline.py`'s `run_batch` now returns `fee_leak_report` and
+`total_itc_separated` on every `BatchRunResult`) and exposed via a new endpoint,
+`GET /api/journal/export?format=tally|zoho|generic`, which regenerates the latest run's own chains
+from its seed (the same pattern `api_run` already uses to recover ground truth) rather than
+extending the atomicity-critical `_RunSnapshot`. One real design correction caught during this pass:
+`total_itc_separated` needed to be its own field, computed from the WHOLE main batch's journal, not
+reused from `fee_leak_report.total_gst_correction` (which is specifically the wrongly-computed-GST
+correction found in the separate leak-review sample) — two genuinely different numbers that would
+have been silently conflated if I hadn't caught it, with a dedicated test
+(`test_total_itc_separated_is_real_and_distinct_from_the_fee_leak_correction`) protecting the
+distinction going forward.
+
+23 new backend tests (7 detector, 9 journal, 4 API-level, 3 pipeline-integration), all written
+against real generated data, not synthetic hand-picked examples alone. Frontend work (two new
+summary tiles, a Fee Leak Analysis view, an ERP Export view with real downloads) delegated to a
+background agent while I did the backend/README work — reviewed its diff before trusting it, same
+discipline as every other delegated piece this session.
+
+README rewritten with the new capabilities woven through: a corrected opening (leads with the fee
+audit + ERP posting story, not just reconciliation), a new "Where this fits in Razorpay's own
+stack" section naming the real competing products and stating the regulatory correction plainly
+rather than burying it, dedicated sections for both new pillars with real numbers (verified live,
+not copied from the strategy document's own illustrative figures), two new points in "what makes
+this different," and updated "what it doesn't do yet" scope notes (Tally XML verified against
+documentation but not a live install; only 2 of the fee-leak taxonomy's patterns have real
+synthetic examples, not all of them).
+
+Test count now 128. Score to be recorded by the next audit round before any push.
+
 ---

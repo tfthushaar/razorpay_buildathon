@@ -27,6 +27,8 @@ from app.calibration.history import CalibrationHistory
 from app.chain.builder import build_all_chains
 from app.data_gen.generate import generate
 from app.data_gen.schemas import LedgerEntry, Order, Payment, Refund, Settlement, SyntheticBatch
+from app.erp.exporters import to_generic_csv, to_tally_xml, to_zoho_books_csv
+from app.erp.journal import generate_journal_entries
 from app.matching.engine import run_matching_engine
 from app.narrator.agent import narrate
 from app.narrator.tools import build_tool_context
@@ -249,6 +251,51 @@ def api_audit(run_id: str | None = None) -> list[dict]:
     if run_id is None:
         raise HTTPException(404, "no run yet")
     return audit_logger.entries_for_run(run_id)
+
+
+class JournalExportResponse(BaseModel):
+    format: Literal["tally", "zoho", "generic"]
+    content: str
+    entry_count: int
+    finalized_count: int
+    pending_count: int
+
+
+@app.get("/api/journal/export")
+def api_journal_export(format: Literal["tally", "zoho", "generic"] = "generic") -> JournalExportResponse:
+    """ERP journal export (Pillar 3): regenerates the latest run's own chains from its seed —
+    same pattern api_run already uses to recover ground truth — rather than storing chains in
+    _AppState, keeping the atomicity-critical _RunSnapshot exactly as minimal as it already is.
+    Transactions still pending in the escalation queue post with finalized=False (a pending human
+    review note, not a missing entry) — the same "post what's known, don't force a false balance"
+    principle app/erp/journal.py's suspense-line design already follows."""
+    if state.latest.result is None:
+        raise HTTPException(404, "no run yet — POST /api/run first")
+    snapshot = state.latest
+    result = snapshot.result
+    try:
+        main_batch, _ = generate(seed=result.seed, main_n=result.total_transactions, stress_n=0)
+        chains = build_all_chains(main_batch)
+        pending_ids = set(snapshot.escalations_by_id.keys())
+        finalized_ids = {txn_id for txn_id in chains if txn_id not in pending_ids}
+        entries = generate_journal_entries(chains, finalized_ids)
+
+        if format == "tally":
+            content = to_tally_xml(entries)
+        elif format == "zoho":
+            content = to_zoho_books_csv(entries)
+        else:
+            content = to_generic_csv(entries)
+
+        return JournalExportResponse(
+            format=format,
+            content=content,
+            entry_count=len(entries),
+            finalized_count=len(finalized_ids),
+            pending_count=len(chains) - len(finalized_ids),
+        )
+    except Exception as e:
+        raise HTTPException(422, f"Could not generate the journal export ({type(e).__name__}: {e}).")
 
 
 class TransactionScenario(BaseModel):
