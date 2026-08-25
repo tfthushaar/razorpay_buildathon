@@ -6,7 +6,7 @@
 
 Every settlement Razorpay sends a merchant is a black box — one bank credit standing in for hundreds
 of transactions, net of fees, GST, and refund offsets. Turning that into books a finance team can
-close on is normally a manual, multi-hour job every cycle. This system explodes the credit back into
+close on is normally a manual, multi-hour job every cycle. This system explores the credit back into
 its transactions, narrates *exactly which hop* broke in each one's causal chain, and only
 auto-resolves what it's statistically earned trust on — escalating the rest with a stated reason
 instead of guessing.
