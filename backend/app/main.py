@@ -428,7 +428,7 @@ def api_evaluate_transactions(scenario: TransactionScenario) -> EvaluateResponse
         raise HTTPException(422, f"Could not evaluate this scenario ({type(e).__name__}: {e}); check the submitted records for consistency.")
 
 
-@app.get("/api/health")
+@app.api_route("/api/health", methods=["GET", "HEAD"])
 def health() -> dict:
     return {"status": "ok"}
 

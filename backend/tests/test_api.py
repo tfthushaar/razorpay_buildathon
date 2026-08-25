@@ -22,6 +22,15 @@ def test_health():
     assert resp.json() == {"status": "ok"}
 
 
+def test_health_accepts_head_for_uptime_monitors():
+    """Several uptime-monitoring tools (e.g. Better Stack) default to HEAD, not GET, to avoid
+    pulling a response body -- a GET-only route 405s them, which reads as the service being down
+    when it isn't. Found live against the real Render deployment (curl -I returned 405) before
+    this was fixed."""
+    resp = client.head("/api/health")
+    assert resp.status_code == 200
+
+
 def test_resolving_many_mock_escalations_over_http_cannot_graduate_a_category(isolated_app_state):
     """Permanent regression guard for the exact adversarial scenario a round-2 external audit
     constructed ad hoc to stress-test the provider-aware calibration fix (2026-08-24): repeatedly
