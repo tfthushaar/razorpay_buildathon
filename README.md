@@ -435,7 +435,10 @@ LLM calls and a correspondingly higher sustained rate.
 Netlify's site environment variables to point at wherever the backend actually runs (self-hosted,
 or deployed separately — see the paragraph above for why the backend itself doesn't fit Netlify:
 it's a stateful FastAPI service with SQLite persistence and narrator calls that can run minutes
-against a real LLM provider, not a static site or a request/response serverless function). Written
+against a real LLM provider, not a static site or a request/response serverless function). On the
+backend host, set `ALLOWED_ORIGINS` to the deployed Netlify URL (comma-separated if there's more
+than one, e.g. a preview + production domain) — CORS only allows `localhost` by default, so this is
+required, not optional, for the deployed frontend to actually reach the deployed backend. Written
 and reviewed, not yet deployed to a live Netlify site in this session.
 
 ## Tests & evidence

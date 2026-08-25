@@ -37,9 +37,14 @@ from app.pipeline import BatchRunResult, _final_decision, run_batch
 DATA_DIR = Path(__file__).resolve().parents[1] / "data"
 
 app = FastAPI(title="Settlement Reconciliation Copilot API")
+
+# Local dev origins always allowed; a deployed frontend (e.g. Netlify) adds its real
+# origin via ALLOWED_ORIGINS (comma-separated, no trailing slash) rather than editing this file.
+_default_origins = ["http://localhost:5173", "http://127.0.0.1:5173"]
+_extra_origins = [o.strip() for o in os.environ.get("ALLOWED_ORIGINS", "").split(",") if o.strip()]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_origins=_default_origins + _extra_origins,
     allow_methods=["*"],
     allow_headers=["*"],
 )
