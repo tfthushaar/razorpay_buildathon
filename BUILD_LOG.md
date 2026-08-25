@@ -2929,3 +2929,54 @@ session is an editorial call for the project owner, not something to unilaterall
 140/140 backend tests passing, frontend build clean.
 
 ---
+
+## 2026-08-25 — README restructured to a hiring-judge's read, not a narrative
+
+A second, structural review (same day as the headline-inflation fix above) made the case directly:
+the README was written as documentation for someone who'd already decided to care, when a real judge
+gives it 90 seconds and no obligation to reach paragraph four. The fix wasn't more disclosure — it
+was ordering by descending cost of being skipped, and making the track's own published bar
+("throughput plus measured accuracy plus an honest exception list. One cherry-picked match proves
+nothing.") impossible to miss.
+
+**Cut from ~7,300 words to ~970**, seven sections: hero (title, two-sentence problem statement, live
+link, three-line quick start, one screenshot — the escalation queue with its tool trace expanded,
+since that single image proves "agentic" and "auditable" at once) → a scoreboard table mapping the
+published bar directly to evidence → one paragraph, one headline number (the corrected netting-trap
+figure from the fix above, paired with genuine_error's 80.3%-and-still-escalates as the actual point
+— a system willing to not act is the only reason a finance team would let it act) → three
+differentiators, not seven (causal chain, revocable calibrated autonomy, fee-vs-contract audit;
+circuit breaker and the Merkle pre-filter are real but are engineering interests, not what a judge
+scores) → the honest-scope list, promoted from position 19 of 20 to the top half and retitled as a
+strength ("What this can't do, and what it refuses to do"), trimmed from 12 bullets to 6 → three
+copy-pasteable verify commands, actually run before claiming they work (see below) → six further-reading
+links, BUILD_LOG given one framing sentence ("~30,000 words, every bug and fix in order") since
+unframed a 30k-word file reads as clutter and framed it's proof of process.
+
+Everything cut moved to `docs/`, not deleted: `docs/positioning.md` (the Recon/Settlement
+Insights/NPCI-agentic-commerce positioning, ~500 words that were blocking the door at position two),
+`docs/setup.md` (full backend/frontend/Docker/Netlify/Vercel/live-deployment detail), `docs/screenshots.md`
+(the gallery, minus the one hero image), and the fee-leak table + regulatory note + ERP detail +
+stress-test table + three-real-transactions section, all folded into
+`docs/track04-settlement-reconciliation-copilot.md §12` where the architecture doc already covered
+the same material at a summary level.
+
+**Verified every "verify it yourself" command actually works before publishing them** — the exact
+discipline gap that let the headline-inflation issue ship in the first place. All three ran clean:
+`pytest` (140 passed), `audit_calibration.py --db ../docs/evidence/verified_calibration_history.db`
+(reproduces the netting_trap/duplicate_refund figures to the rupee), and the fee-leak one-liner
+(reproduces ₹2,634.50 fee recovery / ₹2,198.42 ITC separated exactly). That check caught one more
+real error along the way: the scoreboard's throughput row and `docs/setup.md`'s extrapolation
+paragraph both still cited **2.15 tx/sec**, a figure computed from the now-superseded
+`real-ollama-run-2026-08-24.json` (55.8s / 120 txn) rather than the fresh evidence generated for the
+headline fix (`verified-ollama-run-2026-08-25.json`, 46.5s / 120 txn = **2.58 tx/sec**). Recomputed
+directly from the JSON rather than trusted from the prior paragraph, fixed in both places, and the
+extrapolated daily-throughput figure recalculated to match (~222,700/day, not ~185,000).
+
+Not touched: the header-style guidance ("claims, not labels") and the one-idea-per-paragraph
+discipline — both already applied in the rewrite, not a separate pass. Both reviews this session
+made the same underlying point from different angles: a paragraph stacking three or four figures
+with em-dash qualifications is exactly what let an inflated number survive its own author's review.
+Shorter, single-number paragraphs are the actual fix, not a style preference.
+
+---

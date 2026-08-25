@@ -286,8 +286,124 @@ competing Razorpay products (Recon, Settlement Insights) turned out to be real; 
 fee-leak framing ("MDR on UPI is always illegal") turned out to be legally stale as of a 4 August
 2026 amendment to the Payment and Settlement Systems Act, so the detector checks the merchant's own
 contract instead of a blanket legal claim — correct regardless of how the regulatory notification
-framework evolves. Full detail, including the real numbers these produce on this project's own
-generated data, in README.md's "Fee leak detection" and "ERP posting & ITC reclaim" sections.
+framework evolves.
+
+**The regulatory correction, in full.** An earlier draft of the fee-leak framing treated "any MDR on
+UPI/RuPay debit" as unconditionally illegal, citing the zero-MDR mandate under
+[Section 10A of the Payment and Settlement Systems Act](https://www.pib.gov.in/PressReleasePage.aspx?PRID=2114335&reg=48&lang=2)
+(in force since January 2020). That mandate was **amended by Parliament on 4 August 2026** — three
+weeks before this was written — replacing the blanket prohibition with a government-notification
+framework under which specific modes can be selectively exempted. A blanket legal claim would have
+gone stale the week this feature shipped. So the fee-leak detector checks the actual fee against
+**this merchant's own contracted rate** instead — correct regardless of how the notification
+framework evolves, which a hardcoded legal assumption never could be.
+
+### Fee-leak detection: the two patterns
+
+A transaction can reconcile *perfectly* — ledger and settlement agree on every rupee — while still
+being charged a fee inconsistent with the merchant's own contract. Standard reconciliation has no
+way to see this: both sides of the check just reflect whatever was actually deducted, correctly or
+not. That's the real, documented blind spot `app/feeleak/detector.py` closes — a genuinely separate
+axis of analysis from reconciliation, not a subset of it, run against its own dedicated batch of
+otherwise-clean transactions.
+
+| Pattern | What's actually wrong | How it's caught |
+|---|---|---|
+| **Blended-rate overcharge** | A flat/blended rate (e.g. the card rate) applied instead of the instrument's own contracted rate — most visible on UPI, whose contracted rate is furthest from a blended card rate | Actual fee compared against `amount × contracted_rate[instrument]`; any excess beyond a rounding epsilon is flagged, ranked by ₹ impact |
+| **GST computed on the wrong base** | GST (18%) computed on the gross transaction amount instead of the gateway fee — the fee is what's actually taxed | Actual GST compared against `18% × actual_fee_charged`, isolated from the fee-amount check so the two error types are never conflated |
+
+Real result from a 20-transaction review batch (correctly injected against the same contracted-rate
+table the detector checks against, since that's what deterministic, labeled test data requires — the
+real result is the detection mechanism working, not the specific rupee figures): **10 blended-rate
+overcharges totaling ₹2,634.50 in recoverable fees, and 10 GST-wrong-base findings totaling
+₹23,158.96 in miscalculated tax** — every finding also carries a ready-to-send dispute template
+naming the transaction, the instrument, and the exact variance. Verified with **zero false positives
+against 260 ordinary transactions** from the main/stress batches
+(`test_zero_false_positives_against_every_existing_category`) — a detector that flags
+correctly-charged transactions would be worse than useless.
+
+This detector's pattern taxonomy is designed to extend to more leak types (refund-MDR retention,
+chargeback-fee inflation, subscription-addon splitting, instrument reclassification) without a
+different architecture — the same "compare actual against a known reference" check generalizes —
+but only the two patterns above have real synthetic examples and tests behind them today.
+
+### ERP posting & ITC reclaim, in detail
+
+A resolved transaction isn't useful to a finance team until it's a journal entry. `app/erp/journal.py`
+turns every transaction's causal chain into double-entry lines — Revenue (credit, gross captured
+amount), Bank Account (debit, actual settled amount), Payment Gateway Charges, Input Tax Credit
+Receivable (GST-on-fee, always a *separate* line from the fee itself — the entire point, since
+merging it makes ITC reclaim from GSTR-2B impossible to automate), Refunds, and a Reconciliation
+Suspense line that absorbs whatever's genuinely unexplained.
+
+That suspense line is the honest part: it's derived algebraically to be exactly zero — and omitted
+entirely — for any transaction the pipeline has fully explained, and a real, visible, correctly-sized
+number for anything it hasn't. Every journal entry balances by construction, proven across all 8
+transaction categories in `test_journal.py`, not just clean ones — the failure mode this module
+exists to avoid is a real accountant importing an entry that doesn't balance. A transaction still
+sitting in the escalation queue posts with `finalized: false` and a "pending human review" note
+instead of a silently-forced entry.
+
+Real result from a full 120-transaction batch: **120 journal entries, all balanced, 102 finalized
+and 18 correctly held pending human review** (matching the batch's own escalation count exactly),
+with **₹2,198.42 of GST-on-fee automatically separated into the ITC Receivable ledger** across the
+whole batch — a different, larger-scope number than the fee-leak review's own GST-correction figure
+above, since this one covers every transaction's *correctly-computed* GST, not just the
+wrongly-computed ones. Export in three real formats, all tested (`test_journal.py`):
+
+- **Tally XML** — structure verified directly against [Tally's own published sample XML](https://help.tallysolutions.com/sample-xml/)
+  before writing the exporter, including the (unusual, but confirmed correct) sign convention where
+  a debit line carries a *negative* `AMOUNT` and a credit line a positive one.
+- **Zoho Books CSV** and a **generic double-entry CSV** — a standard, defensible column shape, not
+  independently verified against Zoho's current live import template the way Tally's structure was
+  — disclosed honestly rather than presented with the same confidence.
+
+TDS under [Section 393(1) of the Income-tax Act 2025](https://www.terra-insight.com/insights/section-393-tds-new-income-tax-act-reconciliation/)
+(the recodified Section 194O, 0.1% on gross, effective 1 April 2026) is deliberately **not** applied
+by default — it taxes an e-commerce *operator's* payouts to marketplace *participants*, not a direct
+merchant's own gateway settlement, which is this project's actual scenario. `tds_note()` exists as
+an opt-in, clearly-labeled informational helper for a merchant who is themselves an e-commerce
+operator, never posted as a journal line automatically.
+
+### Stress-test: what "100%-adversarial" actually means
+
+Beyond the main batch, every run also generates a second batch that is nothing but traps — no clean
+transactions at all — so the headline stress-test stat can't be cherry-picked from a mixed batch.
+It's built only from the categories designed to fool a naive amount-check (`duplicate_refund`,
+`netting_trap`, `fee_deduction`, `genuine_error`). Real result on this project's own real (non-mock)
+run: **40/40 correctly handled, 0 wrongly auto-resolved**
+([raw output](evidence/verified-ollama-run-2026-08-25.json)).
+
+| Case | What's actually wrong | What a naive amount+date matcher does | What this system does |
+|---|---|---|---|
+| **Timing lag** | Amounts match exactly; settlement just arrived late (e.g. day 4 against a 1-day nominal, 2-day tolerance for UPI) | Silently calls it clean — no SLA awareness at all (proven in `test_naive_baseline_silently_misses_timing_lag`) | Causal chain confirms `ledger_gap = 0`, checks the SLA window, auto-resolves as `timing_lag` — money was never actually missing |
+| **Currency rounding** | A few paise of harmless FX rounding drift, no real gap | Flags it as a mismatch requiring manual review — zero tolerance (proven in `test_naive_baseline_false_positives_on_rounding_noise`) | Recognizes the delta is within a rounding epsilon, resolves it deterministically, never escalates a non-problem |
+| **Netting trap** | Two unrelated transactions in the same batch, one short and one over by the exact same amount | A batch-total check nets them to zero and calls the whole batch clean | Checks each transaction's own `ledger_gap` individually — both sides of the trap get caught |
+| **Duplicate refund** | A refund legitimately issued once, deducted from the settlement twice | Sees a bigger-than-expected gap and either guesses "a refund happened" or escalates with no explanation | `check_batch_anomalies` cross-references the refund registry itself, confirms exactly one `refund_id`, flags the double-deduction specifically |
+| **Genuine error** | An unexplained gap that doesn't fit any known pattern — by construction, deliberately ambiguous | Either guesses or escalates everything without distinguishing this from the cases above | Escalates — and this is the one category that **never** auto-resolves regardless of measured accuracy, because "I can't explain this" should always reach a person |
+
+### Three real transactions this project has actually caught
+
+Not invented examples — pulled directly from a real generated batch (`seed=42`), with the real
+amounts and real reasoning:
+
+- **A ₹49,823.00 UPI settlement landed on day 4, not the nominal day-1 SLA (or the 2-day tolerance
+  line).** The ledger and settlement amounts matched exactly — nothing was actually missing — so the
+  causal chain builder confirmed `ledger_gap = 0` and the deterministic Pass 2 auto-resolved it as
+  `timing_lag` at 0.9 confidence, zero LLM calls needed. A naive matcher checking amount + date
+  together would have flagged this as unreconciled the moment the date didn't line up, even though
+  no money was ever actually missing.
+- **Two unrelated transactions in the same settlement batch, one short by ₹150.00 and one over by
+  exactly ₹150.00.** Summed together, the batch balances to the rupee — the classic "nets out at the
+  aggregate level" trap a batch-total check would wave straight through. The causal chain model
+  checks each transaction's own `ledger_gap` individually rather than trusting the aggregate, so both
+  sides of the trap get caught, not just the batch-level number that happens to look clean.
+- **A ₹153.74 refund was legitimately issued once — the refund registry shows exactly one
+  `refund_id` — but the settlement feed deducted it from the payout twice.** The merchant's ledger
+  (which only knows about the one real refund) and the actual settlement (net of two) differ by
+  precisely one refund amount. `check_batch_anomalies` cross-references the refund registry itself
+  rather than trusting the settlement total, and flags the double-deduction instead of quietly
+  treating it as "a bigger refund than expected."
 
 A third addition: a **real Razorpay Test Mode connector** (`app/connectors/razorpay_sandbox.py`),
 built once the user provided real test credentials. It makes live calls against the actual API

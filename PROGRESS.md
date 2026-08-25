@@ -130,7 +130,7 @@ Round 5 found something rounds 1-4 all missed: `_final_decision()` (pipeline.py)
 
 ## Submission checklist (spec §10)
 
-- [x] Clean local git history, clear README — **pushed to the public remote (github.com/tfthushaar/razorpay_buildathon) on 2026-08-25**
+- [x] Clean local git history, clear README — **pushed to the public remote (github.com/tfthushaar/razorpay_buildathon) on 2026-08-25**. Restructured the same day per a real structural review: cut from ~7,300 to ~970 words, seven sections ordered by descending cost of being skipped, a scoreboard table mapping directly to the track's own published judging bar, moved everything else to `docs/positioning.md`/`docs/setup.md`/`docs/screenshots.md`/`docs/track04-*.md §12` rather than deleting it. See BUILD_LOG.md.
 - [ ] 5-min pitch video — outside what code can produce; mine to record
 - [x] Architecture doc (docs/track04-*.md, kept current through the build, several mid-build revisions logged in BUILD_LOG)
 - [x] "What broke / how fixed" narrative — BUILD_LOG.md, real bugs with root causes, fixes, and verification, not invented after the fact
