@@ -2351,4 +2351,46 @@ circuit-breaker/drift-check capabilities as their own points in that same list, 
 new audit script — plus an honest "what it doesn't do yet" section consolidating every disclosed
 limitation in one place instead of scattered through the file. Test count now 105.
 
+### Round 16 (2026-08-25) — a new all-time high: 87/100
+
+I ran round 16 of my audit loop specifically to check the three commits since round 15 (the doc
+voice rewrite, the pitch-readiness pass, and the circuit-breaker/EWMA-drift addition) before
+pushing any of it. Told it explicitly not to grade-inflate and to treat the drift feature's two
+test-data reorderings as the single most judgment-sensitive thing in the diff, deserving a clear
+verdict either way, not a rubber stamp.
+
+**Score: 87/100** (AI Judgment 17/20, Failure Recovery 18/20, Measured Accuracy 13/15, Bounded&Gated
+13/15, Throughput 9/10, Real Problem 8/10, Submission Readiness 9/10) — a new all-time high, beating
+round 14's 84.
+
+**The judgment call, verified independently rather than taken on my own word**: reading the actual
+diff of both modified tests, every assertion (`n`, accuracy, CI bounds, decision outcome) is
+byte-for-byte unchanged — only the position of the pre-existing wrong decisions moved from the tail
+to the middle of the list. Since EWMA drift is order-sensitive but `n`/accuracy/Wilson-CI are not,
+this is confirmed as the minimum change needed to make each test represent what its own docstring
+always claimed, not a loosened detector or a swept-under-the-rug finding.
+
+**Everything else independently re-verified, not just re-described**: the circuit breaker's state
+machine (closed→open→cooldown→half-open→close-on-success) is textbook-correct, including that a
+failed half-open trial correctly re-extends the open window; `record_failure()` confirmed to appear
+at exactly the two real-API-failure call sites, never in a model-reasoning-failure handler; the
+EWMA arithmetic in `test_drift.py` checked out by hand; `scripts/audit_calibration.py`'s live output
+matched exactly; the Docker disclosure ("written and reviewed, not verified") was itself verified
+honest by confirming Docker really isn't installed here; the ~185,000 tx/day throughput
+extrapolation's arithmetic checks out and is correctly labeled as extrapolated, not measured; three
+of the five screenshots were opened and cross-checked against `audit_calibration.py`'s own live
+numbers, confirming they're real, current captures, not stale or fabricated.
+
+Two low findings, both disclosed limitations rather than bugs: the circuit breaker's half-open state
+can let more than one concurrent trial through under genuine concurrency (already named as an
+accepted simplification in the module's own docstring), and the EWMA drift check's `target` is the
+category's own current aggregate accuracy, recomputed every call — a long enough streak of wrong
+decisions could itself drag the aggregate down over many cycles, narrowing the gap the detector
+relies on. Not a bug, matches the documented design intent, just not covered by a test scenario that
+mixes a shifting target with the calibrator's own aggregate — worth a note for a future round, not a
+fix demanded now.
+
+No critical or high findings. Test count confirmed 105/105, all diff scope matched what was
+described going in, nothing unrelated slipped through.
+
 ---
