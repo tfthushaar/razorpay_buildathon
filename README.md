@@ -2,6 +2,8 @@
 
 **Razorpay AI Buildathon 2026 — Track 04: AI Finance Controller**
 
+**Live**: [razorpay-buildathon-five.vercel.app](https://razorpay-buildathon-five.vercel.app)
+
 Every settlement Razorpay sends a merchant is a black box — one bank credit standing in for hundreds
 of transactions, net of fees, GST, and refund offsets. Turning that into books a finance team can
 close on is normally a manual, multi-hour job every cycle. This system explodes the credit back into
@@ -9,7 +11,6 @@ its transactions, narrates *exactly which hop* broke in each one's causal chain,
 auto-resolves what it's statistically earned trust on — escalating the rest with a stated reason
 instead of guessing.
 
-**Live**: [razorpay-buildathon-five.vercel.app](https://razorpay-buildathon-five.vercel.app)
 
 ```bash
 git clone https://github.com/tfthushaar/razorpay_buildathon.git && cd razorpay_buildathon/backend
