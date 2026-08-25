@@ -2113,4 +2113,79 @@ chasing 95 through code alone, or whether the remaining gap needs a decision onl
 (accept the ceiling, or spend the resources three independent rounds have identified as the actual
 blockers). Not a decision to make unilaterally from inside the loop.
 
+### After 95: an architecture pass for real scale, before the first push
+
+Presented with the honest ceiling above, the decision made outside the loop was: move toward push
+prep, but first check whether a different architecture — not more code changes to the same one —
+could change the picture, because the plan is to actually deploy this on real, larger data, not
+just clear a rubric. Three tiers came out of that analysis, ordered by risk and leverage. Tier 1 —
+wire the already-built-but-unused Merkle-tree pre-filter (`matching/merkle.py`) into the live
+pipeline, and benchmark it honestly at a realistic scale — was approved to do now, before push prep.
+Tiers 2 (worker-pool narration, frontend pagination) and 3 (Postgres, async job queue) are deferred
+to a real post-push production decision.
+
+**Groundwork: a `clean_ratio` generator parameter.** The demo batch is deliberately dense (~33-40%
+non-clean) so every category class is reliably exercised even at small N — nothing like a real
+settlement batch, which is overwhelmingly clean. Added `clean_ratio` to `generate_main_batch`/
+`generate()` so a realistic large batch (e.g. 50,000 records, 97% clean) could be generated for an
+honest benchmark. First attempt generalized the hardcoded 60/25/10/5% split into a ratio-derived
+formula (`non_clean_ratio * 0.625`, etc.) — checked directly, not assumed, whether this was actually
+equivalent to the original at the default 60% split, and it wasn't: 62 separate values of `n`
+between 0 and 2000 round to a different integer than the original literal `round(n*0.25)` etc.,
+purely from floating-point arithmetic order. Fixed by branching: the exact original literal
+expressions stay for `clean_ratio=0.60` specifically; the general formula only runs for a non-default
+ratio, where it was never tested against the original anyway. Verified at n=50,000/clean_ratio=0.97:
+exactly 48,500 clean_match (97.00% precisely), with the remaining 1,500 split proportionally across
+the other categories. Two new tests cover both the byte-for-byte default-path parity and the sparse
+large-batch shape.
+
+**The pre-filter itself.** `matching/merkle_prefilter.py` compares two per-key views — the ledger's
+expected amount and the settlement's actual amount, each tagged with the SLA verdict (`"{amount}|OK"`
+vs `"{amount}|LATE"`) — so that "identical" under Merkle means exactly Pass 1's own clean_match
+condition (`ledger_gap == 0 and within_sla`), not just matching amounts. `run_matching_engine` grew
+an optional `merkle_clean_ids` parameter: for ids the pre-filter has already proven clean, it skips
+straight to the same `clean_match` result Pass 1 would produce, instead of running Pass 1/2's checks.
+Two correctness tests before anything else: the pre-filter's "provably clean" set matches the chain-
+derived ground truth exactly (`ledger_gap == 0 and within_sla`) at both the dense default and sparse
+ratios, and — the invariant that actually matters — running the matching engine with vs. without the
+Merkle-derived clean set produces byte-identical `MatchResult`s for every transaction, across four
+seeds and three clean ratios, not just the fast-pathed ones. An optimization that changes even one
+result is a correctness bug, not a stretch goal, so this ran before any benchmark did.
+
+**What the honest benchmark actually found.** At n=50,000/clean_ratio=0.97: 1,500 real divergences,
+found exactly (zero false positives, zero false negatives) — but `comparisons_made` was 22,279 out
+of 50,000 brute-force (44.6%), nowhere near the 94%+ reduction the existing dense-vs-sparse framing
+in `test_merkle.py` might suggest. The reason is real and specific to this data: the generator
+shuffles every record together (`generate_main_batch`'s own `rng.shuffle`), so the ~3% divergent keys
+are scattered uniformly across the full key space rather than clustered. At branching_factor=16, a
+16-key leaf group has only a ~60% chance (0.97^16) of containing zero divergences, so ~40% of groups
+still had to be fully descended into and rehashed. Sparse-and-scattered is a materially worse case
+for Merkle pruning than sparse-and-clustered, and this batch is the former by construction.
+
+More importantly: wired into `run_matching_engine`, the wall-clock difference was 181.2ms unfiltered
+vs. 179.3ms filtered — about 1% faster. Measuring why turned up the real story. `build_all_chains`
+alone costs ~2,403ms at this scale (Pydantic model construction, dominant by two orders of magnitude
+over the matching decision logic it's skipping), and `run_merkle_prefilter` itself costs ~259ms
+(computing on the order of 100,000 SHA-256 hashes plus the tree levels above them). Skipping Pass
+1/2's own already-cheap conditional for the clean majority saves on the order of 2ms — nowhere near
+enough to cover the pre-filter's own 259ms hashing cost. Wired into the live pipeline's hot path, this
+would be a net regression, not a speedup, and reporting otherwise would be exactly the kind of
+overclaim this project has tried not to make anywhere else.
+
+**The actual conclusion, and why it's not a wasted tier.** `matching/merkle_prefilter.py` is not
+called from `pipeline.py`. It's correct, fully tested (parity + the honest benchmark, both committed,
+not one-off checks), and left as a documented, available capability rather than the default path —
+because the default path measurably doesn't benefit from it. The deeper reason is architectural, not
+a tuning problem: Merkle hashing's entire value is avoiding transmitting full data across a network
+or process boundary before comparing it — two parties each hash their own side locally and only
+exchange the tree levels that actually diverge. When ledger and settlement data already live in the
+same process, as they do here, there's no transfer cost to avoid, so hashing is pure overhead over
+just comparing the two dicts directly. In a real system where ledger and settlement records live in
+separate services, the same pre-filter would eliminate most of the cross-service fetches needed to
+build a transaction at all — that's where this pattern actually pays for itself, and it's not what
+this project's own in-memory implementation has to offer. The real lever for this project's own
+path to genuine scale is `build_all_chains`'s ~2.4s at 50k records — a Pydantic-construction cost,
+not a matching-logic cost — and that's a distinct, separate optimization target, not something Tier
+1 was ever going to solve. Noted honestly rather than folded into a false Tier 1 win.
+
 ---

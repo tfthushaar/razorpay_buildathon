@@ -115,6 +115,14 @@ def _audit_entry_for(
 
 
 def _process_batch(batch: SyntheticBatch, provider: str | None) -> tuple[dict[str, CausalChain], dict[str, MatchResult], dict, ToolContext]:
+    # Not wired to app.matching.merkle_prefilter -- measured, not assumed, and the honest number
+    # says it shouldn't be. See BUILD_LOG.md: at 50k records/97% clean, the prefilter's own hashing
+    # cost (~260ms) exceeds what it saves by skipping Pass 1/2 for clean transactions (~2ms), since
+    # Pass 1/2 were already cheap and every transaction still needs a full CausalChain built
+    # regardless (MatchResult.chain is required). Kept as a correct, tested, documented capability
+    # (matching/merkle_prefilter.py) for the case where that assumption doesn't hold — ledger and
+    # settlement data living in separate services, where avoiding the fetch is the real saving —
+    # rather than wired into the default path where it would be a net regression.
     chains = build_all_chains(batch)
     match_results = run_matching_engine(chains)
     context = build_tool_context(batch, chains)

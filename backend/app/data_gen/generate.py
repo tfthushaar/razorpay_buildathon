@@ -340,14 +340,38 @@ class SyntheticDataGenerator:
             orders=orders, payments=payments, refunds=refunds, settlements=settlements, ledger_entries=ledgers, ground_truth=gts
         )
 
-    def generate_main_batch(self, n: int = 120) -> SyntheticBatch:
-        """Main batch: 60% clean, 25% explainable exceptions, 10% adversarial traps,
-        5% genuinely ambiguous (spec §6.1). netting_trap consumes 2 slots per pair, so the
-        adversarial-trap share is built from pairs + singles until the slot budget is used."""
-        n_clean = round(n * 0.60)
-        n_explainable = round(n * 0.25)
-        n_adversarial = round(n * 0.10)
-        n_ambiguous = n - n_clean - n_explainable - n_adversarial  # remainder, ~5%
+    def generate_main_batch(self, n: int = 120, clean_ratio: float = 0.60) -> SyntheticBatch:
+        """Main batch: `clean_ratio` clean (default 60%, spec §6.1), remaining share split
+        25:10:5 (explainable:adversarial:ambiguous -- the spec's original relative proportions
+        among non-clean records) as `clean_ratio` moves away from the default. netting_trap
+        consumes 2 slots per pair, so the adversarial-trap share is built from pairs + singles
+        until the slot budget is used.
+
+        `clean_ratio` exists for a realistically-sparse large-scale benchmark (see BUILD_LOG.md's
+        Merkle pre-filter integration): a real settlement batch is overwhelmingly clean, unlike
+        this project's own default demo density (deliberately denser than reality so every
+        category class is reliably exercised even at small N)."""
+        if clean_ratio == 0.60:
+            # the exact original literal expressions, kept byte-for-byte instead of derived from
+            # clean_ratio -- checked directly (not assumed) that the mathematically-equivalent
+            # generalized formula below (non_clean_ratio * 0.625 etc.) produces a DIFFERENT integer
+            # than round(n*0.25) at 62 different values of n between 0 and 2000, purely from
+            # floating-point rounding through a different expression. Reusing the general formula
+            # here would have silently changed this project's own extensively-tested default demo
+            # distribution for no reason.
+            n_clean = round(n * 0.60)
+            n_explainable = round(n * 0.25)
+            n_adversarial = round(n * 0.10)
+        else:
+            # preserves the spec's original 25:10:5 relative split among non-clean records --
+            # 0.25/0.40, 0.10/0.40, 0.05/0.40 of whatever the non-clean share is. Only reached for
+            # a non-default clean_ratio (the sparse-divergence large-scale benchmark), so the
+            # floating-point discrepancy above never touches the default path.
+            non_clean_ratio = 1 - clean_ratio
+            n_clean = round(n * clean_ratio)
+            n_explainable = round(n * non_clean_ratio * 0.625)  # 0.25/0.40
+            n_adversarial = round(n * non_clean_ratio * 0.25)  # 0.10/0.40
+        n_ambiguous = n - n_clean - n_explainable - n_adversarial  # remainder
         if n_ambiguous < 0:
             # independent per-share rounding can overshoot n at small n -- verified directly by
             # brute-forcing every n from 0-2000: n=6 is the only value where round(0.60n) +
@@ -398,9 +422,11 @@ class SyntheticDataGenerator:
         return self._merge(batches)
 
 
-def generate(seed: int = 42, main_n: int = 120, stress_n: int = 40) -> tuple[SyntheticBatch, SyntheticBatch]:
+def generate(
+    seed: int = 42, main_n: int = 120, stress_n: int = 40, clean_ratio: float = 0.60
+) -> tuple[SyntheticBatch, SyntheticBatch]:
     gen = SyntheticDataGenerator(seed=seed)
-    main_batch = gen.generate_main_batch(main_n)
+    main_batch = gen.generate_main_batch(main_n, clean_ratio=clean_ratio)
     stress_gen = SyntheticDataGenerator(seed=seed + 1)  # distinct stream so the stress batch isn't a replay of the main one
     stress_batch = stress_gen.generate_stress_batch(stress_n)
     return main_batch, stress_batch

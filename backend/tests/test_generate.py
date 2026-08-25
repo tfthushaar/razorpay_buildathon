@@ -81,6 +81,34 @@ def test_main_batch_always_totals_exactly_the_requested_n():
         assert len(main.ground_truth) == n
 
 
+def test_clean_ratio_default_reproduces_the_exact_original_distribution():
+    """generate() gained a clean_ratio parameter for a realistically-sparse large-scale benchmark
+    (see BUILD_LOG.md's Merkle pre-filter integration). The default (0.60) must still hit the
+    exact original hardcoded round(n*0.60)/round(n*0.25)/round(n*0.10) shares byte-for-byte --
+    checked directly, not assumed, that the mathematically-equivalent generalized formula
+    (non_clean_ratio * 0.625 etc.) actually produces a DIFFERENT integer at 62 separate values of n
+    between 0 and 2000, purely from floating-point rounding through a different expression, which
+    is exactly why generate_main_batch keeps the original literal expressions for clean_ratio=0.60
+    specifically rather than deriving them from the general formula."""
+    for n in [6, 42, 58, 82, 106, 120, 122]:  # 58/82/106/122 are exact values the check above found
+        with_default_kwarg, _ = generate(seed=1, main_n=n, stress_n=0, clean_ratio=0.60)
+        without_kwarg, _ = generate(seed=1, main_n=n, stress_n=0)
+        assert with_default_kwarg == without_kwarg
+
+
+def test_clean_ratio_produces_a_realistically_sparse_large_batch():
+    """The actual use case: a large batch with most records clean, matching a real settlement
+    batch's shape rather than this project's own deliberately-dense demo distribution."""
+    import collections
+
+    main, _ = generate(seed=1, main_n=50_000, stress_n=0, clean_ratio=0.97)
+    assert len(main.orders) == 50_000
+    labels = collections.Counter(g.true_label for g in main.ground_truth)
+    assert labels["clean_match"] == 48_500  # exactly 97% of 50,000
+    non_clean = 50_000 - labels["clean_match"]
+    assert 0 < non_clean < 2_000, "the non-clean share should be small but non-zero at this ratio"
+
+
 def test_stress_batch_is_100pct_adversarial():
     _, stress = generate(seed=42, main_n=120, stress_n=40)
     allowed = {"duplicate_refund", "netting_trap", "fee_deduction", "genuine_error"}

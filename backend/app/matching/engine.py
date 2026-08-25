@@ -60,15 +60,19 @@ def _rupees(paise: int) -> str:
     return f"Rs.{paise / 100:,.2f}"
 
 
+def _clean_match_result(chain: CausalChain) -> MatchResult:
+    return _resolved(
+        chain,
+        "clean_match",
+        1.0,
+        f"Ledger and settlement match exactly ({_rupees(chain.actual_settled_amount)}); "
+        f"settled in {chain.sla_actual_days}d, within the normal window for {chain.rail}.",
+    )
+
+
 def run_pass1(chain: CausalChain) -> MatchResult | None:
     if chain.ledger_gap == 0 and chain.within_sla:
-        return _resolved(
-            chain,
-            "clean_match",
-            1.0,
-            f"Ledger and settlement match exactly ({_rupees(chain.actual_settled_amount)}); "
-            f"settled in {chain.sla_actual_days}d, within the normal window for {chain.rail}.",
-        )
+        return _clean_match_result(chain)
     return None
 
 
@@ -120,11 +124,22 @@ def run_pass2(chain: CausalChain) -> MatchResult:
     return _needs_narration(chain)
 
 
-def run_matching_engine(chains: dict[str, CausalChain]) -> dict[str, MatchResult]:
+def run_matching_engine(
+    chains: dict[str, CausalChain], merkle_clean_ids: frozenset[str] | None = None
+) -> dict[str, MatchResult]:
+    """`merkle_clean_ids` (optional): transaction_ids the Merkle pre-filter (matching/
+    merkle_prefilter.py) has already proven satisfy Pass 1's own clean_match condition
+    (ledger_gap == 0 and within_sla), from a cheaper two-view comparison than building the
+    chain-aware check would need. For those ids, skip straight to the same clean_match result
+    Pass 1 would have produced — see test_merkle_prefilter.py's parity test for why this never
+    changes the result, only how it's reached."""
     results: dict[str, MatchResult] = {}
     for txn_id, chain in chains.items():
-        result = run_pass1(chain)
-        if result is None:
-            result = run_pass2(chain)
+        if merkle_clean_ids is not None and txn_id in merkle_clean_ids:
+            result = _clean_match_result(chain)
+        else:
+            result = run_pass1(chain)
+            if result is None:
+                result = run_pass2(chain)
         results[txn_id] = result
     return results

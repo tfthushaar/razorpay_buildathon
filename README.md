@@ -106,9 +106,10 @@ cd backend
 python -m pytest tests/ -v
 ```
 
-81 tests covering the data generator's arithmetic invariants (including that every requested batch
-size 0-150 produces exactly that many transactions, not off-by-one on a rounding edge case), the
-matching engine's deterministic
+86 tests covering the data generator's arithmetic invariants (including that every requested batch
+size 0-150 produces exactly that many transactions, not off-by-one on a rounding edge case, and that
+a large-scale/realistically-sparse batch — e.g. 50,000 records at 97% clean — produces exactly the
+requested proportions), the matching engine's deterministic
 resolution paths, the narrator's tool-based detection, response-schema validation (an out-of-set
 category, a malformed/wrongly-shaped final answer, out-of-range confidence, an unusable tool call,
 plus an orchestration-level backstop for whatever the next unforeseen failure shape turns out to be
@@ -120,7 +121,11 @@ trust can't be spent by a different decision that never itself earned it, that a
 history reset can never make a request's own just-added decisions vanish from its own report, and
 that repeatedly re-scoring the same small set of deterministic cases can never satisfy the
 auto-resolve gate on its own — see BUILD_LOG.md), the
-Merkle-tree divergence pre-filter, the full pipeline, and the API layer (including that both
+Merkle-tree divergence pre-filter — including a live-pipeline integration test proving it produces
+byte-identical results to the unfiltered path across 4 seeds and 3 clean ratios, and an honest
+50,000-record benchmark that found it's a net wall-clock regression in this project's own in-memory
+implementation, so it's kept as a tested, documented capability rather than wired into the default
+path — see BUILD_LOG.md), the full pipeline, and the API layer (including that both
 live-input endpoints reject malformed input cleanly instead of crashing, an out-of-range threshold
 can't force the calibration gate open, 8 genuinely concurrent batch runs against the shared
 SQLite-backed state
