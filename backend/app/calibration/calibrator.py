@@ -26,6 +26,7 @@ from typing import Literal
 
 from pydantic import BaseModel
 
+from app.calibration.drift import detect_drift
 from app.calibration.wilson import wilson_score_interval
 
 # Escalation *is* the correct resolution for genuine_error by definition (spec §4: "a genuinely
@@ -75,6 +76,11 @@ class CategoryCalibration(BaseModel):
     # over-count the same re-scored case; this is what MIN_DISTINCT_TRANSACTIONS_FOR_AUTO_RESOLVE
     # actually gates on, so the dashboard can show a judge the difference between "n=15 decisions"
     # and "15 different real-world cases" instead of leaving the two indistinguishable.
+    ewma_accuracy: float  # recency-weighted accuracy (app/calibration/drift.py) -- reacts to a
+    # recent regression far faster than `accuracy` (an all-time aggregate) can; equals `accuracy`
+    # itself when there isn't yet enough real-provider evidence for a meaningful drift check.
+    drift_alert: bool  # True if ewma_accuracy has fallen below its statistical control limit --
+    # an ADDITIONAL gate on top of the Wilson CI and distinct-transaction floor, not instead of them.
 
 
 class CalibrationReport(BaseModel):
@@ -106,6 +112,12 @@ def calibrate(decisions: list[ScoredDecision], threshold: float = DEFAULT_THRESH
         amount_total = sum(d.amount for d in items)
         distinct_transaction_count = len({d.transaction_id for d in real_items})
 
+        # real_items is chronological (history.py's SELECT is explicitly ORDER BY id ASC) so this
+        # outcome sequence genuinely reflects "oldest real-provider decision first" -- EWMA drift
+        # detection is meaningless on shuffled input, so that ordering guarantee is load-bearing.
+        outcomes = [d.predicted_category == d.true_label for d in real_items]
+        drift = detect_drift(outcomes, target=accuracy)
+
         if category in NEVER_AUTO_RESOLVE:
             decision: Literal["auto_resolve", "escalate"] = "escalate"
             reason = "escalation is the correct resolution for this category by definition, regardless of measured accuracy"
@@ -119,6 +131,14 @@ def calibrate(decisions: list[ScoredDecision], threshold: float = DEFAULT_THRESH
                 f"decisions — the same case(s) re-scored across multiple runs don't count as new evidence; "
                 f"needs at least {MIN_DISTINCT_TRANSACTIONS_FOR_AUTO_RESOLVE} distinct cases before "
                 f"auto-resolve is considered, regardless of the CI"
+            )
+        elif drift.breached:
+            decision = "escalate"
+            reason = (
+                f"recent-decision accuracy (EWMA {drift.ewma:.1%}) has fallen below its statistical "
+                f"control limit ({drift.lower_control_limit:.1%}) even though the all-time aggregate "
+                f"({accuracy:.1%}) still looks fine — this category may be genuinely regressing right "
+                f"now, not just historically noisy; escalating until recent decisions recover"
             )
         elif ci_lower >= threshold:
             decision = "auto_resolve"
@@ -149,6 +169,8 @@ def calibrate(decisions: list[ScoredDecision], threshold: float = DEFAULT_THRESH
                 amount_at_risk=amount_at_risk,
                 mock_n=mock_n,
                 distinct_transaction_count=distinct_transaction_count,
+                ewma_accuracy=drift.ewma,
+                drift_alert=drift.breached,
             )
         )
 

@@ -119,7 +119,18 @@ export function CalibrationPanel({ initialReport, refreshKey, onReportChange }: 
                 )}
                 {c.mock_n > 0 && <span className="mock-n-note"> (+{c.mock_n} mock, not counted)</span>}
               </td>
-              <td>{pct(c.accuracy)}</td>
+              <td>
+                {pct(c.accuracy)}
+                {c.drift_alert && (
+                  <span
+                    className="mock-n-note drift-alert-note"
+                    title={`Recent-decision accuracy (EWMA ${pct(c.ewma_accuracy)}) has fallen below its statistical control limit even though the all-time aggregate still looks fine — this category may be regressing right now, so it's escalating regardless of the CI.`}
+                  >
+                    {" "}
+                    ⚠ recent EWMA {pct(c.ewma_accuracy)}
+                  </span>
+                )}
+              </td>
               <td>
                 <div className="ci-bar-track" title={c.reason}>
                   <div className="ci-bar-fill" style={{ left: `${c.ci_lower * 100}%`, width: `${(c.ci_upper - c.ci_lower) * 100}%` }} />

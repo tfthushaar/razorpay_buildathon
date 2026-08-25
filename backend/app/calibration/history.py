@@ -78,7 +78,14 @@ class CalibrationHistory:
         with self._lock:
             if decisions:
                 self._insert_locked(decisions, source)
-            cursor = self._conn.execute("SELECT transaction_id, predicted_category, true_label, amount, provider FROM scored_decisions")
+            # ORDER BY id: without it, SQLite's row order for a plain sequential scan isn't
+            # guaranteed by the SQL standard, even though it happens to come back in insertion
+            # order in practice for a table with no index affecting this query. Explicit ordering
+            # matters now that calibrate() needs a genuinely chronological sequence per category
+            # for EWMA drift detection (app/calibration/drift.py) -- relying on unspecified behavior
+            # for something an actual decision now depends on would be exactly the kind of
+            # "verify, don't assume" gap this project's own discipline exists to catch.
+            cursor = self._conn.execute("SELECT transaction_id, predicted_category, true_label, amount, provider FROM scored_decisions ORDER BY id ASC")
             all_decisions = [ScoredDecision(transaction_id=r[0], predicted_category=r[1], true_label=r[2], amount=r[3], provider=r[4]) for r in cursor.fetchall()]
         return calibrate(all_decisions, threshold=threshold)
 
@@ -110,7 +117,14 @@ class CalibrationHistory:
 
     def all_decisions(self) -> list[ScoredDecision]:
         with self._lock:
-            cursor = self._conn.execute("SELECT transaction_id, predicted_category, true_label, amount, provider FROM scored_decisions")
+            # ORDER BY id: without it, SQLite's row order for a plain sequential scan isn't
+            # guaranteed by the SQL standard, even though it happens to come back in insertion
+            # order in practice for a table with no index affecting this query. Explicit ordering
+            # matters now that calibrate() needs a genuinely chronological sequence per category
+            # for EWMA drift detection (app/calibration/drift.py) -- relying on unspecified behavior
+            # for something an actual decision now depends on would be exactly the kind of
+            # "verify, don't assume" gap this project's own discipline exists to catch.
+            cursor = self._conn.execute("SELECT transaction_id, predicted_category, true_label, amount, provider FROM scored_decisions ORDER BY id ASC")
             return [ScoredDecision(transaction_id=r[0], predicted_category=r[1], true_label=r[2], amount=r[3], provider=r[4]) for r in cursor.fetchall()]
 
     def report(self, threshold: float = 0.90) -> CalibrationReport:

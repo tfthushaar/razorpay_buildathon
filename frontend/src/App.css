@@ -424,6 +424,12 @@ button:disabled {
   font-style: italic;
 }
 
+.drift-alert-note {
+  color: var(--warn, #b45309);
+  font-style: normal;
+  font-weight: 600;
+}
+
 .badge {
   display: inline-block;
   padding: 3px 10px;

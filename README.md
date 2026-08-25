@@ -8,6 +8,18 @@ exception categories it has statistically earned trust on — everything else es
 stated reason. Full design rationale: [docs/track04-settlement-reconciliation-copilot.md](docs/track04-settlement-reconciliation-copilot.md).
 Build history, including every bug found and how it was fixed: [BUILD_LOG.md](BUILD_LOG.md).
 
+## The money story, in one real run
+
+In a real run against a live local model (not mock — [raw output](docs/evidence/real-ollama-run-2026-08-24.json),
+independently re-verified live against the committed database in this repo, see
+[Reproducing the results](#reproducing-the-results) below): the system safely auto-resolved
+**₹59,97,863.76 in netting-trap exceptions with zero human review** — earned only after proving
+itself right on 15 distinct real cases, with a statistical lower bound (90.4%) that actually cleared
+the trust threshold, not a guess. On the same run, it automatically reconciled **₹12,47,615.92 of a
+₹13,02,997.38 batch** end-to-end, and put every remaining rupee it couldn't explain in front of a
+human instead of guessing — with the exact reasoning and tool calls that led to each decision, not a
+black-box verdict.
+
 ## Screenshots
 
 Captured live in a real browser (Playwright, headless Chromium), against a mock-provider run —
@@ -32,10 +44,30 @@ not a black-box verdict:**
 **The guided tour, walking through escalate → resolve → recalibrate:**
 ![Guided tour](docs/screenshots/05-guided-tour.png)
 
+## Quick start
+
+```bash
+git clone https://github.com/tfthushaar/razorpay_buildathon.git && cd razorpay_buildathon
+
+cd backend
+python -m venv .venv && .venv/Scripts/activate   # source .venv/bin/activate on macOS/Linux
+pip install -r requirements.txt
+python -m uvicorn app.main:app --reload --port 8000 &
+
+cd ../frontend
+npm install && npm run dev
+```
+
+Open the printed local URL (typically `http://localhost:5173`), click **Run batch** — it finishes
+instantly, zero cost, in the default mock mode (calls the exact same real tool functions the live
+narrator does; only the final synthesis step is a fixed rule). Drag the calibration threshold slider
+and resolve an escalation to see the live dial and the guided tour in action. Full setup (real LLM
+providers, Docker, environment variables) is further down: [Full setup](#full-setup).
+
 ## Three real transactions this project has actually caught
 
-Not invented examples — pulled directly from a real generated batch (`seed=42`) and this project's
-own committed evidence, with the real amounts and real reasoning:
+Not invented examples — pulled directly from a real generated batch (`seed=42`), with the real
+amounts and real reasoning:
 
 - **A ₹49,823.00 UPI settlement landed on day 4, not the nominal day-1 SLA (or the 2-day tolerance
   line).** The ledger and settlement amounts matched exactly — nothing was actually missing — so
@@ -55,30 +87,78 @@ own committed evidence, with the real amounts and real reasoning:
   rather than trusting the settlement total, and flags the double-deduction instead of quietly
   treating it as "a bigger refund than expected."
 
-**And what happens once evidence actually accumulates**: in a real run against the local Ollama
-model (raw output: [docs/evidence/real-ollama-run-2026-08-24.json](docs/evidence/real-ollama-run-2026-08-24.json)),
-`netting_trap` had built up 36 real decisions across 15 distinct transactions with a 95% confidence
-interval lower bound of 90.4% — clearing the auto-resolve threshold for the first time in this
-project's history, and auto-resolving ₹59,97,863.76 worth of netting-trap exceptions without a
-human touching them. `genuine_error` in that same run sat at 82.9% measured accuracy and stayed
-escalated anyway — by design, since it's the one category that never auto-resolves regardless of
-the numbers, because "I genuinely can't explain this" is supposed to always go to a person.
+## Calibrated autonomy actually paying off — not just structurally possible in theory
+
+This is the headline result, not a footnote: in the same real Ollama run linked above, `netting_trap`
+became the **first category in this project's history to genuinely earn auto-resolve with real
+evidence** — 36 real decisions across 15 distinct transactions, 100% accuracy, a 95% Wilson
+confidence interval whose *lower bound* (90.4%) cleared the threshold. 8 of those decisions in the
+same run show `decision: "auto_resolved_calibrated"` in the raw output, not just escalated — the
+calibrated-autonomy pitch paying off end-to-end with a real model, not a hypothetical.
+
+Meanwhile `genuine_error` sat at 82.9% measured accuracy in that same run and **stayed escalated
+anyway** — by design, since it's the one category that never auto-resolves regardless of the
+numbers, because "I genuinely can't explain this" is supposed to always reach a person, not be
+smoothed over by a good aggregate score.
+
+**Concrete evidence the reasoning behind this is genuine, not decorative tool-calling around a fixed
+answer:** transaction `order_671da51349f1` has been narrated across both mock and real runs recorded
+in this project's own audit log. Mock's answer is always confidence `0.3` for `genuine_error` (a
+fixed constant in `narrate_mock`, which calls `recall_similar_resolutions` but never reads its
+result) — so mock "matching" that tool's average confidence would be a tautology, not evidence of
+anything. The real Ollama runs are different: across four independent real runs (confidence `0.533`,
+`0.25`, `0.62`, and `0.427` — four different values, not a repeated constant), each one's final
+confidence exactly equals what `recall_similar_resolutions` had just told it (`avg_confidence` from
+that run's own prior resolutions) — checked directly against the live audit log, not asserted.
+That's the model using one tool's numeric output to set a different, later decision — the actual
+thing "agentic tool use" is supposed to mean, not just calling functions on the way to an answer it
+would have given anyway.
+
+A category earning trust once isn't treated as permanent, either: calibration also runs an
+EWMA-based drift check (statistical process control — the same technique manufacturing lines use to
+catch a process quietly drifting out of spec) on top of the Wilson interval, so a category whose
+*recent* decisions start regressing gets pulled back to escalating even while its all-time aggregate
+still looks fine. See [app/calibration/drift.py](backend/app/calibration/drift.py) and BUILD_LOG.md.
+
+The escalation queue itself is not a "coming soon" placeholder — it's built to keep a human in the
+loop, not replace one. Every escalated case shows the category, the confidence, the one-line
+reasoning, and the full tool-call trace that led there — not a black-box verdict a finance team has
+to take on faith. Categories that haven't earned statistical trust yet, and any transaction the
+system genuinely cannot explain, land in the queue ranked by ₹ amount × ambiguity, so the
+highest-value, least-certain case surfaces first — the one a person should actually look at before
+the ₹200 rounding question nobody cares about.
 
 ## What makes this different from a flat matcher
 
 1. **Causal chain matching, not row matching** — every transaction is modeled as
    `order → payment → fee → refund(s) → settlement`, and a mismatch is located at the specific hop
-   where the number diverges, not just flagged as "doesn't match."
+   where the number diverges, not just flagged as "doesn't match." *(A finance team gets "the fee
+   deduction hasn't hit the ledger yet," not "these two numbers disagree, good luck" — the
+   difference between a two-minute fix and a two-hour investigation.)*
 2. **Calibrated autonomy** — the system tracks its own historical accuracy *per exception category*
    (with a Wilson confidence interval, not a raw percentage) against a hidden ground-truth key.
    Only categories that have earned trust above a threshold auto-resolve; everything else escalates.
-   `genuine_error` never auto-resolves regardless of measured accuracy — escalation is the correct
-   outcome for an admittedly-unexplained case, not a fallback for low confidence.
+   `genuine_error` never auto-resolves regardless of measured accuracy. *(This is what makes
+   autonomy something a risk team can actually sign off on — trust is earned per category and
+   revocable, not a blanket "the AI decides everything now.")*
 3. **Agentic narrator** — unresolved transactions go through a tool-calling loop (fee schedule
    lookup, SLA window check, batch-anomaly cross-referencing, recall of similar past resolutions),
-   not a one-shot classification.
+   not a one-shot classification. *(A judge — or an auditor — can see exactly what was checked
+   before a verdict was reached, not just trust a confidence score.)*
+4. **Trust that can be revoked, not just earned** — an EWMA drift check (statistical process
+   control, borrowed from Six Sigma manufacturing lines) runs alongside the Wilson interval, so a
+   category whose *recent* decisions start regressing gets pulled back to escalating even while its
+   all-time aggregate still looks fine. *(A category doesn't quietly keep auto-resolving on
+   yesterday's good record after it starts getting today's decisions wrong.)*
+5. **Fails fast, not slow** — a circuit breaker (the same reliability pattern Netflix's Hystrix and
+   the AWS SDK use) sits in front of both real LLM providers: after 3 consecutive real API/
+   connectivity failures it stops attempting calls for a cooldown window instead of every remaining
+   transaction in the queue independently re-discovering the same outage through a full
+   retry-with-backoff cycle. *(A rate-limit storm or a downed provider degrades a batch's wall-clock
+   time in seconds, not minutes — the difference between a demo that recovers gracefully and one
+   that visibly hangs.)*
 
-## Repo layout
+## How it's built
 
 ```
 backend/     Python + FastAPI. Synthetic data gen, causal chain builder, matching engine,
@@ -90,7 +170,10 @@ PROGRESS.md  What's built vs. outstanding, updated as the build progresses.
 BUILD_LOG.md Chronological engineering journal — every bug found, root cause, fix, verification.
 ```
 
-## Setup
+Full architecture rationale, data model, and the "why" behind every design choice:
+[docs/track04-settlement-reconciliation-copilot.md](docs/track04-settlement-reconciliation-copilot.md).
+
+## Full setup
 
 Requires Python 3.11+ and Node 20.19+ (or 22.12+) — Vite 8's own minimum, not just a suggestion.
 
@@ -132,6 +215,11 @@ cap too small for a real batch. Real, verified result on this project's own hard
 + stress run (160 transactions, 55 narrated) in **~150 seconds**, 94%+ narrator accuracy — versus
 11-70 *minutes* for the same workload against Groq's free tier.
 
+A circuit breaker sits in front of both real providers (`app/narrator/circuit_breaker.py`): after 3
+consecutive real API/connectivity failures it stops attempting calls for a cooldown window and
+fails safe immediately, instead of every remaining transaction in the queue independently
+re-discovering the same outage through a full retry-with-backoff cycle.
+
 **Alternative: `groq` — a real tool-calling loop against a hosted API.**
 
 Set `GROQ_API_KEY=your-key-here` (free tier at console.groq.com) and `LLM_PROVIDER=groq` in
@@ -155,41 +243,7 @@ Open the printed local URL (typically `http://localhost:5173`), click **Run batc
 calibration threshold slider and try resolving an escalation to see the live dial and the
 human-feedback loop in action.
 
-### Tests
-
-```bash
-cd backend
-python -m pytest tests/ -v
-```
-
-87 tests covering the data generator's arithmetic invariants (including that every requested batch
-size 0-150 produces exactly that many transactions at both the default and non-default clean ratios,
-not off-by-one on a rounding edge case, and that a large-scale/realistically-sparse batch — e.g.
-50,000 records at 97% clean — produces exactly the requested proportions), the matching engine's deterministic
-resolution paths, the narrator's tool-based detection, response-schema validation (an out-of-set
-category, a malformed/wrongly-shaped final answer, out-of-range confidence, an unusable tool call,
-plus an orchestration-level backstop for whatever the next unforeseen failure shape turns out to be
-— see BUILD_LOG.md), a real, finite request timeout on both real providers (verified directly that
-Ollama's own client silently defaults to *no* timeout at all, unlike a bare `httpx.Client()`), and
-retry/failure handling (Groq-specific and provider-agnostic), the calibration layer's statistical
-behavior (including that mock-mode decisions can never earn auto-resolve, that a category's earned
-trust can't be spent by a different decision that never itself earned it, that a concurrent
-history reset can never make a request's own just-added decisions vanish from its own report, and
-that repeatedly re-scoring the same small set of deterministic cases can never satisfy the
-auto-resolve gate on its own — see BUILD_LOG.md), the
-Merkle-tree divergence pre-filter — including a live-pipeline integration test proving it produces
-byte-identical results to the unfiltered path across 4 seeds and 3 clean ratios, and an honest
-50,000-record benchmark that found it's a net wall-clock regression in this project's own in-memory
-implementation, so it's kept as a tested, documented capability rather than wired into the default
-path — see BUILD_LOG.md), the full pipeline, and the API layer (including that both
-live-input endpoints reject malformed input cleanly instead of crashing, an out-of-range threshold
-can't force the calibration gate open, 8 genuinely concurrent batch runs against the shared
-SQLite-backed state
-all succeed, 5 concurrent resolves of the same escalation count exactly once instead of racing, and
-— with an amplified thread-switch interval, the technique used to actually find this — 16 concurrent
-batch runs never desync a run's escalations from its own ground truth — see BUILD_LOG.md).
-
-## Deployment
+### Deployment
 
 ```bash
 docker compose up --build
@@ -213,7 +267,7 @@ runs it through the full pipeline — wiring a real settlement-ledger webhook to
 the remaining integration work, not a redesign.
 
 **How far a single instance actually goes, from a real measured number, not a guess:** the real
-Ollama run linked below processed 120 transactions end-to-end (matching + narration for the 18 that
+Ollama run linked above processed 120 transactions end-to-end (matching + narration for the 18 that
 needed it) in 55.8 measured seconds — **2.15 transactions/second** sustained, entirely on local,
 free inference. Extrapolated (not itself measured at this volume) at that same rate run
 continuously: **~185,000 transactions/day** on one instance, no GPU rental, no LLM API cost. That
@@ -222,84 +276,105 @@ transactions to the narrator (`18/120`) — the Tier 1 sparse-batch benchmark in
 realistic settlement batch is closer to 1-3% needing narration, meaning proportionally far fewer
 LLM calls and a correspondingly higher sustained rate.
 
-## What's real vs. mock
+## Tests & evidence
 
-Everything runs end-to-end with `LLM_PROVIDER=mock` (the default) — synthetic data generation,
-causal chain matching, deterministic exception resolution, calibration, audit logging, and the
-full dashboard are all live with zero external dependencies, and mock mode calls the exact same
-real tool functions the live narrator does (only the final synthesis step is a fixed rule).
+### Tests
 
-**Local (Ollama, qwen2.5:7b-instruct)** — the recommended real provider, run against the live
-server and persisted into the same `CalibrationHistory`/audit log the dashboard reads from, same as
-both Groq runs below. Raw output: [real run](docs/evidence/real-ollama-run-2026-08-24.json)
-(regenerated 2026-08-24 against the current distinct-transaction-count gate — see BUILD_LOG.md).
-**94.4% narrator accuracy** (17/18 correct on the main narration queue, cross-checked directly
-against ground truth, not just read off the dashboard), 55.8s for that queue, 37/37 correctly
-handled on the stress batch, 0 wrongly auto-resolved. The one miss carried confidence 0.0 — a
-genuine safe fallback (predicted `genuine_error`, true label `duplicate_refund`).
+```bash
+cd backend
+python -m pytest tests/ -v
+```
 
-**This run is also the first time in this project's history that `netting_trap` genuinely earned
-auto-resolve with real evidence** — accumulated real-provider history reached 15 distinct
-transactions (the calibrated-autonomy floor) with a 90.4% Wilson lower bound, and 8 real,
-correctly-classified `netting_trap` decisions in this run itself show `decision:
-"auto_resolved_calibrated"` in the raw output, not just escalated. That's the calibrated-autonomy
-pitch actually paying off end-to-end with a real model, not just structurally possible in theory.
+105 tests covering the data generator's arithmetic invariants (including that every requested batch
+size 0-150 produces exactly that many transactions at both the default and non-default clean ratios,
+not off-by-one on a rounding edge case, and that a large-scale/realistically-sparse batch — e.g.
+50,000 records at 97% clean — produces exactly the requested proportions), the matching engine's
+deterministic resolution paths, the narrator's tool-based detection, response-schema validation (an
+out-of-set category, a malformed/wrongly-shaped final answer, out-of-range confidence, an unusable
+tool call, plus an orchestration-level backstop for whatever the next unforeseen failure shape turns
+out to be — see BUILD_LOG.md), a circuit breaker that trips after repeated real provider failures
+and skips the call entirely while open (verified it never trips on a mere malformed answer, only on
+a real API/connectivity failure), a real, finite request timeout on both real providers (verified
+directly that Ollama's own client silently defaults to *no* timeout at all, unlike a bare
+`httpx.Client()`), retry/failure handling (Groq-specific and provider-agnostic), the calibration
+layer's statistical behavior (including that mock-mode decisions can never earn auto-resolve, that a
+category's earned trust can't be spent by a different decision that never itself earned it, that a
+concurrent history reset can never make a request's own just-added decisions vanish from its own
+report, that repeatedly re-scoring the same small set of deterministic cases can never satisfy the
+auto-resolve gate on its own, and that an EWMA drift check catches a category's recent decisions
+regressing even while its all-time aggregate still clears the bar — see BUILD_LOG.md), the
+Merkle-tree divergence pre-filter — including a live-pipeline integration test proving it produces
+byte-identical results to the unfiltered path across 4 seeds and 3 clean ratios, and an honest
+50,000-record benchmark that found it's a net wall-clock regression in this project's own in-memory
+implementation, so it's kept as a tested, documented capability rather than wired into the default
+path — see BUILD_LOG.md), the full pipeline, and the API layer (including that both live-input
+endpoints reject malformed input cleanly instead of crashing, an out-of-range threshold can't force
+the calibration gate open, 8 genuinely concurrent batch runs against the shared SQLite-backed state
+all succeed, 5 concurrent resolves of the same escalation count exactly once instead of racing, and
+— with an amplified thread-switch interval, the technique used to actually find this — 16 concurrent
+batch runs never desync a run's escalations from its own ground truth — see BUILD_LOG.md).
 
-**Concrete evidence the reasoning is genuine, not decorative tool-calling around a fixed answer:**
-transaction `order_671da51349f1` has been narrated across both mock and real runs recorded in this
-project's own audit log. Mock's answer is always confidence `0.3` for `genuine_error` (a fixed
-constant in `narrate_mock`, which calls `recall_similar_resolutions` but never reads its result) —
-so mock "matching" that tool's average confidence is a tautology, not evidence of anything. The
-real Ollama runs are different: across four independent real runs (confidence `0.533`, `0.25`,
-`0.62`, and `0.427` — four different values, not a repeated constant), each one's final confidence
-exactly equals what `recall_similar_resolutions` had just told it (`avg_confidence` from that run's
-own prior resolutions) — checked directly against the live audit log, not asserted. That's the model
-using one tool's numeric output to set a different, later decision — the actual thing "agentic tool
-use" is supposed to mean here, not just calling functions on the way to an answer it would have
-given anyway.
+### Reproducing the results
+
+Every number in this README is real and independently checkable — nothing external, nothing that
+only exists as a claim:
+
+- **Calibration history**: `backend/data/calibration_history.db` (SQLite — `sqlite3 backend/data/calibration_history.db "select * from scored_decisions limit 5;"`
+  reads it directly). Every scored decision: transaction id, predicted category, true label,
+  amount, and which provider produced it (mock decisions are recorded for transparency but never
+  count toward auto-resolve).
+- **Audit log**: `backend/data/audit_log.db` — every decision made by a real run, with the full
+  tool-call trace and reasoning behind it, linked back to the source order/payment/settlement/
+  ledger rows.
+- **Raw run output**: [docs/evidence/](docs/evidence/) has the complete JSON dumps this README
+  quotes from — [real-ollama-run-2026-08-24.json](docs/evidence/real-ollama-run-2026-08-24.json)
+  (the netting-trap auto-resolve and the ₹ figures above), plus two independent Groq runs
+  ([run 1](docs/evidence/real-groq-run-2026-08-24.json),
+  [run 2](docs/evidence/real-groq-run-2026-08-24b-persisted.json)).
+- **To verify the calibration numbers yourself, recomputed live from the committed database** —
+  not read off the dashboard, not retyped by hand:
+  ```bash
+  cd backend
+  python scripts/audit_calibration.py
+  ```
+  This calls the exact same `app.calibration.calibrator.calibrate()` function the live app calls,
+  over the real rows in `data/calibration_history.db`, and prints accuracy/95%-CI/EWMA/decision per
+  category plus the ₹-at-risk total — the same netting-trap auto-resolve and genuine_error
+  escalation described above, reproduced independently, not asserted.
+
+**Groq real-run detail** (a second real provider, run against the live API twice on two different
+random batches, with results genuinely persisted into the same `CalibrationHistory`/audit log the
+live dashboard reads from — not just a side file). Both raw files predate the distinct-transaction-
+count gate added later the same day, so their `calibration.categories[].reason` strings won't
+include the "across N distinct transactions" phrasing current code always adds — the underlying
+accuracy numbers are unaffected; re-running against a hosted API costs real quota, so these weren't
+regenerated just for the string format (see BUILD_LOG.md). **Run 1** (n=120 + full
+100%-adversarial stress batch, n=40): 100% narrator accuracy across all three categories (17/18 via
+genuine tool-informed reasoning, 1/18 via a safe "did not converge" fallback that happened to match
+ground truth), 37/37 correctly handled on the stress batch, 0 wrongly auto-resolved. **Run 2**
+(different seed): 4/4 and 7/7 on two categories, 6/7 on the third — the one miss was a real API
+hiccup (an empty response, correctly caught and routed through the same fail-safe path) that
+happened to guess wrong this time; the fail-safe's *design* held regardless, since it always
+defaults to the one category that can never auto-resolve, so a real narrator failure produced a
+wrong classification but never a wrong autonomous action. Stress batch: 34/34 handled, 0 wrongly
+auto-resolved. Both real Groq runs took 11-70 minutes of wall-clock time, almost entirely
+rate-limit backoff, not model inference — the reason Ollama is now the recommended default.
 
 An earlier Ollama run had a real, more interesting failure my audit loop caught live: the model
-returned `timing_lag` — a category outside the 3 the narrator is allowed to output — at **confidence
-0.9**, and nothing downstream of the JSON parse checked the category against the valid set before
-letting it through. **Fixed**: both `narrate_groq` and `narrate_ollama` now validate the category
-and route an out-of-schema result through the same fail-safe as malformed JSON. The exact
-transaction that hallucinated `timing_lag` before now resolves correctly (`genuine_error`,
-confidence 1.0) in the linked evidence run — not proof the new check fired rather than the model
-just answering right this time, but a clean demonstration the case is healthy either way, with a
-code-level backstop now in place regardless. Full incident, fix, and the DB cleanup that followed
-in BUILD_LOG.md.
+returned `timing_lag` — a category outside the 3 the narrator is allowed to output — at confidence
+0.9, and nothing downstream of the JSON parse checked the category against the valid set before
+letting it through. Fixed: both `narrate_groq` and `narrate_ollama` now validate the category and
+route an out-of-schema result through the same fail-safe as malformed JSON. Full incident, fix, and
+the DB cleanup that followed in BUILD_LOG.md.
 
 A genuine concurrent-dispatch attempt (running narration calls in parallel) was also tried and
-measured: it delivered **no speedup** (Ollama serializes on its single GPU-resident model
-regardless of client-side concurrency) and introduced a real, if modest, accuracy cost from making
-the `recall_similar_resolutions` tool's "prior resolutions so far" answer order-dependent —
-reverted after measuring both effects rather than kept on the assumption that concurrency must
-help. Full narrative, including the provider-comparison research that led here, in BUILD_LOG.md.
+measured: it delivered no speedup (Ollama serializes on its single GPU-resident model regardless of
+client-side concurrency) and introduced a real, if modest, accuracy cost from making the
+`recall_similar_resolutions` tool's "prior resolutions so far" answer order-dependent — reverted
+after measuring both effects rather than kept on the assumption that concurrency must help. Full
+narrative, including the provider-comparison research that led here, in BUILD_LOG.md.
 
-**Groq (openai/gpt-oss-20b)** — a second real option, run against the live API twice on two
-different random batches, with results genuinely persisted into the same
-`CalibrationHistory`/audit log the live dashboard reads from — not just a side file. (Both raw
-files below predate the distinct-transaction-count gate added later the same day — their
-`calibration.categories[].reason` strings won't include the "across N distinct transactions"
-phrasing current code always adds. The underlying accuracy numbers quoted here are unaffected;
-re-running against a hosted API costs real quota, so these weren't regenerated just for the string
-format — see BUILD_LOG.md.) **Run 1**
-(n=120 + full 100%-adversarial stress batch, n=40): 100% narrator accuracy across all three
-categories (17/18 via genuine tool-informed reasoning, 1/18 via a safe "did not converge" fallback
-that happened to match ground truth), 37/37 correctly handled on the stress batch, 0 wrongly
-auto-resolved. **Run 2** (different seed): 4/4 and 7/7 on two categories, 6/7 on the third — the
-one miss was a real API hiccup (an empty response, correctly caught and routed through the same
-fail-safe path) that happened to guess wrong this time; the fail-safe's *design* held regardless,
-since it always defaults to the one category that can never auto-resolve, so a real narrator
-failure produced a wrong classification but never a wrong autonomous action. Stress batch: 34/34
-handled, 0 wrongly auto-resolved. But both real Groq runs took 11-70 minutes of wall-clock time,
-almost entirely rate-limit backoff, not model inference — the reason Ollama is now the recommended
-default. Raw output: [run 1](docs/evidence/real-groq-run-2026-08-24.json),
-[run 2](docs/evidence/real-groq-run-2026-08-24b-persisted.json); full narrative in BUILD_LOG.md,
-including the real rate-limit hits and how they're handled (retry with backoff, honoring the API's
-own `retry-after` header, failing safe rather than crashing).
-
-## Stress-test: what "100%-adversarial" actually means
+### Stress-test: what "100%-adversarial" actually means
 
 Beyond the main batch, every run also generates a second batch that is nothing but traps — no
 clean transactions at all — so the headline stress-test stat can't be cherry-picked from a mixed
@@ -316,12 +391,22 @@ project's own real (non-mock) run: **37/37 correctly handled, 0 wrongly auto-res
 | **Duplicate refund** | A refund legitimately issued once, deducted from the settlement twice | Sees a bigger-than-expected gap and either guesses "a refund happened" or escalates with no explanation | `check_batch_anomalies` cross-references the refund registry itself, confirms exactly one `refund_id`, flags the double-deduction specifically |
 | **Genuine error** | An unexplained gap that doesn't fit any known pattern — by construction, deliberately ambiguous | Either guesses or escalates everything without distinguishing this from the cases above | Escalates — and this is the one category that **never** auto-resolves regardless of measured accuracy, because "I can't explain this" should always reach a person |
 
-## Honest exceptions
+## What it doesn't do yet — honest scope
 
-The dashboard's escalation queue is not a "coming soon" placeholder — it's the point, and it's built
-to keep a human in the loop, not replace one. Every escalated case shows the category, the
-confidence, the one-line reasoning, and the full tool-call trace that led there — not a black-box
-verdict a finance team has to take on faith. Categories that haven't earned statistical trust yet,
-and any transaction the system genuinely cannot explain, land in the queue ranked by ₹ amount ×
-ambiguity, so the highest-value, least-certain case surfaces first — the one a person should
-actually look at before the ₹200 rounding question nobody cares about.
+- **Not horizontally scaled** — a single FastAPI instance, SQLite for state. Real, identified next
+  steps (worker-pool narration, Postgres, an async job queue) are deliberately deferred to a
+  post-submission production decision, not built — see BUILD_LOG.md's Tier 2/3 notes.
+- **No real settlement-ledger webhook integration** — `POST /api/transactions/evaluate` is the
+  integration point a real webhook would call; wiring an actual webhook consumer isn't built. The
+  Docker setup itself is written and reviewed but not run against a real Docker install in this dev
+  environment, and not verified against a real cluster/orchestrator either.
+- **`recall_similar_resolutions` is per-run only** — it doesn't persist across runs (a lightweight,
+  disclosed limitation, not a hidden one; see docs/track04-*.md).
+- **The Merkle-tree pre-filter exists and is tested, but isn't wired into the default pipeline** —
+  measured honestly (not assumed) to be a net wall-clock regression at this project's own scale;
+  kept as a documented capability for the case it actually helps (ledger and settlement data living
+  in separate services), not shipped as a false performance win. See BUILD_LOG.md.
+- **No committed Playwright test spec** for the frontend (manual + scripted live-browser
+  verification exists throughout BUILD_LOG.md, but not as a checked-in, re-runnable suite).
+- **The pitch video isn't recorded yet** — everything above is real and reproducible today; the
+  5-minute walkthrough itself is the one remaining submission artifact.

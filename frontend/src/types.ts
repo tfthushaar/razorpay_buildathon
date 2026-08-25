@@ -25,6 +25,8 @@ export interface CategoryCalibration {
   amount_at_risk: number;
   mock_n: number;
   distinct_transaction_count: number;
+  ewma_accuracy: number;
+  drift_alert: boolean;
 }
 
 export interface CalibrationReport {

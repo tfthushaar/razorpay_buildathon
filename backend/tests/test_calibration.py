@@ -40,13 +40,28 @@ def test_high_accuracy_large_n_category_auto_resolves():
     # 100/102 correct (~98%): large enough N that the Wilson *lower bound* itself clears 90%,
     # not just the point estimate — a smaller N at the same accuracy (see the test above) would
     # correctly fail to clear it, which is exactly the behavior being protected here.
-    decisions = [
-        ScoredDecision(transaction_id=f"t{i}", predicted_category="duplicate_refund", true_label="duplicate_refund", amount=500_00, provider="groq")
-        for i in range(100)
-    ] + [
-        ScoredDecision(transaction_id=f"wrong{i}", predicted_category="duplicate_refund", true_label="netting_trap", amount=500_00, provider="groq")
-        for i in range(2)
-    ]
+    #
+    # The 2 wrong decisions are placed in the MIDDLE of the sequence, not appended at the end --
+    # calibrate() now also runs EWMA drift detection (app/calibration/drift.py), which is
+    # deliberately recency-sensitive: 2 genuinely historical misses shouldn't read as "this
+    # category's most recent decisions are bad," but 2 wrong decisions placed as literally the
+    # last two processed would (correctly) look exactly like that to a recency-weighted check.
+    # Scattering them mid-sequence is what makes this test represent "98% accurate with two old,
+    # already-priced-in mistakes," which is what it was always meant to prove.
+    decisions = (
+        [
+            ScoredDecision(transaction_id=f"t{i}", predicted_category="duplicate_refund", true_label="duplicate_refund", amount=500_00, provider="groq")
+            for i in range(50)
+        ]
+        + [
+            ScoredDecision(transaction_id=f"wrong{i}", predicted_category="duplicate_refund", true_label="netting_trap", amount=500_00, provider="groq")
+            for i in range(2)
+        ]
+        + [
+            ScoredDecision(transaction_id=f"t{i}", predicted_category="duplicate_refund", true_label="duplicate_refund", amount=500_00, provider="groq")
+            for i in range(50, 100)
+        ]
+    )
     report = calibrate(decisions, threshold=0.90)
     dup = next(c for c in report.categories if c.category == "duplicate_refund")
     assert dup.n == 102
@@ -74,11 +89,15 @@ def test_low_accuracy_category_escalates_and_has_no_risk_exposure():
 def test_live_threshold_dial_changes_decision_without_new_data():
     """Simulates dragging the dashboard's threshold slider: same scored decisions, different
     threshold, cheap re-aggregation — this is what makes the dial 'live' rather than a re-run."""
+    # The 3 wrong decisions (i in [7,8,9]) sit in the middle, not at the tail -- see the identical
+    # note on test_high_accuracy_large_n_category_auto_resolves: EWMA drift detection is
+    # deliberately recency-sensitive, so 3 wrong decisions ending the sequence would (correctly)
+    # look like an active regression rather than "17/20 historically, three of them old misses."
     decisions = [
         ScoredDecision(
             transaction_id=f"t{i}",
             predicted_category="duplicate_refund",
-            true_label=("duplicate_refund" if i < 17 else "netting_trap"),
+            true_label=("netting_trap" if i in (7, 8, 9) else "duplicate_refund"),
             amount=300_00,
             provider="groq",
         )

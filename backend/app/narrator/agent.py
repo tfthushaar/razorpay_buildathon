@@ -42,7 +42,15 @@ from typing import Callable, TypeVar
 from pydantic import BaseModel, Field
 
 from app.chain.builder import CausalChain
+from app.narrator.circuit_breaker import CircuitBreaker, CircuitBreakerOpenError
 from app.narrator.tools import ToolContext, check_batch_anomalies, check_sla_window, lookup_fee_schedule, recall_similar_resolutions
+
+# One breaker per real provider, module-level so it tracks availability across the whole process
+# (every batch, every concurrent request) -- not scoped to a single narration queue, since "is this
+# provider currently healthy" is a process-wide fact, not a per-run one. See circuit_breaker.py for
+# what does and doesn't count as a failure here.
+_groq_breaker = CircuitBreaker()
+_ollama_breaker = CircuitBreaker()
 
 NARRATOR_CATEGORIES = ("duplicate_refund", "netting_trap", "genuine_error")
 # Deliberately excludes currency_rounding: matching/engine.py's Pass 2 catches ANY transaction with
@@ -297,19 +305,16 @@ def _call_with_retry(
     raise RuntimeError("unreachable")  # pragma: no cover
 
 
-def narrate_groq(chain: CausalChain, context: ToolContext, model: str = DEFAULT_GROQ_MODEL, max_rounds: int = 4) -> NarratorOutput:
+def narrate_groq(
+    chain: CausalChain,
+    context: ToolContext,
+    model: str = DEFAULT_GROQ_MODEL,
+    max_rounds: int = 4,
+    breaker: CircuitBreaker | None = None,
+) -> NarratorOutput:
     from groq import Groq, GroqError
 
-    # Groq's SDK already defaults to a finite timeout (verified: connect=5s, read/write/pool=60s
-    # via groq._base_client.DEFAULT_TIMEOUT) unlike ollama's, so this isn't fixing a live bug the
-    # way the identical-looking line in narrate_ollama is -- but making it explicit here too means
-    # the actual bound is documented in this file, not hidden behind whatever the SDK happens to
-    # default to today, and both providers now read the same way for anyone comparing them.
-    client = Groq(api_key=os.environ["GROQ_API_KEY"], timeout=60.0)
-    messages: list[dict] = [
-        {"role": "system", "content": SYSTEM_PROMPT},
-        {"role": "user", "content": _describe_chain(chain)},
-    ]
+    breaker = breaker if breaker is not None else _groq_breaker
     tool_calls_log: list[ToolCallRecord] = []
 
     def _fail_safe(reason: str) -> NarratorOutput:
@@ -323,6 +328,26 @@ def narrate_groq(chain: CausalChain, context: ToolContext, model: str = DEFAULT_
         )
         context.audit_log.append({"transaction_id": chain.transaction_id, "category": output.category, "confidence": output.confidence})
         return output
+
+    try:
+        breaker.before_call()
+    except CircuitBreakerOpenError as e:
+        # Skip the call entirely -- no client construction, no network attempt. This is the whole
+        # point: once the provider is known-bad, every subsequent transaction in the narration
+        # queue (and any later batch, within the cooldown) fails safe in microseconds instead of
+        # each independently re-discovering the outage through a full retry-with-backoff cycle.
+        return _fail_safe(str(e))
+
+    # Groq's SDK already defaults to a finite timeout (verified: connect=5s, read/write/pool=60s
+    # via groq._base_client.DEFAULT_TIMEOUT) unlike ollama's, so this isn't fixing a live bug the
+    # way the identical-looking line in narrate_ollama is -- but making it explicit here too means
+    # the actual bound is documented in this file, not hidden behind whatever the SDK happens to
+    # default to today, and both providers now read the same way for anyone comparing them.
+    client = Groq(api_key=os.environ["GROQ_API_KEY"], timeout=60.0)
+    messages: list[dict] = [
+        {"role": "system", "content": SYSTEM_PROMPT},
+        {"role": "user", "content": _describe_chain(chain)},
+    ]
 
     try:
         for _ in range(max_rounds):
@@ -401,14 +426,28 @@ def narrate_groq(chain: CausalChain, context: ToolContext, model: str = DEFAULT_
                 return _fail_safe(f"Narrator's final response was not a usable answer ({type(e).__name__}: {e}): {(msg.content or '')[:200]!r}")
 
             context.audit_log.append({"transaction_id": chain.transaction_id, "category": output.category, "confidence": output.confidence})
+            breaker.record_success()
             return output
     except GroqError as e:
+        # A real API-level failure surviving _call_with_retry's own backoff -- this, and only this,
+        # is what the breaker tracks. A malformed/out-of-schema answer above is the provider
+        # responding fine, just unusably; that's not evidence Groq itself is unhealthy.
+        breaker.record_failure()
         return _fail_safe(f"Narrator API call failed after retries ({type(e).__name__}: {e}); escalating rather than guessing.")
 
+    # Ran out of tool-call rounds without ever producing a final answer -- the provider was
+    # reachable and responding the whole time, just never converged, so this isn't a breaker
+    # failure either.
     return _fail_safe("Narrator did not converge within the tool-call budget; escalating rather than guessing.")
 
 
-def narrate_ollama(chain: CausalChain, context: ToolContext, model: str = DEFAULT_OLLAMA_MODEL, max_rounds: int = 4) -> NarratorOutput:
+def narrate_ollama(
+    chain: CausalChain,
+    context: ToolContext,
+    model: str = DEFAULT_OLLAMA_MODEL,
+    max_rounds: int = 4,
+    breaker: CircuitBreaker | None = None,
+) -> NarratorOutput:
     """Fully local tool-calling loop via Ollama — same protocol shape as narrate_groq, with two
     real API differences: Ollama's ToolCall.function.arguments is already a parsed dict (not a
     JSON string to decode), and its tool-result messages have no tool_call_id to correlate against
@@ -417,6 +456,26 @@ def narrate_ollama(chain: CausalChain, context: ToolContext, model: str = DEFAUL
     connection hiccup) rather than assuming a local service never fails."""
     import httpx
     from ollama import Client, RequestError, ResponseError
+
+    breaker = breaker if breaker is not None else _ollama_breaker
+
+    def _fail_safe(reason: str) -> NarratorOutput:
+        output = NarratorOutput(
+            transaction_id=chain.transaction_id,
+            category="genuine_error",
+            confidence=0.0,
+            reasoning=reason,
+            tool_calls=tool_calls_log,
+            provider="ollama",
+        )
+        context.audit_log.append({"transaction_id": chain.transaction_id, "category": output.category, "confidence": output.confidence})
+        return output
+
+    tool_calls_log: list[ToolCallRecord] = []
+    try:
+        breaker.before_call()
+    except CircuitBreakerOpenError as e:
+        return _fail_safe(str(e))
 
     # timeout=60.0: verified directly, not assumed, that this was silently unbounded before --
     # ollama.Client() delegates straight to httpx.Client(**kwargs) with no kwargs supplied, and
@@ -441,19 +500,6 @@ def narrate_ollama(chain: CausalChain, context: ToolContext, model: str = DEFAUL
         {"role": "system", "content": SYSTEM_PROMPT},
         {"role": "user", "content": _describe_chain(chain)},
     ]
-    tool_calls_log: list[ToolCallRecord] = []
-
-    def _fail_safe(reason: str) -> NarratorOutput:
-        output = NarratorOutput(
-            transaction_id=chain.transaction_id,
-            category="genuine_error",
-            confidence=0.0,
-            reasoning=reason,
-            tool_calls=tool_calls_log,
-            provider="ollama",
-        )
-        context.audit_log.append({"transaction_id": chain.transaction_id, "category": output.category, "confidence": output.confidence})
-        return output
 
     try:
         for _ in range(max_rounds):
@@ -505,8 +551,13 @@ def narrate_ollama(chain: CausalChain, context: ToolContext, model: str = DEFAUL
                 return _fail_safe(f"Narrator's final response was not a usable answer ({type(e).__name__}: {e}): {(msg.content or '')[:200]!r}")
 
             context.audit_log.append({"transaction_id": chain.transaction_id, "category": output.category, "confidence": output.confidence})
+            breaker.record_success()
             return output
     except ollama_retry_exceptions as e:
+        # A real connectivity/availability failure surviving _call_with_retry's own retries -- this
+        # is what the breaker tracks, not a malformed answer (the provider responding fine, just
+        # unusably, is not evidence Ollama itself is down).
+        breaker.record_failure()
         return _fail_safe(
             f"Local narrator call failed after retries ({type(e).__name__}: {e}); escalating rather than guessing. "
             f"Is `ollama serve` running and has `{model}` been pulled?"
