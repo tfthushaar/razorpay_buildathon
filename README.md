@@ -445,6 +445,14 @@ than one, e.g. a preview + production domain) — CORS only allows `localhost` b
 required, not optional, for the deployed frontend to actually reach the deployed backend. Written
 and reviewed, not yet deployed to a live Netlify site in this session.
 
+**Frontend on Vercel** (`frontend/vercel.json`), the equivalent setup for Vercel instead of Netlify:
+in the Vercel dashboard, set the project's Root Directory to `frontend` — `vercel.json` (relative to
+that root) then supplies `buildCommand`, `outputDirectory`, the `vite` framework preset, and an
+SPA rewrite. Same `VITE_API_BASE_URL` / `ALLOWED_ORIGINS` wiring as the Netlify path above, just on
+Vercel's own dashboard instead. Backend deployed live on Render for the actual submission; see
+BUILD_LOG.md for the real, verified deployment trail (a hardcoded backend port that would have
+silently broken on Render, caught and fixed before it shipped).
+
 ## Tests & evidence
 
 ### Tests
