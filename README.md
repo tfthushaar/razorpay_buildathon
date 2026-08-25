@@ -2,28 +2,28 @@
 
 **Razorpay AI Buildathon 2026 — Track 04: AI Finance Controller**
 
-Every settlement Razorpay sends a merchant is a black box: one bank credit standing in for hundreds
-of transactions, net of fees, GST, refund offsets, and timing variance. Turning that into books a
-finance team can close on is normally a manual, error-prone, multi-hour job, every settlement
-cycle. This system explodes that credit back into its transactions, narrates *exactly which hop*
-in each one's causal chain broke, only auto-resolves the exception categories it has statistically
-earned trust on, checks every fee actually charged against the merchant's own contract to catch
-overcharges standard reconciliation can't see, and posts what it can prove straight into
-ERP-ready, GST/ITC-separated journal entries — escalating the rest with a stated reason instead of
-guessing. Full design rationale: [docs/track04-settlement-reconciliation-copilot.md](docs/track04-settlement-reconciliation-copilot.md).
+Every settlement Razorpay sends a merchant is a black box — one bank credit standing in for
+hundreds of transactions, net of fees, GST, refund offsets, and timing variance — and turning that
+into books a finance team can close on is normally a manual, error-prone, multi-hour job every
+settlement cycle. This system explodes that credit back into its transactions and narrates *exactly
+which hop* broke in each one's causal chain, and — unlike a flat matcher — audits every fee against
+the merchant's own contract, posts what it can prove straight into ERP-ready journal entries, and
+only auto-resolves what it's statistically earned trust on, escalating the rest with a stated
+reason instead of guessing. Full design rationale:
+[docs/track04-settlement-reconciliation-copilot.md](docs/track04-settlement-reconciliation-copilot.md).
 Build history, including every bug found and how it was fixed: [BUILD_LOG.md](BUILD_LOG.md).
 
 ## The money story, in one real run
 
-In a real run against a live local model (not mock — [raw output](docs/evidence/real-ollama-run-2026-08-24.json),
-independently re-verified live against the committed database in this repo, see
-[Reproducing the results](#reproducing-the-results) below): the system safely auto-resolved
-**₹59,97,863.76 in netting-trap exceptions with zero human review** — earned only after proving
-itself right on 15 distinct real cases, with a statistical lower bound (90.4%) that actually cleared
-the trust threshold, not a guess. On the same run, it automatically reconciled **₹12,47,615.92 of a
-₹13,02,997.38 batch** end-to-end, and put every remaining rupee it couldn't explain in front of a
-human instead of guessing — with the exact reasoning and tool calls that led to each decision, not a
-black-box verdict.
+The system safely auto-resolved **₹59,97,863.76 in netting-trap exceptions with zero human
+review** — earned only after proving itself right on 15 distinct real cases, with a statistical
+lower bound (90.4%) that actually cleared the trust threshold, not a guess — and automatically
+reconciled **₹12,47,615.92 of a ₹13,02,997.38 batch** end-to-end, putting every remaining rupee it
+couldn't explain in front of a human instead of guessing, with the exact reasoning and tool calls
+behind each decision, not a black-box verdict. This is a real run against a live local model, not
+mock — [raw output](docs/evidence/real-ollama-run-2026-08-24.json), independently re-verified live
+against the committed database in this repo (see [Reproducing the results](#reproducing-the-results)
+below).
 
 Separately — this is a genuinely different axis of analysis, not a subset of the reconciliation
 numbers above — a real fee-leak review of 20 transactions that all reconciled *perfectly cleanly*
@@ -39,8 +39,7 @@ ledger line**, ready for GSTR-2B filing, in 102 finalized, balanced double-entry
 
 ## Where this fits in Razorpay's own stack
 
-Not built in a vacuum — checked against what already exists before claiming any of this is
-different, not just assumed. [Razorpay Recon](https://razorpay.com/newsroom/razorpay-pos-launches-industry-first-ai-powered-razorpay-recon-to-automate-reconciliation-for-businesses-boosting-financial-operations-efficiency-by-80/)
+[Razorpay Recon](https://razorpay.com/newsroom/razorpay-pos-launches-industry-first-ai-powered-razorpay-recon-to-automate-reconciliation-for-businesses-boosting-financial-operations-efficiency-by-80/)
 (launched December 2024) is real, AI-powered, rule-based batch matching across 200M+ transactions/month
 — built for offline POS reconciliation at volume, not for narrating *why* one specific transaction
 broke or auditing fee correctness per instrument.
