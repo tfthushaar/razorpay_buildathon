@@ -2484,4 +2484,47 @@ synthetic examples, not all of them).
 
 Test count now 128. Score to be recorded by the next audit round before any push.
 
+### Round 17 (2026-08-25) — 91/100, another new high
+
+I ran round 17 specifically to check the fee-leak/ERP work above before pushing it, with explicit
+instructions to independently fact-check the regulatory claims itself — via its own web search, not
+by trusting my account of what I'd found — since that was the single highest-stakes, most
+reputationally-risky claim in the whole submission if it turned out wrong.
+
+**Score: 91/100** (AI Judgment 19/20, Failure Recovery 18/20, Measured Accuracy 14/15,
+Bounded&Gated 14/15, Throughput 9/10, Real Problem 10/10, Submission Readiness 9/10) — another new
+all-time high, beating round 16's 87.
+
+**The regulatory fact-check, confirmed independently rather than taken on my word**: it searched for
+Razorpay Recon and Settlement Insights directly and confirmed both are real, launched when and as
+described. It searched for the Payment and Settlement Systems Act amendment separately and found
+multiple independent sources (Business Standard, Deccan Chronicle, TechTimes, government press
+coverage) confirming Parliament passed the amendment to Section 10A on 4 August 2026, replacing the
+blanket zero-MDR mandate with a government-notification framework — exactly what I'd found and
+exactly what README.md states, "not overclaimed... and not underclaimed." It also checked whether
+the fee-leak detector's redesign (checking the merchant's own contract instead of the law) was a
+genuine architectural fix or just relabeling, by reading `detector.py` directly: confirmed the check
+never references what's legally permitted at all, only what was contractually agreed — a
+structurally different, durable check under any regulatory regime, not cosmetic.
+
+**Everything else independently re-verified, not just re-described**: worked through the journal
+balance algebra by hand and confirmed `debit_total - credit_total = settlement_delta + suspense = 0`
+holds for any sign of `settlement_delta`, not just the cases I'd tested; fetched Tally's own
+published sample XML directly and confirmed the sign convention `to_tally_xml` implements (and that
+`test_journal.py` actually asserts, not just checks the XML parses) matches exactly; confirmed
+`fee_leak_report.total_gst_correction` and `total_itc_separated` are genuinely different code paths
+computing different things, and that `SummaryTiles.tsx`'s current code uses the correct one;
+reproduced all three headline ₹ figures (₹2,634.50 / ₹23,158.96 / ₹2,198.42) by running the same
+seed itself; confirmed `test_zero_false_positives_against_every_existing_category` really does use
+main_n=200/stress_n=60 as claimed, not a thinner check; confirmed 128/128 tests pass and the diff
+since round 16 matches exactly what was described, nothing unrelated slipped in.
+
+No critical or high findings. One low-severity, honest observation: no dedicated failure-injection
+test for the ERP export path (e.g. calibration-history state changing between a run and a later
+export call) — a genuine but minor untested edge, not a discovered bug, noted for a future round
+rather than blocking this one.
+
+This clears the user's own stated bar (push once the score is above 85) — recording this as the
+score before the push.
+
 ---
