@@ -2527,4 +2527,60 @@ rather than blocking this one.
 This clears the user's own stated bar (push once the score is above 85) — recording this as the
 score before the push.
 
+### A "final action plan" with a fabricated API endpoint, caught before I wrote a line of connector code
+
+I was handed another external strategy document — this one framed as a response to specific judge
+criticism, with a punch list including "the repo still has the old README (push it now)," a
+Razorpay sandbox connector spec (with exact endpoints to call), a request to demonstrate 50k-scale
+processing, a note that tool-call traces read as "buried," a Groq-key-rotation reminder, and a
+paragraph tying this system to Razorpay's agentic-commerce roadmap. Same discipline as the last two
+documents: checked the load-bearing claims before acting on any of them.
+
+**The urgency premise was false.** `git log origin/main` was already at the exact commit I'd just
+pushed — the README was current, not stale. Stated this plainly rather than acting on it.
+
+**The sandbox connector spec named a real-looking but nonexistent endpoint.** `POST /v1/payments/
+test_payment` — the call the document said would "simulate payment capture" — doesn't exist
+anywhere in Razorpay's actual API documentation; I searched it directly and found nothing. Real
+test payments in Razorpay's sandbox go through the Checkout.js browser flow (a mock bank page with
+Success/Failure buttons, test card/UPI numbers), not a single server-to-server call. The document's
+recon endpoint was also shaped wrong — `/v1/settlements/{id}/recon/combined` isn't real; the actual
+endpoint is `/v1/settlements/recon/combined?year=&month=&day=`, a date-scoped query across all
+settlements, not per-settlement-ID. Writing a connector against the endpoint as specified would
+have been broken code calling a URL that 404s — worse than not having the feature, especially in
+front of judges who work at the company whose API it claims to call. Flagged this before writing
+any connector code, and since I have no real Razorpay test credentials to verify anything against
+live, I'm not building it blind — waiting on the user to generate and share real test keys before
+attempting this for real, rather than shipping unverified integration code with a straight face.
+
+**The agentic-commerce claim checked out.** Razorpay and NPCI really did launch "Agentic Payments"
+on Claude at the India AI Impact Summit, 20 February 2026, with Zomato, Swiggy, and Zepto live in
+pilot — confirmed across multiple independent sources (Business Today, The Paypers, Razorpay's own
+blog). Added the paragraph to "Where this fits," verified rather than assumed.
+
+**What I actually built this round, all directly verifiable:**
+
+- **50,000-transaction evidence run**, real: 50,000 transactions, ₹54,81,13,443.15 total value,
+  processed end-to-end (matching + fee-leak review + journal generation) in 9.08 measured seconds —
+  5,508 tx/sec, mock provider. Raw output committed at `docs/evidence/50k-batch-run-2026-08-25.json`.
+  85.0% resolved without escalation; the remaining 15% (7,500 transactions) escalated honestly
+  rather than auto-resolving, since this run used the mock provider and this project's own
+  calibration gate never lets mock decisions auto-resolve regardless of accumulated history —
+  exactly the property that should hold at scale, not something that quietly breaks under load.
+- **Tool-call trace visibility, fixed for real.** The criticism was accurate: the trace was
+  collapsed behind a click by default. Now the first (highest-value, least-certain) escalation's
+  trace auto-expands the moment a genuinely new run lands — keyed off the same `escalations`
+  reference-identity check `EscalationQueue.tsx` already uses to gate its reveal animation, so a
+  threshold drag or a resolve never re-triggers or re-collapses it. Verified live: the trace shows
+  real tool names/args/results with zero clicks. Retook `docs/screenshots/04-escalation-tool-trace.png`
+  to show this.
+- **Netlify config** (`netlify.toml`, repo root): deploys `frontend/` as a static build, pointed at
+  a `VITE_API_BASE_URL` the user sets to wherever the backend actually runs. Documented plainly why
+  the backend itself doesn't fit Netlify's model (stateful FastAPI + SQLite + narrator calls that
+  can run minutes against a real provider) rather than pretending a full-stack Netlify deploy is a
+  real option. Written and reviewed, not deployed to a live site in this session.
+- **Groq key rotation**: still something only the user can actually do (console.groq.com access,
+  not mine) — noted honestly rather than claimed as done. `.env`/`.env.example` hygiene already
+  correct from earlier in the build.
+
 ---

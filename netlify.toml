@@ -1,0 +1,20 @@
+# Netlify deployment config for the frontend only (frontend/) -- the backend (FastAPI, SQLite,
+# narrator calls that can run minutes against a real LLM provider) is a stateful Python service and
+# doesn't fit Netlify's static/serverless model; it needs separate hosting (a VM, Render, Railway,
+# Fly.io, etc.) reachable at a URL, which this frontend build points at via VITE_API_BASE_URL.
+
+[build]
+  base = "frontend"
+  command = "npm run build"
+  publish = "dist"
+
+[build.environment]
+  NODE_VERSION = "22"
+
+# Client-side is a single page with no router (no react-router) -- this redirect only matters if
+# Netlify's own asset-not-found handling ever needs a fallback; harmless either way, standard SPA
+# practice.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

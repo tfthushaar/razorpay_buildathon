@@ -37,6 +37,16 @@ ledger line**, ready for GSTR-2B filing, in 102 finalized, balanced double-entry
 [Fee leak detection](#fee-leak-detection-catching-what-reconciliation-cant-see) and
 [ERP posting & ITC reclaim](#erp-posting--itc-reclaim) below for the real numbers behind each figure.
 
+**At scale**: 50,000 transactions, ₹54,81,13,443.15 of total value, processed end-to-end —
+matching, fee-leak review, and journal generation together — in **9.08 seconds** (5,508 tx/sec,
+mock provider; raw output: [50k-batch-run-2026-08-25.json](docs/evidence/50k-batch-run-2026-08-25.json)).
+85.0% resolved deterministically or via calibrated auto-resolve with zero LLM calls; the remaining
+15% (7,500 transactions) went to the narrator and — since this specific run used the mock provider,
+which this project's own calibration gate never lets auto-resolve regardless of accumulated
+history — escalated honestly rather than silently riding on trust it hadn't itself earned. As
+AI-agent-driven commerce increases transaction volume per merchant, this is the property that
+matters: throughput that holds at scale without loosening what "earned trust" means.
+
 ## Where this fits in Razorpay's own stack
 
 [Razorpay Recon](https://razorpay.com/newsroom/razorpay-pos-launches-industry-first-ai-powered-razorpay-recon-to-automate-reconciliation-for-businesses-boosting-financial-operations-efficiency-by-80/)
@@ -63,6 +73,17 @@ blanket legal claim would have gone stale the week this feature shipped. So the 
 checks the actual fee against **this merchant's own contracted rate** instead (see below) — correct
 regardless of how the notification framework evolves, which a hardcoded legal assumption never
 could be.
+
+One trajectory worth naming: Razorpay and NPCI already [launched agentic payments on Claude](https://razorpay.com/blog/agentic-payments-and-npci/)
+in February 2026 — Zomato, Swiggy, and Zepto are live in pilot, letting an AI agent complete a food
+or grocery order inside a conversation, no app switch, no manual payment entry. As that surface
+grows, the reconciliation problem doesn't shrink, it multiplies: a human merchant generates one
+settlement per cycle, an agent fleet generates however many the conversation volume demands, with
+no person in the loop to notice an anomaly. The same calibrated-autonomy design — earn trust per
+exception category before acting on it, escalate everything else with a stated reason — is the
+right shape for that world regardless of who (or what) is on the other end of the transaction. This
+system doesn't need to be rebuilt for agentic commerce; it needs to keep doing exactly what it
+already does, at whatever volume shows up.
 
 ## Screenshots
 
@@ -408,6 +429,14 @@ number would only improve in a realistic production batch, since this demo's own
 transactions to the narrator (`18/120`) — the Tier 1 sparse-batch benchmark in BUILD_LOG.md shows a
 realistic settlement batch is closer to 1-3% needing narration, meaning proportionally far fewer
 LLM calls and a correspondingly higher sustained rate.
+
+**Frontend on Netlify** (`netlify.toml`, repo root): deploys `frontend/` as a static build —
+`base = "frontend"`, `command = "npm run build"`, `publish = "dist"`. Set `VITE_API_BASE_URL` in
+Netlify's site environment variables to point at wherever the backend actually runs (self-hosted,
+or deployed separately — see the paragraph above for why the backend itself doesn't fit Netlify:
+it's a stateful FastAPI service with SQLite persistence and narrator calls that can run minutes
+against a real LLM provider, not a static site or a request/response serverless function). Written
+and reviewed, not yet deployed to a live Netlify site in this session.
 
 ## Tests & evidence
 

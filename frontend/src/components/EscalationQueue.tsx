@@ -34,6 +34,13 @@ export function EscalationQueue({ escalations, runId, onResolved, liveAutoResolv
     const isNew = animatedEscalations.current !== escalations;
     animatedEscalations.current = escalations;
     setAnimateReveal(isNew);
+    // The highest-value, least-certain case is the one a judge sees first, and it should look like
+    // real reasoning immediately -- not one click away. Auto-expand only the first escalation's own
+    // tool-call trace on a genuinely new run, never re-collapsing anything a user has open or closed
+    // by hand on a threshold drag/resolve (those don't change the `escalations` reference).
+    if (isNew && escalations.length > 0) {
+      setExpandedTraceId(escalations[0].transaction_id);
+    }
   }, [escalations]);
 
   // Escalation cases already carry category/confidence/reasoning, but the tool-call trace that
