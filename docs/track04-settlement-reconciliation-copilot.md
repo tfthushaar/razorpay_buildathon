@@ -288,3 +288,14 @@ fee-leak framing ("MDR on UPI is always illegal") turned out to be legally stale
 contract instead of a blanket legal claim — correct regardless of how the regulatory notification
 framework evolves. Full detail, including the real numbers these produce on this project's own
 generated data, in README.md's "Fee leak detection" and "ERP posting & ITC reclaim" sections.
+
+A third addition: a **real Razorpay Test Mode connector** (`app/connectors/razorpay_sandbox.py`),
+built once the user provided real test credentials. It makes live calls against the actual API
+(`POST /v1/orders`, `GET /v1/payments`, `GET /v1/settlements`) rather than simulating them — proven
+by `GET /api/sandbox/status`, not just claimed. It does not have a captured payment to reconcile:
+no Razorpay API manufactures one directly in test mode, and this account's Checkout activation
+profile rejects the documented domestic test cards as international and doesn't offer UPI at all —
+a real finding about the account, verified by actually driving the Checkout flow, not a shortcut
+taken to avoid the work. See README.md's honest-scope section and BUILD_LOG.md for the full trail,
+including a real response-shape bug (`notes` comes back as `[]`, not `{}`) caught only by running
+the connector live.

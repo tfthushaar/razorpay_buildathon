@@ -447,7 +447,7 @@ cd backend
 python -m pytest tests/ -v
 ```
 
-128 tests covering the fee-leak detector (both patterns caught with hand-verified rupee amounts,
+137 tests covering the fee-leak detector (both patterns caught with hand-verified rupee amounts,
 zero false positives against 260 ordinary transactions from the main/stress batches), the ERP
 journal generator (every entry balances by construction across all 8 transaction categories, not
 just clean ones, plus a well-formed-XML check on the Tally export and column checks on the CSV
@@ -478,7 +478,10 @@ endpoints reject malformed input cleanly instead of crashing, an out-of-range th
 the calibration gate open, 8 genuinely concurrent batch runs against the shared SQLite-backed state
 all succeed, 5 concurrent resolves of the same escalation count exactly once instead of racing, and
 — with an amplified thread-switch interval, the technique used to actually find this — 16 concurrent
-batch runs never desync a run's escalations from its own ground truth — see BUILD_LOG.md).
+batch runs never desync a run's escalations from its own ground truth — see BUILD_LOG.md), and the
+Razorpay Test Mode connector (real response shapes captured by hand against the live account first,
+including a real bug — the API returns `notes` as `[]`, not `{}`, when none are set — caught by
+actually running it, not by guessing from docs).
 
 ### Reproducing the results
 
@@ -594,6 +597,24 @@ project's own real (non-mock) run: **37/37 correctly handled, 0 wrongly auto-res
   without a different architecture, but only these two are actually built and tested today.
 - **The pitch video isn't recorded yet** — everything above is real and reproducible today; the
   5-minute walkthrough itself is the one remaining submission artifact.
+- **The Razorpay Test Mode connector (`app/connectors/razorpay_sandbox.py`) makes real, live API
+  calls with real test credentials** — `POST /v1/orders`, `GET /v1/payments`, `GET /v1/settlements`
+  all confirmed working against the actual account (`GET /api/sandbox/status` proves it end to end).
+  What it does *not* have is a captured payment to reconcile: there is no Razorpay API that manufactures
+  one directly in test mode, and this account's Checkout activation profile rejects both documented
+  domestic test cards (Visa `4111 1111 1111 1111`, Mastercard `5104 0155 5555 5558`) as
+  `international_transaction_not_allowed` and doesn't offer UPI as a payment method at all — so the
+  connector's `fetch_payments`/`fetch_settlements` currently return real, empty (or failed-only)
+  collections rather than fabricated data. This is a genuine finding about the account, not a bug in
+  the connector; the rest of the project runs on the synthetic data generator (`app/data_gen/`) for
+  exactly this reason — reconciliation needs volume and labeled edge cases a fresh, unverified test
+  account can't provide. One more disclosed gap in the same spirit: real `/v1/settlements` items
+  carry no `payment_id` or rail/method field at all (verified against Razorpay's own docs) — real
+  payment-level linkage needs the recon endpoint instead
+  (`GET /v1/settlements/recon/combined?year=&month=&day=`), not built here, so `fetch_settlements`
+  sets those two required-but-unavailable fields to an explicit placeholder rather than guessing —
+  an earlier draft guessed `"upi"` from a field that doesn't exist in the real response, caught by
+  a self-review audit round and fixed before push, not shipped.
 
 ## What I'd build next, inside Razorpay
 

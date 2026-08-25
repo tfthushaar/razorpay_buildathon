@@ -426,3 +426,17 @@ def api_evaluate_transactions(scenario: TransactionScenario) -> EvaluateResponse
 @app.get("/api/health")
 def health() -> dict:
     return {"status": "ok"}
+
+
+@app.get("/api/sandbox/status")
+def api_sandbox_status() -> dict:
+    """Live connectivity check against the real Razorpay Test Mode API -- proves
+    RAZORPAY_KEY_ID/SECRET are real, working credentials rather than claiming so.
+    See app/connectors/razorpay_sandbox.py for exactly what is and isn't real here.
+
+    Not called by the frontend and not on any polling path -- each hit creates a real
+    order against the live account (create_test_order's probe), so this is meant for a
+    manual/occasional check, not a health-check target or anything hit on a timer."""
+    from app.connectors.razorpay_sandbox import sandbox_status
+
+    return sandbox_status()

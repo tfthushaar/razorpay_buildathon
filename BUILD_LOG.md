@@ -2623,3 +2623,88 @@ numbers presented without an explicit variance caveat. Neither blocks anything.
 This clears the same bar round 17 did — recording the score before the push.
 
 ---
+
+## 2026-08-25 — Real Razorpay Test Mode connector: what real credentials actually revealed
+
+The user provided real Razorpay test-mode credentials after FINAL_ACTION_PLAN.md's fabricated
+`/v1/payments/test_payment` endpoint ruled out any shortcut. Secured them into `backend/.env`
+(confirmed gitignored, never touched by git status throughout) and started from the three endpoints
+already verified real: `POST /v1/orders`,
+`GET /v1/payments`, `GET /v1/settlements`.
+
+**Confirmed working immediately**: order creation, and both list endpoints (empty on a fresh
+account — a real, correct response, not a stub). **Confirmed blocked**: S2S direct-card payment
+requires PCI-DSS certification, not available here — ruled out cleanly rather than attempted anyway.
+
+**The Checkout.js browser flow, driven with Playwright across 11 iterations**, got further than
+expected: real order → checkout iframe (Test Mode banner visible) → phone entry (two "obviously
+fake" numbers server-rejected; a plausible one accepted) → payment method selection → card entry →
+name/email → save-card prompt → processing screen → a real `payment_id`, every time, even on
+failure. But every attempt failed with `international_transaction_not_allowed` — first on the
+generic Visa test number, then again on the Mastercard number a fresh search turned up as the
+"real" domestic alternative. A screenshot of the payment-methods screen showed why chasing more card
+numbers wasn't going to fix it: this account doesn't even list UPI as a payment option, only Cards,
+Netbanking, Wallet, and Pay Later. That's an account activation-profile fact, not a card-BIN
+guessing game — so the right move was to stop spending Playwright cycles on it, not find a twelfth
+card number to try.
+
+**Built the connector around what's actually real.** `app/connectors/razorpay_sandbox.py` maps
+`POST /v1/orders`, `GET /v1/payments`, `GET /v1/settlements` onto this project's own
+Order/Payment/Settlement/LedgerEntry schemas — `LedgerEntry` has no Razorpay API equivalent at all
+(it's an internal "amount we expected," recorded locally the same way a real merchant would at
+order-creation time, same as `_build_order_and_payment` does for synthetic data). Wrote 9 tests
+against mocked `httpx.Client` — mocked only after the real shapes were captured by hand against the
+live account, not guessed from docs — plus a `GET /api/sandbox/status` endpoint that makes real
+calls so the connectivity claim is checkable, not just asserted.
+
+**A live smoke test against the real endpoint found a real bug the mocks hadn't caught**: the actual
+API returns `notes` as `[]`, not `{}`, when none are set on an order. `body.get("notes",
+{}).get("merchant_id", ...)` crashed with `AttributeError: 'list' object has no attribute 'get'` —
+a genuine gap between the assumed and real response shape, caught only because the endpoint was
+actually run, not just tested against a hand-written mock. Fixed with an isinstance guard, added a
+regression test reproducing the exact `[]` shape, re-ran the live endpoint and confirmed it now
+returns `{"connected": true, "probe_order_id": "order_TU0OxUMtY3ESs2", "payments_on_account": 1,
+"settlements_on_account": 0, ...}` — the `1` is real too, a failed (uncaptured) payment record left
+over from the Checkout attempts above, not a captured one.
+
+137/137 tests passing (128 + 9 new). README's honest-scope section, PROGRESS.md's connector line,
+and this entry all describe the same thing the same way: real live wiring, a real account-level
+finding about why no captured payment exists yet, and a real bug caught and fixed by actually running
+the code against the actual API rather than trusting an assumed response shape.
+
+---
+
+## 2026-08-25 — My audit loop, round 19: a real, dormant correctness bug in the connector
+
+Focused round on the just-built Razorpay Test Mode connector, before the first push containing it.
+**Score: 82/100** (AI Judgment 17/20, Failure Recovery 17/20, Measured Accuracy 10/15, Bounded &
+Gated 11/15, Throughput 9/10, Real Problem 9/10, Submission Readiness 9/10).
+
+Independently re-verified against Razorpay's own docs (not just trusting my write-up) that
+`fetch_settlements` mapped two fields — `payment_id` and `method` — that don't exist anywhere in the
+real `/v1/settlements` response (confirmed real shape: `{id, entity, amount, status, fees, tax, utr,
+created_at}`). The consequence: `_METHOD_TO_RAIL.get(item.get("method", ""), "upi")` silently
+fabricated `rail="upi"` for every settlement regardless of the real rail, since the key it read never
+exists. Currently dormant — this account has zero real settlements to exercise the path — but a real,
+shipped correctness bug in code whose entire stated purpose is faithful field mapping. Worse, the
+mock in `test_fetch_settlements_maps_a_real_settlement` had invented those same two fake keys, so the
+test was validating the wrong assumption instead of catching it.
+
+**Fixed the same way rounds 5-18 fixed every prior real finding**: verified the real shape myself via
+WebSearch before touching code (confirmed the round's account independently), removed the
+`_METHOD_TO_RAIL` lookup entirely (it implied translating a real field that doesn't exist), set
+`payment_id`/`rail` to explicit documented placeholders instead of a guess, and rewrote the test
+against the real response shape (no `payment_id`/`method` keys) with a comment explaining why the
+old version had been silently wrong. Also flagged (LOW-MEDIUM, fixed with a docstring note rather
+than new machinery): `GET /api/sandbox/status` creates a real order against the live account on every
+call, unbounded — not currently polled by the frontend, so not an active problem, but documented as
+"manual/occasional use only, not a health-check target" so it doesn't become one by accident later.
+
+Independently confirmed clean: `backend/.env` never committed at any point in git history (`git log
+--all -p | grep <key id>` — zero hits), 137/137 tests passing, no stale "128" current-state
+references left anywhere. No overclaiming found in the docs' account of what's real vs. not.
+
+This is the recorded pre-push score for the connector work — consistent with this project's standing
+rule of running one focused round before a push and fixing what it finds rather than pushing past it.
+
+---
