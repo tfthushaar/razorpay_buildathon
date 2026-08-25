@@ -7,6 +7,7 @@ adversarial/ambiguous case correctly using genuine cross-referenced signal, not 
 answer.
 """
 
+import os
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
@@ -88,6 +89,26 @@ def test_narrate_groq_fails_safe_on_out_of_schema_category():
     assert output.confidence == 0.0
     assert output.provider == "groq"
     assert "timing_lag" in output.reasoning
+
+
+def test_narrate_groq_fails_safe_with_a_clean_message_when_no_api_key_is_configured():
+    """Round 20's audit picked "groq" on the live deployment (Render only sets LLM_PROVIDER=mock,
+    no GROQ_API_KEY) and found the resulting escalation reasoning was a raw, unpolished
+    'Narrator crashed unexpectedly (KeyError: 'GROQ_API_KEY')' leaking out of narrate()'s generic
+    orchestration backstop -- functionally safe, but reads as an internal error rather than a
+    designed message. Fixed by catching the missing key specifically inside narrate_groq itself."""
+    _, context, queue, _ = _narration_queue(main_n=150)
+    chain = context.chains[queue[0]]
+
+    with patch.dict("os.environ", {}, clear=False):
+        os.environ.pop("GROQ_API_KEY", None)
+        output = narrate_groq(chain, context)
+
+    assert output.category == "genuine_error"
+    assert output.confidence == 0.0
+    assert output.provider == "groq"
+    assert "GROQ_API_KEY" in output.reasoning
+    assert "KeyError" not in output.reasoning
 
 
 # Round 7's audit found the round-6 fix above only guarded the JSON-parse step, not the field

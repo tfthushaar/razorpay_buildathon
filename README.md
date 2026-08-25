@@ -481,7 +481,7 @@ cd backend
 python -m pytest tests/ -v
 ```
 
-137 tests covering the fee-leak detector (both patterns caught with hand-verified rupee amounts,
+139 tests covering the fee-leak detector (both patterns caught with hand-verified rupee amounts,
 zero false positives against 260 ordinary transactions from the main/stress batches), the ERP
 journal generator (every entry balances by construction across all 8 transaction categories, not
 just clean ones, plus a well-formed-XML check on the Tally export and column checks on the CSV

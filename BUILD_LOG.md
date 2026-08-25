@@ -2803,3 +2803,49 @@ Commits: `c6505ce` (Dockerfile port fix, batch-size defaults, Docker verificatio
 push this session.
 
 ---
+
+## 2026-08-25 — My audit loop, round 20: a full judge's-eye pass on the live deployment
+
+First round scoped as an actual judge would work, not a diff-focused check: read the README cold,
+opened the real live URL in a headless browser and drove it, spot-checked headline numbers against
+their source evidence, and specifically tried the one thing most likely to break for a real judge --
+picking "groq" from the provider dropdown on the deployed site, where Render only has
+`LLM_PROVIDER=mock` set and no `GROQ_API_KEY` configured at all. **Score: 88/100** (AI Judgment
+17/20, Failure Recovery 18/20, Measured Accuracy 13/15, Bounded & Gated 14/15, Throughput 10/10,
+Real Problem 9/10, Submission Readiness 8/10).
+
+The Groq-with-no-key test confirmed the failure path holds under real conditions, not just a mocked
+one: the batch completed, zero console/network errors, 4 transactions escalated cleanly. But the
+escalation reasoning shown in that judge-facing field read `"Narrator crashed unexpectedly
+(KeyError: 'GROQ_API_KEY'); escalating rather than losing the batch."` -- functionally correct
+(fails safe, never crashes), but a raw Python exception leaking into the product surface instead of
+a designed message. Root cause: `client = Groq(api_key=os.environ["GROQ_API_KEY"], ...)` sat outside
+any try block inside `narrate_groq`, so a missing key fell all the way through to `narrate()`'s
+generic orchestration-level backstop (round 8's fix) instead of being named specifically the way
+every other known failure shape in this file already is. **Fixed by giving it the same treatment
+as every other known shape**: wrapped the client construction in its own `try/except KeyError`
+inside `narrate_groq`, returning a clean `"Groq is selected but GROQ_API_KEY isn't configured in
+this environment; escalating rather than guessing."` via the function's existing `_fail_safe`
+closure -- reusing the established pattern rather than inventing a new one. New regression test
+(`test_narrate_groq_fails_safe_with_a_clean_message_when_no_api_key_is_configured`) written against
+the unfixed code first to confirm it would have caught this.
+
+Also caught, low severity: the test count had drifted to 137 in README/PROGRESS while the real
+count was already 138 (a `pytest -q` run, not assumed) -- the same recurring failure class named
+in this project's own docs since round 7-8. Fixed to 139 (the real count including this round's own
+new test).
+
+Independently verified clean, not just trusted from BUILD_LOG's own account: `git log --all -p`
+across the whole history for `rzp_test`/`GROQ_API_KEY=gsk`/`key_secret` returns only test fixtures
+(`monkeypatch.setenv(..., "rzp_test_fake")`), never a real credential; the Dockerfile's shell-form
+`${PORT:-8000}` fix and the live `/api/health` GET+HEAD both-200 fix were both re-confirmed live
+against the actual deployed URLs, not re-read from the prior BUILD_LOG entries alone. Every headline
+number in the README (money story, fee-leak, 50k-scale) was independently reproduced from its
+source evidence JSON to the decimal, not just trusted from prose.
+
+No critical or high findings. This is the first round to genuinely evaluate the live, judge-facing
+product end to end rather than the code that produces it -- the honest verdict: ready to submit as
+it stands, with two small, now-fixed rough edges rather than anything that would mislead a judge or
+break under real use.
+
+---

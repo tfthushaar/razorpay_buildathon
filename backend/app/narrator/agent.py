@@ -343,7 +343,15 @@ def narrate_groq(
     # way the identical-looking line in narrate_ollama is -- but making it explicit here too means
     # the actual bound is documented in this file, not hidden behind whatever the SDK happens to
     # default to today, and both providers now read the same way for anyone comparing them.
-    client = Groq(api_key=os.environ["GROQ_API_KEY"], timeout=60.0)
+    try:
+        client = Groq(api_key=os.environ["GROQ_API_KEY"], timeout=60.0)
+    except KeyError:
+        # A missing key is a configuration gap, not a provider outage -- name it plainly instead of
+        # letting a raw KeyError fall through to narrate()'s generic orchestration-level backstop
+        # (round 20's audit flagged that exact raw-exception string leaking into a judge-facing
+        # escalation reasoning field on the live deployment, where GROQ_API_KEY isn't set).
+        return _fail_safe("Groq is selected but GROQ_API_KEY isn't configured in this environment; escalating rather than guessing.")
+
     messages: list[dict] = [
         {"role": "system", "content": SYSTEM_PROMPT},
         {"role": "user", "content": _describe_chain(chain)},
