@@ -1,0 +1,25 @@
+services:
+  backend:
+    build: ./backend
+    ports:
+      - "8000:8000"
+    environment:
+      # mock is zero-cost and needs nothing else running — the safe default for a container.
+      # For groq: set GROQ_API_KEY here (or in a .env file docker compose picks up automatically).
+      # For ollama: Ollama has to be reachable from *inside* the container, which "localhost"
+      # isn't — set OLLAMA_HOST=http://host.docker.internal:11434 to point at an Ollama instance
+      # running on the host machine (Docker Desktop only; see BUILD_LOG.md for why this project
+      # runs Ollama on bare metal rather than in its own container — GPU passthrough).
+      - LLM_PROVIDER=mock
+    volumes:
+      - backend-data:/app/data
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "5173:5173"
+    depends_on:
+      - backend
+
+volumes:
+  backend-data:

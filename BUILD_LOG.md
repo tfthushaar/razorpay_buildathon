@@ -2229,4 +2229,56 @@ narrative without inflating its actual capabilities — exactly the kind of 'kno
 discipline [rounds 4/5/14] already showed." I'm recording this as the final score before the first
 push to GitHub, exactly as I'd planned.
 
+### Pitch-readiness pass, after the first push: real screenshots, a real deployment story, honest numbers instead of invented ones
+
+After pushing, I got feedback pointing at real gaps for a pitch video: no visuals in the README, no
+concrete money-impact narrative, no detail on what "100%-adversarial" actually means, no deployment
+story, and the escalation queue/calibration dial — genuinely my best UX ideas — buried in technical
+prose. Some of the example phrasing in that feedback (a specific "12ms" resolve time, a flat
+"10k+ tx/day" scaling claim) wasn't something I'd ever measured, so I didn't just paste it in —
+I built the same narratives from real numbers instead.
+
+**Frontend UX pass**: a spacing/typography/shadow pass, color-mapped legends on the calibration and
+baseline charts, a staggered reveal on the escalation queue and audit log (capped at ~1.2s, keyed
+off the escalations list's own reference so it only plays on a genuinely new run, never on a
+threshold drag), a real empty/loading state instead of a blank flash, a positive "clean sweep" state
+when nothing escalates, and a dismissible 3-step guided tour of escalate → resolve → recalibrate
+that highlights the real first escalated case (tool-call trace included) and auto-advances the
+moment I actually click Resolve. `tsc -b`/`npm run build`/lint clean; verified live in headless
+Chromium with zero console errors across a normal run, a zero-escalation run, and a slow-rerun-over-
+stale-data scenario.
+
+**Real screenshots, not mockups**: captured live via Playwright against a real (mock-provider) run
+— the empty state, the summary tiles + baseline comparison, the calibration dial mid-drag, an
+escalated case with its tool-call trace expanded (the actual `check_batch_anomalies`/
+`check_sla_window`/`recall_similar_resolutions` args and results), and the guided tour highlighting
+that same case. All five are in `docs/screenshots/` and now embedded in the README.
+
+**A real-numbers narrative, not an invented one**: pulled three actual transactions straight out of
+a real generated batch (seed 42) — a ₹49,823.00 UPI settlement that landed on day 4 against a 2-day
+tolerance (amounts matched exactly, so it's `timing_lag`, not a real gap), a netting-trap pair that
+nets to zero at the batch level (₹150.00 short on one side, ₹150.00 over on the other) but is wrong
+on each individual leg, and a ₹153.74 refund legitimately issued once but deducted from the
+settlement twice. Also pulled the real committed evidence: `netting_trap` auto-resolving
+₹59,97,863.76 with a 90.4% CI lower bound over 15 distinct cases, while `genuine_error` at 82.9%
+measured accuracy stays escalated anyway, by design.
+
+**A stress-test table with real citations**: a markdown table naming each adversarial case
+(timing lag, currency rounding, netting trap, duplicate refund, genuine error), what a naive
+amount+date matcher actually does wrong on each (citing the exact committed tests —
+`test_naive_baseline_silently_misses_timing_lag`, `test_naive_baseline_false_positives_on_rounding_noise`
+— rather than asserting it), and what this system does instead.
+
+**A deployment story, honestly caveated**: `backend/Dockerfile`, `frontend/Dockerfile`, and a root
+`docker-compose.yml`. I don't have Docker installed in this dev environment, so I said so directly
+in the README rather than claim it's been run — written and reviewed carefully (checked the real
+`requirements.txt`/`package.json`, checked how `VITE_API_BASE_URL` and the SQLite data directory
+actually resolve, noted the real `OLLAMA_HOST`/`host.docker.internal` gotcha for reaching a
+host-machine Ollama from inside a container), but that's not the same claim as "verified working."
+For the "how far does one instance actually go" question, I computed rather than guessed: the real
+Ollama evidence run processed 120 transactions (18 narrated) in 55.8 measured seconds — 2.15 tx/sec
+— which extrapolates to roughly 185,000 tx/day sustained on one instance, free local inference, no
+API cost. That's a real, derived number, clearly labeled as extrapolated rather than measured at
+that volume, and it's a stronger, truer claim than the "10k+/day" the original feedback suggested.
+
 ---

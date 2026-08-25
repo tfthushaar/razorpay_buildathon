@@ -50,12 +50,30 @@ export function CalibrationPanel({ initialReport, refreshKey, onReportChange }: 
   const totalAtRisk = report.categories.reduce((sum, c) => sum + c.amount_at_risk, 0);
 
   return (
-    <section className="panel">
+    <section className="panel" id="calibration-panel">
       <h2>Calibration — live threshold dial</h2>
       <p className="panel-sub">
         Threshold is checked against each category's 95% Wilson confidence interval <em>lower bound</em>, not the raw
         accuracy — drag it and watch decisions and ₹-at-risk change instantly, without re-running anything.
       </p>
+      <div className="chart-legend">
+        <span className="chart-legend-item">
+          <span className="chart-legend-swatch" style={{ background: "var(--accent)", opacity: 0.55 }} />
+          95% confidence interval
+        </span>
+        <span className="chart-legend-item">
+          <span className="chart-legend-swatch" style={{ background: "var(--ink)", width: 2, height: 12, borderRadius: 0 }} />
+          current threshold
+        </span>
+        <span className="chart-legend-item">
+          <span className="chart-legend-swatch" style={{ background: "var(--good)" }} />
+          auto-resolve
+        </span>
+        <span className="chart-legend-item">
+          <span className="chart-legend-swatch" style={{ background: "var(--warn)" }} />
+          escalate
+        </span>
+      </div>
       {fetchError && (
         <p className="error-text" role="alert">
           {fetchError} — showing the last successfully loaded data.

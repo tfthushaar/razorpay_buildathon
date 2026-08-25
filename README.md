@@ -8,6 +8,62 @@ exception categories it has statistically earned trust on — everything else es
 stated reason. Full design rationale: [docs/track04-settlement-reconciliation-copilot.md](docs/track04-settlement-reconciliation-copilot.md).
 Build history, including every bug found and how it was fixed: [BUILD_LOG.md](BUILD_LOG.md).
 
+## Screenshots
+
+Captured live in a real browser (Playwright, headless Chromium), against a mock-provider run —
+zero console/network errors, nothing staged.
+
+**Before a run — nothing hidden behind a login or a loading spinner:**
+![Empty state](docs/screenshots/01-empty-state.png)
+
+**After running a batch — match rate, ₹ auto-reconciled, and the naive-baseline lift, all real
+numbers from that run:**
+![Summary tiles and baseline comparison](docs/screenshots/02-summary-baseline.png)
+
+**The calibration dial — drag it and every category's auto-resolve/escalate decision and ₹-at-risk
+recompute instantly, no re-run:**
+![Calibration dial](docs/screenshots/03-calibration-dial.png)
+
+**An escalated case with its tool-call trace expanded — the actual `check_batch_anomalies` /
+`check_sla_window` / `recall_similar_resolutions` calls and results that led to "needs a human,"
+not a black-box verdict:**
+![Escalation queue with tool-call trace](docs/screenshots/04-escalation-tool-trace.png)
+
+**The guided tour, walking through escalate → resolve → recalibrate:**
+![Guided tour](docs/screenshots/05-guided-tour.png)
+
+## Three real transactions this project has actually caught
+
+Not invented examples — pulled directly from a real generated batch (`seed=42`) and this project's
+own committed evidence, with the real amounts and real reasoning:
+
+- **A ₹49,823.00 UPI settlement landed on day 4, not the nominal day-1 SLA (or the 2-day tolerance
+  line).** The ledger and settlement amounts matched exactly — nothing was actually missing — so
+  the causal chain builder confirmed `ledger_gap = 0` and the deterministic Pass 2 auto-resolved it
+  as `timing_lag` at 0.9 confidence, zero LLM calls needed. A naive matcher checking amount + date
+  together would have flagged this as unreconciled the moment the date didn't line up, even though
+  no money was ever actually missing.
+- **Two unrelated transactions in the same settlement batch, one short by ₹150.00 and one over by
+  exactly ₹150.00.** Summed together, the batch balances to the rupee — the classic "nets out at
+  the aggregate level" trap a batch-total check would wave straight through. The causal chain model
+  checks each transaction's own `ledger_gap` individually rather than trusting the aggregate, so
+  both sides of the trap get caught, not just the batch-level number that happens to look clean.
+- **A ₹153.74 refund was legitimately issued once — the refund registry shows exactly one
+  `refund_id` — but the settlement feed deducted it from the payout twice.** The merchant's ledger
+  (which only knows about the one real refund) and the actual settlement (net of two) differ by
+  precisely one refund amount. `check_batch_anomalies` cross-references the refund registry itself
+  rather than trusting the settlement total, and flags the double-deduction instead of quietly
+  treating it as "a bigger refund than expected."
+
+**And what happens once evidence actually accumulates**: in a real run against the local Ollama
+model (raw output: [docs/evidence/real-ollama-run-2026-08-24.json](docs/evidence/real-ollama-run-2026-08-24.json)),
+`netting_trap` had built up 36 real decisions across 15 distinct transactions with a 95% confidence
+interval lower bound of 90.4% — clearing the auto-resolve threshold for the first time in this
+project's history, and auto-resolving ₹59,97,863.76 worth of netting-trap exceptions without a
+human touching them. `genuine_error` in that same run sat at 82.9% measured accuracy and stayed
+escalated anyway — by design, since it's the one category that never auto-resolves regardless of
+the numbers, because "I genuinely can't explain this" is supposed to always go to a person.
+
 ## What makes this different from a flat matcher
 
 1. **Causal chain matching, not row matching** — every transaction is modeled as
@@ -106,10 +162,10 @@ cd backend
 python -m pytest tests/ -v
 ```
 
-86 tests covering the data generator's arithmetic invariants (including that every requested batch
-size 0-150 produces exactly that many transactions, not off-by-one on a rounding edge case, and that
-a large-scale/realistically-sparse batch — e.g. 50,000 records at 97% clean — produces exactly the
-requested proportions), the matching engine's deterministic
+87 tests covering the data generator's arithmetic invariants (including that every requested batch
+size 0-150 produces exactly that many transactions at both the default and non-default clean ratios,
+not off-by-one on a rounding edge case, and that a large-scale/realistically-sparse batch — e.g.
+50,000 records at 97% clean — produces exactly the requested proportions), the matching engine's deterministic
 resolution paths, the narrator's tool-based detection, response-schema validation (an out-of-set
 category, a malformed/wrongly-shaped final answer, out-of-range confidence, an unusable tool call,
 plus an orchestration-level backstop for whatever the next unforeseen failure shape turns out to be
@@ -132,6 +188,39 @@ SQLite-backed state
 all succeed, 5 concurrent resolves of the same escalation count exactly once instead of racing, and
 — with an amplified thread-switch interval, the technique used to actually find this — 16 concurrent
 batch runs never desync a run's escalations from its own ground truth — see BUILD_LOG.md).
+
+## Deployment
+
+```bash
+docker compose up --build
+```
+
+Builds and runs both services: the backend on `:8000` (FastAPI/uvicorn, `LLM_PROVIDER=mock` by
+default — see `docker-compose.yml` for switching to `groq`/`ollama`, including the one real gotcha:
+Ollama running on the host machine isn't reachable from inside a container as `localhost`, so that
+path needs `OLLAMA_HOST=http://host.docker.internal:11434` set explicitly) and the frontend on
+`:5173`. SQLite state (audit log, calibration history) persists in a named volume across restarts.
+**Written and reviewed, not yet verified against a real Docker install** — this dev environment
+doesn't have Docker available to build against, so treat this as a solid starting point to check
+once, not a claim it's been run.
+
+This containerizes the current single-instance implementation as-is — it doesn't itself add
+horizontal scaling, a message queue, or a real settlement-ledger webhook integration. Those are
+real, identified next steps (worker-pool narration, Postgres instead of SQLite, an async job queue),
+not built yet — see BUILD_LOG.md's Tier 2/3 architecture notes. The one integration point that
+already exists today: `POST /api/transactions/evaluate` accepts an arbitrary transaction record and
+runs it through the full pipeline — wiring a real settlement-ledger webhook to call that endpoint is
+the remaining integration work, not a redesign.
+
+**How far a single instance actually goes, from a real measured number, not a guess:** the real
+Ollama run linked below processed 120 transactions end-to-end (matching + narration for the 18 that
+needed it) in 55.8 measured seconds — **2.15 transactions/second** sustained, entirely on local,
+free inference. Extrapolated (not itself measured at this volume) at that same rate run
+continuously: **~185,000 transactions/day** on one instance, no GPU rental, no LLM API cost. That
+number would only improve in a realistic production batch, since this demo's own mix sends 15% of
+transactions to the narrator (`18/120`) — the Tier 1 sparse-batch benchmark in BUILD_LOG.md shows a
+realistic settlement batch is closer to 1-3% needing narration, meaning proportionally far fewer
+LLM calls and a correspondingly higher sustained rate.
 
 ## What's real vs. mock
 
@@ -210,9 +299,29 @@ default. Raw output: [run 1](docs/evidence/real-groq-run-2026-08-24.json),
 including the real rate-limit hits and how they're handled (retry with backoff, honoring the API's
 own `retry-after` header, failing safe rather than crashing).
 
+## Stress-test: what "100%-adversarial" actually means
+
+Beyond the main batch, every run also generates a second batch that is nothing but traps — no
+clean transactions at all — so the headline stress-test stat can't be cherry-picked from a mixed
+batch. It's built only from the categories designed to fool a naive amount-check
+(`duplicate_refund`, `netting_trap`, `fee_deduction`, `genuine_error`). Real result on this
+project's own real (non-mock) run: **37/37 correctly handled, 0 wrongly auto-resolved**
+([raw output](docs/evidence/real-ollama-run-2026-08-24.json)).
+
+| Case | What's actually wrong | What a naive amount+date matcher does | What this system does |
+|---|---|---|---|
+| **Timing lag** | Amounts match exactly; settlement just arrived late (e.g. day 4 against a 1-day nominal, 2-day tolerance for UPI) | Silently calls it clean — no SLA awareness at all (proven in `test_naive_baseline_silently_misses_timing_lag`) | Causal chain confirms `ledger_gap = 0`, checks the SLA window, auto-resolves as `timing_lag` — money was never actually missing |
+| **Currency rounding** | A few paise of harmless FX rounding drift, no real gap | Flags it as a mismatch requiring manual review — zero tolerance (proven in `test_naive_baseline_false_positives_on_rounding_noise`) | Recognizes the delta is within a rounding epsilon, resolves it deterministically, never escalates a non-problem |
+| **Netting trap** | Two unrelated transactions in the same batch, one short and one over by the exact same amount | A batch-total check nets them to zero and calls the whole batch clean | Checks each transaction's own `ledger_gap` individually — both sides of the trap get caught |
+| **Duplicate refund** | A refund legitimately issued once, deducted from the settlement twice | Sees a bigger-than-expected gap and either guesses "a refund happened" or escalates with no explanation | `check_batch_anomalies` cross-references the refund registry itself, confirms exactly one `refund_id`, flags the double-deduction specifically |
+| **Genuine error** | An unexplained gap that doesn't fit any known pattern — by construction, deliberately ambiguous | Either guesses or escalates everything without distinguishing this from the cases above | Escalates — and this is the one category that **never** auto-resolves regardless of measured accuracy, because "I can't explain this" should always reach a person |
+
 ## Honest exceptions
 
-The dashboard's escalation queue is not a "coming soon" placeholder — it's the point. Categories
-that haven't earned statistical trust yet, and any transaction the system genuinely cannot
-explain, show up there with the reasoning behind why it wasn't auto-resolved, ranked by ₹ amount
-× ambiguity so the highest-value, least-certain cases surface first.
+The dashboard's escalation queue is not a "coming soon" placeholder — it's the point, and it's built
+to keep a human in the loop, not replace one. Every escalated case shows the category, the
+confidence, the one-line reasoning, and the full tool-call trace that led there — not a black-box
+verdict a finance team has to take on faith. Categories that haven't earned statistical trust yet,
+and any transaction the system genuinely cannot explain, land in the queue ranked by ₹ amount ×
+ambiguity, so the highest-value, least-certain case surfaces first — the one a person should
+actually look at before the ₹200 rounding question nobody cares about.

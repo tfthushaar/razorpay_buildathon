@@ -8,3 +8,21 @@ export const categoryLabel = (category: string): string =>
     .split("_")
     .map((w) => w[0].toUpperCase() + w.slice(1))
     .join(" ");
+
+export interface ToolCallRecord {
+  tool: string;
+  arguments: Record<string, unknown>;
+  result: Record<string, unknown>;
+}
+
+// Shared by AuditLogView and EscalationQueue -- both render the same
+// tool_calls_json blob from an audit entry, so the parsing (and its failure mode) lives in one
+// place rather than being copy-pasted per component.
+export function parseToolCalls(json: string): ToolCallRecord[] {
+  try {
+    const parsed = JSON.parse(json);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}

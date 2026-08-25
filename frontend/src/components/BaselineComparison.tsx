@@ -36,21 +36,30 @@ export function BaselineComparison({ result }: { result: BatchRunResult }) {
       </p>
       <div className="bar-compare">
         <div className="bar-row">
-          <span>This system</span>
+          <span className="bar-row-label">
+            <span className="chart-legend-swatch" style={{ background: "var(--good)" }} />
+            This system
+          </span>
           <div className="bar-track">
             <div className="bar-fill bar-fill-good" style={{ width: `${ourResolvedRate * 100}%` }} />
           </div>
           <span>{pct(ourResolvedRate)}</span>
         </div>
         <div className="bar-row">
-          <span>Deterministic only</span>
+          <span className="bar-row-label">
+            <span className="chart-legend-swatch" style={{ background: "var(--accent)" }} />
+            Deterministic only
+          </span>
           <div className="bar-track">
             <div className="bar-fill bar-fill-deterministic" style={{ width: `${deterministicOnlyRate * 100}%` }} />
           </div>
           <span>{pct(deterministicOnlyRate)}</span>
         </div>
         <div className="bar-row">
-          <span>Naive baseline</span>
+          <span className="bar-row-label">
+            <span className="chart-legend-swatch" style={{ background: "var(--muted)" }} />
+            Naive baseline
+          </span>
           <div className="bar-track">
             <div className="bar-fill bar-fill-neutral" style={{ width: `${baselineRate * 100}%` }} />
           </div>

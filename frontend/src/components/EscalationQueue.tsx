@@ -1,18 +1,54 @@
-import { useState } from "react";
-import { resolveEscalation } from "../api";
-import type { EscalationItem, ResolveResponse } from "../types";
-import { categoryLabel, rupees, pct } from "../formatters";
+import { useEffect, useRef, useState } from "react";
+import type { CSSProperties } from "react";
+import { getAudit, resolveEscalation } from "../api";
+import type { AuditEntry, EscalationItem, ResolveResponse } from "../types";
+import { categoryLabel, rupees, pct, parseToolCalls } from "../formatters";
 
 interface Props {
   escalations: EscalationItem[];
+  runId: string; // used to fetch this run's tool-call trace for each escalated case, same source the audit log reads
   onResolved: () => void; // tells the parent to bump the calibration refresh key
   liveAutoResolveCategories: Set<string>; // reflects the calibration dial's current position, not the run-time threshold
 }
 
-export function EscalationQueue({ escalations, onResolved, liveAutoResolveCategories }: Props) {
+// Total wall-clock budget for the staggered reveal -- mirrors AuditLogView's so both "decision
+// feed" lists feel like the same live system rather than two differently-timed animations.
+const REVEAL_BUDGET_MS = 1200;
+const REVEAL_MAX_PER_ITEM_MS = 90;
+
+export function EscalationQueue({ escalations, runId, onResolved, liveAutoResolveCategories }: Props) {
   const [resolved, setResolved] = useState<Record<string, ResolveResponse>>({});
   const [pending, setPending] = useState<string | null>(null);
   const [resolveErrors, setResolveErrors] = useState<Record<string, string>>({});
+  const [auditByTxn, setAuditByTxn] = useState<Record<string, AuditEntry>>({});
+  const [expandedTraceId, setExpandedTraceId] = useState<string | null>(null);
+
+  // The escalation list itself (this prop) only ever changes reference on a genuinely new run --
+  // dragging the calibration threshold only changes `liveAutoResolveCategories`, and resolving an
+  // item only moves it into local `resolved` state below. So keying the reveal animation off this
+  // reference is exactly "animate on a new run, not on every re-render" without any extra flags.
+  const animatedEscalations = useRef<EscalationItem[] | null>(null);
+  const [animateReveal, setAnimateReveal] = useState(false);
+
+  useEffect(() => {
+    const isNew = animatedEscalations.current !== escalations;
+    animatedEscalations.current = escalations;
+    setAnimateReveal(isNew);
+  }, [escalations]);
+
+  // Escalation cases already carry category/confidence/reasoning, but the tool-call trace that
+  // shows exactly what the narrator checked before answering lives on this run's audit entries --
+  // fetched once per run and matched by transaction id, rather than duplicated onto EscalationItem.
+  useEffect(() => {
+    if (!runId) return;
+    getAudit(runId)
+      .then((entries) => {
+        const map: Record<string, AuditEntry> = {};
+        for (const e of entries) map[e.transaction_id] = e;
+        setAuditByTxn(map);
+      })
+      .catch(console.error);
+  }, [runId]);
 
   const handleResolve = async (transactionId: string) => {
     setPending(transactionId);
@@ -34,7 +70,7 @@ export function EscalationQueue({ escalations, onResolved, liveAutoResolveCatego
   const pendingItems = escalations.filter((e) => !resolved[e.transaction_id]);
 
   return (
-    <section className="panel">
+    <section className="panel" id="escalation-queue-panel">
       <h2>Escalation queue — triaged by ₹ amount × ambiguity</h2>
       <p className="panel-sub">
         Highest-value, least-certain cases surface first. This is the honest exception list — nothing here was hidden.
@@ -42,13 +78,27 @@ export function EscalationQueue({ escalations, onResolved, liveAutoResolveCatego
         dial's current position, without needing a human, once a real run is made at that threshold.
       </p>
       {pendingItems.length === 0 && Object.keys(resolved).length === 0 && (
-        <p className="empty-row">No escalations in the latest run.</p>
+        <div className="clean-sweep">
+          <span className="clean-sweep-icon">✓</span>
+          <span className="clean-sweep-text">
+            <strong>Clean sweep — nothing to escalate.</strong>
+            <span>Every case in this run cleared the calibration threshold on its own. That's the system working, not a blank state.</span>
+          </span>
+        </div>
       )}
       <ul className="escalation-list">
-        {pendingItems.map((item) => {
+        {pendingItems.map((item, index) => {
           const wouldAutoResolve = liveAutoResolveCategories.has(item.category);
+          const toolCalls = auditByTxn[item.transaction_id] ? parseToolCalls(auditByTxn[item.transaction_id].tool_calls_json) : [];
+          const isFirst = index === 0;
+          const isTraceOpen = expandedTraceId === item.transaction_id;
           return (
-            <li key={item.transaction_id} className={`escalation-item ${wouldAutoResolve ? "would-auto-resolve" : ""}`}>
+            <li
+              key={item.transaction_id}
+              id={isFirst ? "tour-first-escalation" : undefined}
+              className={`escalation-item ${wouldAutoResolve ? "would-auto-resolve" : ""} ${animateReveal ? "reveal-item" : ""}`}
+              style={animateReveal ? ({ "--delay": `${Math.min(index * Math.min(REVEAL_MAX_PER_ITEM_MS, REVEAL_BUDGET_MS / Math.max(pendingItems.length, 1)), REVEAL_BUDGET_MS)}ms` } as CSSProperties) : undefined}
+            >
               <div className="escalation-header">
                 <span className="badge badge-warn">{categoryLabel(item.category)}</span>
                 <span className="escalation-amount">{rupees(item.amount)}</span>
@@ -56,7 +106,31 @@ export function EscalationQueue({ escalations, onResolved, liveAutoResolveCatego
                 {wouldAutoResolve && <span className="badge badge-good">Would auto-resolve at current dial</span>}
               </div>
               <p className="escalation-reasoning">{item.reasoning}</p>
-              <button disabled={pending === item.transaction_id} onClick={() => handleResolve(item.transaction_id)}>
+              {toolCalls.length > 0 && (
+                <button
+                  type="button"
+                  className="link-button tool-call-toggle"
+                  onClick={() => setExpandedTraceId(isTraceOpen ? null : item.transaction_id)}
+                >
+                  {isTraceOpen ? "▾" : "▸"} {toolCalls.length} tool call{toolCalls.length === 1 ? "" : "s"} — what the narrator checked
+                </button>
+              )}
+              {isTraceOpen && toolCalls.length > 0 && (
+                <ul className="tool-call-list escalation-tool-calls">
+                  {toolCalls.map((tc, i) => (
+                    <li key={i}>
+                      <span className="mono tool-call-name">{tc.tool}</span>
+                      <span className="tool-call-args">args: {JSON.stringify(tc.arguments)}</span>
+                      <span className="tool-call-result">result: {JSON.stringify(tc.result)}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <button
+                id={isFirst ? "tour-resolve-button" : undefined}
+                disabled={pending === item.transaction_id}
+                onClick={() => handleResolve(item.transaction_id)}
+              >
                 {pending === item.transaction_id ? "Resolving…" : "Resolve against source records"}
               </button>
               {resolveErrors[item.transaction_id] && (

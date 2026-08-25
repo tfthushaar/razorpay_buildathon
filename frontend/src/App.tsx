@@ -10,6 +10,7 @@ import { EscalationQueue } from "./components/EscalationQueue";
 import { StressScorecard } from "./components/StressScorecard";
 import { AuditLogView } from "./components/AuditLogView";
 import { BreakItPanel } from "./components/BreakItPanel";
+import { GuidedTour } from "./components/GuidedTour";
 import "./App.css";
 
 function App() {
@@ -19,6 +20,7 @@ function App() {
   const [refreshKey, setRefreshKey] = useState(0);
   const [liveCalibration, setLiveCalibration] = useState<CalibrationReport | null>(null);
   const [backendUnreachable, setBackendUnreachable] = useState(false);
+  const [resolveSignal, setResolveSignal] = useState(0);
 
   // Proactive health check on load, not just reactive failure on the first user action -- without
   // this, a stopped backend is invisible until someone clicks "Run batch" and gets a generic
@@ -57,6 +59,8 @@ function App() {
     }
   };
 
+  const showStale = loading && result !== null;
+
   return (
     <div className="app">
       {backendUnreachable && (
@@ -66,17 +70,28 @@ function App() {
         </div>
       )}
       <header className="app-header">
-        <h1>Settlement Reconciliation Copilot</h1>
-        <p className="app-subtitle">
-          Causal-chain matching + calibrated autonomy — Razorpay AI Buildathon 2026, Track 04
-        </p>
+        <div className="app-header-text">
+          <span className="app-header-mark" aria-hidden="true">SR</span>
+          <div>
+            <h1>Settlement Reconciliation Copilot</h1>
+            <p className="app-subtitle">
+              Causal-chain matching + calibrated autonomy — Razorpay AI Buildathon 2026, Track 04
+            </p>
+          </div>
+        </div>
       </header>
 
       <RunControls onRun={handleRun} loading={loading} error={error} />
       <BreakItPanel />
 
       {result && (
-        <>
+        <div className="stale-wrap" data-stale={showStale ? "true" : "false"}>
+          {showStale && (
+            <div className="stale-banner">
+              <span className="stale-banner-dot" aria-hidden="true" />
+              Running a new batch — showing the previous run's results until it lands
+            </div>
+          )}
           <SummaryTiles result={result} />
           <div className="two-column">
             <BaselineComparison result={result} />
@@ -85,16 +100,41 @@ function App() {
           <CalibrationPanel initialReport={result.calibration} refreshKey={refreshKey} onReportChange={setLiveCalibration} />
           <EscalationQueue
             escalations={result.escalations}
-            onResolved={() => setRefreshKey((k) => k + 1)}
+            runId={result.run_id}
+            onResolved={() => {
+              setRefreshKey((k) => k + 1);
+              setResolveSignal((s) => s + 1);
+            }}
             liveAutoResolveCategories={liveAutoResolveCategories}
           />
           <AuditLogView runId={result.run_id} refreshKey={refreshKey} />
+        </div>
+      )}
+
+      {!result && loading && (
+        <>
+          <div className="skeleton-tiles">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <div key={i} className="skeleton-block skeleton-tile" />
+            ))}
+          </div>
+          <div className="skeleton-block skeleton-panel" />
+          <div className="skeleton-block skeleton-panel" />
         </>
       )}
 
       {!result && !loading && (
-        <p className="empty-state">Run a batch above to see match rate, calibration, and the exception queue.</p>
+        <div className="empty-state-card">
+          <div className="empty-state-card-icon" aria-hidden="true">↑</div>
+          <div className="empty-state-card-title">Nothing run yet</div>
+          <p className="empty-state-card-sub">
+            Click <strong>Run batch</strong> above to generate a settlement batch and see match rate, calibration, and
+            the exception queue — mock runs finish instantly, no cost, no network calls.
+          </p>
+        </div>
       )}
+
+      <GuidedTour hasEscalations={!!result && result.escalations.length > 0} resolveSignal={resolveSignal} />
     </div>
   );
 }

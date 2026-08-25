@@ -1,23 +1,49 @@
 .app {
   max-width: 1100px;
   margin: 0 auto;
-  padding: 32px 24px 80px;
+  padding: var(--space-6) var(--space-5) 80px;
 }
 
 .app-header {
-  margin-bottom: 24px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+  margin-bottom: var(--space-6);
+  padding-bottom: var(--space-5);
+  border-bottom: 1px solid var(--border);
+}
+
+.app-header-text {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.app-header-mark {
+  width: 40px;
+  height: 40px;
+  flex: none;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(135deg, var(--accent), #6b3bdb);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-weight: 800;
+  font-size: 1.1rem;
 }
 
 .app-header h1 {
-  font-size: 1.75rem;
-  margin: 0 0 4px;
+  font-size: 1.6rem;
+  margin: 0 0 2px;
   color: var(--ink);
 }
 
 .app-subtitle {
   color: var(--muted);
   margin: 0;
-  font-size: 0.95rem;
+  font-size: 0.9rem;
 }
 
 .backend-unreachable-banner {
@@ -40,29 +66,64 @@
 .panel {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 20px 24px;
-  margin-bottom: 20px;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  padding: var(--space-5) var(--space-6);
+  margin-bottom: var(--space-5);
+  transition: box-shadow 0.2s ease;
 }
 
 .panel h2 {
   font-size: 1.05rem;
-  margin: 0 0 8px;
+  margin: 0 0 var(--space-2);
   color: var(--ink);
 }
 
 .panel-sub {
   color: var(--muted);
   font-size: 0.85rem;
-  margin: 0 0 16px;
-  line-height: 1.5;
+  margin: 0 0 var(--space-4);
+  line-height: 1.55;
 }
 
 .two-column {
   display: grid;
   grid-template-columns: 1.3fr 1fr;
-  gap: 20px;
+  gap: var(--space-5);
   align-items: start;
+}
+
+/* Tour-highlighted panel: a soft pulsing accent ring, used to draw the eye during the guided
+   walkthrough without moving or resizing anything underneath it. */
+.tour-highlight {
+  animation: pulse-ring 1.6s ease-in-out infinite;
+  border-color: var(--accent);
+  position: relative;
+  z-index: 1;
+}
+
+/* Legend row under a chart -- gives each fill color a name instead of leaving a judge to guess
+   what green vs. amber vs. gray means. */
+.chart-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  margin: var(--space-2) 0 var(--space-4);
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.chart-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.chart-legend-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  flex: none;
 }
 
 @media (max-width: 800px) {
@@ -164,36 +225,49 @@ button:disabled {
 .tiles {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 16px;
-  margin-bottom: 20px;
+  gap: var(--space-4);
+  margin-bottom: var(--space-5);
 }
 
 .tile {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 18px 20px;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  padding: var(--space-4) var(--space-5);
   display: flex;
   flex-direction: column;
   gap: 4px;
+  border-top: 3px solid var(--border);
 }
 
 .tile-label {
-  font-size: 0.78rem;
+  font-size: 0.74rem;
   color: var(--muted);
   text-transform: uppercase;
-  letter-spacing: 0.03em;
+  letter-spacing: 0.04em;
+  font-weight: 600;
 }
 
 .tile-value {
-  font-size: 1.6rem;
-  font-weight: 700;
+  font-size: 1.85rem;
+  font-weight: 800;
   color: var(--ink);
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
 }
 
 .tile-sub {
-  font-size: 0.8rem;
+  font-size: 0.78rem;
   color: var(--muted);
+}
+
+.tile-good {
+  border-top-color: var(--good);
+}
+
+.tile-warn {
+  border-top-color: var(--warn);
 }
 
 .tile-good .tile-value {
@@ -221,10 +295,16 @@ button:disabled {
 
 .bar-row {
   display: grid;
-  grid-template-columns: 110px 1fr 56px;
+  grid-template-columns: 140px 1fr 56px;
   align-items: center;
   gap: 10px;
   font-size: 0.85rem;
+}
+
+.bar-row-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .bar-track {
@@ -387,20 +467,24 @@ button:disabled {
 
 .escalation-item {
   border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 14px 16px;
+  border-left: 3px solid var(--warn);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  padding: var(--space-4);
+  transition: border-color 0.15s ease;
 }
 
 .escalation-header {
   display: flex;
   align-items: center;
-  gap: 12px;
-  margin-bottom: 8px;
+  gap: var(--space-3);
+  margin-bottom: var(--space-2);
   flex-wrap: wrap;
 }
 
 .escalation-amount {
   font-weight: 700;
+  font-variant-numeric: tabular-nums;
 }
 
 .escalation-confidence {
@@ -412,20 +496,65 @@ button:disabled {
   font-size: 0.85rem;
   color: var(--ink);
   line-height: 1.5;
-  margin: 0 0 10px;
+  margin: 0 0 var(--space-3);
+}
+
+.escalation-resolved {
+  border-left-color: var(--border);
 }
 
 .escalation-resolved.was-correct {
   background: color-mix(in srgb, var(--good) 8%, transparent);
+  border-left-color: var(--good);
 }
 
 .escalation-resolved.was-wrong {
   background: color-mix(in srgb, var(--bad) 8%, transparent);
+  border-left-color: var(--bad);
 }
 
 .escalation-item.would-auto-resolve {
-  border-color: var(--good);
+  border-left-color: var(--good);
   border-style: dashed;
+}
+
+/* "Clean sweep" empty state -- zero escalations is the system working as intended, not a bug or
+   a blank space, so it gets a deliberately positive treatment instead of the same muted italic
+   text used for "nothing here yet". */
+.clean-sweep {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  background: var(--good-soft);
+  border: 1px solid color-mix(in srgb, var(--good) 35%, transparent);
+  border-radius: var(--radius-sm);
+  padding: var(--space-4);
+  color: var(--ink);
+}
+
+.clean-sweep-icon {
+  flex: none;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--good);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 0.95rem;
+}
+
+.clean-sweep-text strong {
+  display: block;
+  font-size: 0.92rem;
+  margin-bottom: 2px;
+}
+
+.clean-sweep-text span {
+  font-size: 0.8rem;
+  color: var(--muted);
 }
 
 /* Stress scorecard */
@@ -531,8 +660,192 @@ button:disabled {
 
 .escalation-tool-calls {
   margin-top: 8px;
+  margin-bottom: var(--space-3);
   font-size: 0.75rem;
   color: var(--muted);
+}
+
+.escalation-item .tool-call-toggle {
+  display: block;
+  margin-bottom: var(--space-2);
+}
+
+/* Decision-colored dot in the audit table -- same semantic mapping as the calibration badges
+   (green family = resolved without a human, amber = escalated, neutral = trivial exact match)
+   so the color language is consistent everywhere a decision shows up. */
+.decision-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.82rem;
+}
+
+.decision-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex: none;
+}
+
+.decision-dot-clean {
+  background: var(--muted);
+}
+
+.decision-dot-auto {
+  background: var(--good);
+}
+
+.decision-dot-escalated {
+  background: var(--warn);
+}
+
+/* Guided tour */
+
+.tour-entry-button {
+  background: var(--surface);
+  color: var(--accent);
+  border: 1px solid var(--accent);
+  font-weight: 600;
+  padding: 8px 14px;
+  font-size: 0.82rem;
+  white-space: nowrap;
+}
+
+.tour-entry-button:hover:not(:disabled) {
+  background: var(--accent-soft);
+  opacity: 1;
+}
+
+.tour-entry-pill {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 50;
+  background: var(--ink);
+  color: white;
+  border: none;
+  border-radius: 999px;
+  padding: 10px 18px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  box-shadow: var(--shadow-md);
+  animation: reveal-in 0.3s ease-out both;
+}
+
+.tour-entry-pill:hover {
+  opacity: 0.92;
+}
+
+.tour-card {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 50;
+  width: min(340px, calc(100vw - 48px));
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  padding: var(--space-4) var(--space-5);
+  animation: reveal-in 0.25s ease-out both;
+}
+
+.tour-card-eyebrow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--accent);
+  font-weight: 700;
+  margin-bottom: var(--space-2);
+}
+
+.tour-card-close {
+  background: none;
+  border: none;
+  color: var(--muted);
+  padding: 0;
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.tour-card-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--ink);
+  margin-bottom: var(--space-2);
+}
+
+.tour-card-body {
+  font-size: 0.85rem;
+  color: var(--ink);
+  line-height: 1.55;
+  margin-bottom: var(--space-4);
+}
+
+.tour-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.tour-dots {
+  display: flex;
+  gap: 6px;
+}
+
+.tour-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--border);
+}
+
+.tour-dot-active {
+  background: var(--accent);
+  width: 16px;
+  border-radius: 3px;
+}
+
+.tour-card-nav {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.tour-card-nav button {
+  padding: 6px 12px;
+  font-size: 0.8rem;
+}
+
+.tour-hint-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  background: var(--accent-soft);
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+  border-radius: var(--radius-sm);
+  padding: 10px 16px;
+  margin-bottom: var(--space-4);
+  font-size: 0.85rem;
+  color: var(--ink);
+}
+
+.tour-hint-banner button {
+  flex: none;
+}
+
+.tour-hint-dismiss {
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-size: 1rem;
+  padding: 0 4px;
+  cursor: pointer;
 }
 
 /* Break it panel */
@@ -566,4 +879,100 @@ button:disabled {
   color: var(--muted);
   text-align: center;
   padding: 40px 0;
+}
+
+/* Pre-first-run empty state: a real card with a clear next action, not a lone gray sentence
+   floating under the controls. */
+.empty-state-card {
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  padding: var(--space-7) var(--space-5);
+  text-align: center;
+  color: var(--muted);
+}
+
+.empty-state-card-icon {
+  font-size: 1.6rem;
+  margin-bottom: var(--space-2);
+}
+
+.empty-state-card-title {
+  color: var(--ink);
+  font-weight: 700;
+  font-size: 1rem;
+  margin-bottom: var(--space-1);
+}
+
+.empty-state-card-sub {
+  font-size: 0.85rem;
+  max-width: 440px;
+  margin: 0 auto;
+  line-height: 1.5;
+}
+
+/* Loading skeleton for the very first run -- POST /api/run can take anywhere from instant (mock)
+   to tens of minutes (real Groq); this fills the same layout space the real tiles/panels will
+   occupy so nothing jumps when the response lands. */
+.skeleton-block {
+  border-radius: var(--radius-md);
+  background: linear-gradient(90deg, var(--track) 25%, var(--border) 37%, var(--track) 63%);
+  background-size: 400px 100%;
+  animation: skeleton-shimmer 1.4s ease-in-out infinite;
+}
+
+.skeleton-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: var(--space-4);
+  margin-bottom: var(--space-5);
+}
+
+.skeleton-tile {
+  height: 92px;
+}
+
+.skeleton-panel {
+  height: 220px;
+  margin-bottom: var(--space-5);
+}
+
+/* Stale-data overlay shown when a result is already on screen and a new run is in flight --
+   dims the old data and labels it clearly as "about to be replaced" instead of leaving it
+   looking like current, live data. */
+.stale-wrap {
+  position: relative;
+}
+
+.stale-wrap[data-stale="true"] > *:not(.stale-banner) {
+  opacity: 0.5;
+  filter: saturate(0.7);
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+
+.stale-banner {
+  position: sticky;
+  top: 8px;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  background: var(--ink);
+  color: white;
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 8px 14px;
+  border-radius: 999px;
+  width: fit-content;
+  margin: 0 auto var(--space-4);
+  box-shadow: var(--shadow-md);
+}
+
+.stale-banner-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #6ecf8e;
+  animation: pulse-ring 1.2s ease-in-out infinite;
 }
