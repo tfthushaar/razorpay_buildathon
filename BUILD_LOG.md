@@ -3213,3 +3213,60 @@ the kind of admissions that build trust rather than erode it. It's ready to subm
 145/145 tests passing, no code changes this round (audit only).
 
 ---
+
+## 2026-08-26 — Frontend visual polish: typography, color system, and a real density bug fixed
+
+Asked to make the frontend "beautiful and easy to understand and use." Started by actually looking at
+it, not guessing from the code: ran both dev servers, screenshotted the empty state and a full run.
+The existing token system (spacing/radius/shadow scale, reveal animations) from an earlier session
+pass was solid, but the visual execution read as default-scaffolding rather than designed — plain
+system-ui font, a generic blue-ish accent, barely-visible shadows — and one real usability problem: a
+20-item fee-leak batch rendered as 20 always-fully-expanded cards, each showing its full reasoning
+paragraph whether anyone asked for it or not, making the section a multi-thousand-pixel wall of
+near-identical text.
+
+**Typography and color system**: added Inter (variable weight, tabular figures) via Google Fonts for
+UI text and JetBrains Mono for transaction IDs/code/dispute templates, replacing the system-ui default.
+Deepened the accent from a fairly generic `#3b5bdb` to a richer indigo-violet (`#4338ca`) with a proper
+hover state, refined the neutral gray scale to a cooler slate, added `--surface-2`/`--border-strong`
+tokens for depth, and a `--shadow-lg` for real elevation instead of the previous single subtle shadow
+used everywhere. Buttons now lift and deepen on hover (translateY + shadow) instead of just fading
+opacity; tiles lift on hover too. A subtle radial gradient behind the header adds depth without being
+loud.
+
+**The real fix: `FeeLeakAnalysis.tsx` redesigned around a collapse-by-default pattern.** A summary
+strip now leads (total recoverable fees, total miscalculated tax, finding count across N patterns),
+and each finding is a single compact row (transaction id, pattern badge, rail, impact amount) that
+expands on click to reveal the variance breakdown and dispute template -- previously only the dispute
+template itself was collapsed, the reasoning paragraph and header always rendered in full for every
+item. The same 20 findings that used to take roughly 4,000px of vertical space now take about 600px
+collapsed, each individually inspectable on demand.
+
+**A real CSS bug found live, not assumed away**: the new `.fee-leak-row-header:hover` rule (a `<button>`
+under the hood, for accessibility) was being silently overridden by the global `button:hover:not(:disabled)`
+rule, which has higher specificity (0,2,1 vs. 0,2,0) -- confirmed by screenshot, the row flashed the
+primary-button purple + lift transform on hover instead of the intended subtle background change.
+Fixed by adding `:not(:disabled)` to match and exceed the generic rule's specificity, the same fix
+already applied earlier to `.secondary-button`/`.link-button` for the identical reason -- this is
+apparently a recurring shape whenever a new interactive element reuses the bare `button` tag.
+
+**Verified functionally, not just visually**: after all CSS/component changes, drove the app live via
+Playwright -- dragged the calibration threshold slider (confirmed the distinct-transaction-count floor
+still correctly held `duplicate_refund` at "Escalate" even with the threshold dropped to 70%, since it
+only has 8 distinct cases against the 15 required, exactly the gating logic this project built and
+tested weeks ago) and resolved a live escalation (confirmed the queue updated and showed a real
+confirmation state). Zero console errors throughout. `npm run build` and `npm run lint` both clean
+(one pre-existing lint warning in `RunControls.tsx`, unrelated to this pass, left as-is).
+
+**Regenerated all 7 committed README screenshots** against the new design -- two needed more than a
+recapture: `01-empty-state.png` was cut off above the actual "Nothing run yet" empty-state card at the
+viewport height used, and `02-summary-baseline.png` was accidentally capturing the top of the page
+(run controls) instead of the summary tiles and baseline comparison it's supposed to show, both fixed
+by scrolling the actual target into view before capturing rather than trusting a fixed viewport
+position. `05-guided-tour.png` now shows an actual active tour step (clicked the entry pill first)
+instead of the collapsed trigger alone. `07-erp-export.png` now shows a real Tally XML preview
+(clicked the format button first) instead of the empty pre-export state.
+
+145/145 backend tests unaffected (frontend-only change). No functional regressions found.
+
+---

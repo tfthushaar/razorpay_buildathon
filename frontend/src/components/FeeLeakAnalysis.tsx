@@ -10,6 +10,7 @@ export function FeeLeakAnalysis({ result }: { result: BatchRunResult }) {
   // defensively rather than trusting it blindly, since a sort defined once in the API contract is
   // cheap to re-assert on the display side and doesn't cost anything if the backend already did it.
   const findings = [...result.fee_leak_report.findings].sort((a, b) => b.total_impact - a.total_impact);
+  const report = result.fee_leak_report;
 
   const handleCopy = async (transactionId: string, template: string) => {
     try {
@@ -31,46 +32,65 @@ export function FeeLeakAnalysis({ result }: { result: BatchRunResult }) {
         A separate batch of transactions that reconcile perfectly cleanly but were billed above the merchant's own fee
         contract — blended-rate overcharges and GST computed on the wrong base. Ranked by ₹ impact, highest first.
       </p>
-      {findings.length === 0 && (
-        <p className="empty-row">No fee leaks detected in this batch.</p>
-      )}
+      {findings.length === 0 && <p className="empty-row">No fee leaks detected in this batch.</p>}
       {findings.length > 0 && (
-        <ul className="escalation-list">
-          {findings.map((f) => {
-            const isOpen = expandedId === f.transaction_id;
-            return (
-              <li key={f.transaction_id} className="escalation-item">
-                <div className="escalation-header">
-                  <span className="badge badge-neutral">{f.transaction_id}</span>
-                  <span className="badge badge-warn">{f.pattern_label}</span>
-                  <span className="escalation-confidence">{f.rail}</span>
-                  <span className="escalation-amount">{rupees(f.total_impact)} impact</span>
-                </div>
-                <p className="escalation-reasoning">
-                  Contracted fee <strong>{rupees(f.contracted_fee)}</strong> vs. actual{" "}
-                  <strong>{rupees(f.actual_fee)}</strong> (variance {rupees(f.fee_variance)}) · contracted GST{" "}
-                  <strong>{rupees(f.contracted_gst)}</strong> vs. actual <strong>{rupees(f.actual_gst)}</strong>{" "}
-                  (variance {rupees(f.gst_variance)})
-                </p>
-                <button
-                  type="button"
-                  className="link-button tool-call-toggle"
-                  onClick={() => setExpandedId(isOpen ? null : f.transaction_id)}
-                >
-                  {isOpen ? "▾" : "▸"} Dispute template
-                </button>
-                {isOpen && (
-                  <div className="dispute-template-block">
-                    <pre className="dispute-template-text">{f.dispute_template}</pre>
-                    <button type="button" className="secondary-button" onClick={() => handleCopy(f.transaction_id, f.dispute_template)}>
-                      {copiedId === f.transaction_id ? "Copied ✓" : "Copy to clipboard"}
-                    </button>
-                  </div>
-                )}
-              </li>
-            );
-          })}
-        </ul>
+        <>
+          <div className="fee-leak-summary">
+            <div className="fee-leak-summary-stat">
+              <span className="fee-leak-summary-value">{rupees(report.total_fee_recovery)}</span>
+              <span className="fee-leak-summary-label">recoverable fees</span>
+            </div>
+            <div className="fee-leak-summary-stat">
+              <span className="fee-leak-summary-value">{rupees(report.total_gst_correction)}</span>
+              <span className="fee-leak-summary-label">miscalculated tax</span>
+            </div>
+            <div className="fee-leak-summary-stat">
+              <span className="fee-leak-summary-value">{findings.length}</span>
+              <span className="fee-leak-summary-label">
+                findings across {Object.keys(report.by_pattern).length} pattern{Object.keys(report.by_pattern).length === 1 ? "" : "s"}
+              </span>
+            </div>
+          </div>
+          <ul className="fee-leak-list">
+            {findings.map((f) => {
+              const isOpen = expandedId === f.transaction_id;
+              return (
+                <li key={f.transaction_id} className={`fee-leak-row${isOpen ? " is-open" : ""}`}>
+                  <button
+                    type="button"
+                    className="fee-leak-row-header"
+                    onClick={() => setExpandedId(isOpen ? null : f.transaction_id)}
+                    aria-expanded={isOpen}
+                  >
+                    <span className="fee-leak-row-chevron" aria-hidden="true">
+                      {isOpen ? "▾" : "▸"}
+                    </span>
+                    <span className="badge badge-neutral">{f.transaction_id}</span>
+                    <span className="badge badge-warn">{f.pattern_label}</span>
+                    <span className="fee-leak-row-rail">{f.rail}</span>
+                    <span className="fee-leak-row-amount">{rupees(f.total_impact)}</span>
+                  </button>
+                  {isOpen && (
+                    <div className="fee-leak-row-detail">
+                      <p className="escalation-reasoning">
+                        Contracted fee <strong>{rupees(f.contracted_fee)}</strong> vs. actual{" "}
+                        <strong>{rupees(f.actual_fee)}</strong> (variance {rupees(f.fee_variance)}) · contracted GST{" "}
+                        <strong>{rupees(f.contracted_gst)}</strong> vs. actual <strong>{rupees(f.actual_gst)}</strong>{" "}
+                        (variance {rupees(f.gst_variance)})
+                      </p>
+                      <div className="dispute-template-block">
+                        <pre className="dispute-template-text">{f.dispute_template}</pre>
+                        <button type="button" className="secondary-button" onClick={() => handleCopy(f.transaction_id, f.dispute_template)}>
+                          {copiedId === f.transaction_id ? "Copied ✓" : "Copy dispute template"}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        </>
       )}
     </section>
   );
