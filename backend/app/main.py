@@ -26,6 +26,7 @@ from app.audit.logger import AuditLogger
 from app.calibration.calibrator import CalibrationReport
 from app.calibration.history import CalibrationHistory
 from app.calibration.regret import RegretReport, compute_regret
+from app.calibration.revocation_drill import RevocationDrillReport, run_revocation_drill
 from app.chain.builder import build_all_chains
 from app.data_gen.generate import generate, generate_pending_batch
 from app.data_gen.schemas import LedgerEntry, Order, Payment, Refund, Settlement, SyntheticBatch
@@ -206,6 +207,23 @@ def api_regret(threshold: float = Query(0.90, ge=0.0, le=1.0)) -> RegretReport:
     """Regret in rupees (upgrade build Phase 4): the realized cost of calibrated autonomy, replayed
     chronologically over the accumulated history -- see app/calibration/regret.py."""
     return compute_regret(calibration_history, threshold=threshold)
+
+
+class DrillRequest(BaseModel):
+    category: Literal["duplicate_refund", "netting_trap"] = "netting_trap"  # genuine_error is in NEVER_AUTO_RESOLVE, never a valid drill target
+    threshold: float = Field(0.90, ge=0.0, le=1.0)
+    n_qualifying: int = Field(40, ge=1, le=500)
+    regression_budget: int = Field(50, ge=0, le=500)
+
+
+@app.post("/api/drift/drill")
+def api_drift_drill(req: DrillRequest) -> RevocationDrillReport:
+    """Time-to-revocation drill (upgrade build Phase 5): a demo harness over the real, already-tested
+    calibrate()/detect_drift() machinery, run against a fresh isolated history -- never the real app's
+    accumulated calibration_history.db. See app/calibration/revocation_drill.py."""
+    return run_revocation_drill(
+        category=req.category, threshold=req.threshold, n_qualifying=req.n_qualifying, regression_budget=req.regression_budget
+    )
 
 
 @app.post("/api/escalations/resolve")

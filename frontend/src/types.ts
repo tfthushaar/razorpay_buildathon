@@ -100,6 +100,16 @@ export interface BatchRunResult {
   category_proposals: CategoryProposal[];
 }
 
+export interface RevocationDrillReport {
+  category: string;
+  threshold: number;
+  qualifying_decision_count: number;
+  revoked: boolean;
+  decisions_survived: number | null;
+  amount_survived: number | null;
+  revocation_reason: string | null;
+}
+
 export interface RegretReport {
   threshold: number;
   realized_regret_amount: number;

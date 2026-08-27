@@ -3466,3 +3466,44 @@ mock-never-counts case, the re-scored-transaction-not-double-counted case, and `
 structural inability to ever contribute), 184/184 total suite passing.
 
 ---
+
+## 2026-08-27 — Upgrade build, Phase 5: time-to-revocation drill
+
+Fifth phase of the approved upgrade plan. Deliberately NOT new statistics -- `detect_drift()`
+(`app/calibration/drift.py`) and `calibrate()` (`app/calibration/calibrator.py`) already exist,
+already have their own tests, and already gate real autonomy. This phase is a demo harness around
+that real machinery, answering a question the rest of the project can only show anecdotally: once a
+category has genuinely earned auto-resolve, how many wrong decisions -- and how much real money --
+does it take before the system revokes that trust on its own?
+
+`app/calibration/revocation_drill.py::run_revocation_drill` runs entirely against a fresh, isolated
+`CalibrationHistory` (a temp SQLite file, discarded when the drill finishes) -- never the real app's
+accumulated `calibration_history.db`. It seeds 40 clean (100%-correct, real-provider) decisions for a
+category, verified directly to clear both `MIN_DISTINCT_TRANSACTIONS_FOR_AUTO_RESOLVE` and the 90%
+Wilson lower bound (`wilson_score_interval(40, 40)` = 91.2% -- 35 is the actual minimum at 90.1%, too
+tight a margin for a reliable fixture), then replays deliberately wrong decisions one at a time via
+the real `add_and_report()`, checking after each one whether the category's own `decision` field has
+flipped away from `auto_resolve`.
+
+**Real, empirically observed result, not an invented target**: it took exactly **one** wrong decision
+(₹500 in flight) to revoke autonomy for `netting_trap` after 40 clean decisions had earned it. This
+was surprising on first run -- expected something like "5-10 decisions" -- but is correct, not a bug:
+the EWMA drift check is specifically designed to react far faster than the aggregate Wilson bound
+(that's the entire reason `drift.py` exists, per its own module docstring), and with `lambda_=0.3`,
+a single wrong observation after a long all-correct streak swings the EWMA hard in one step (EWMA
+70.0% against a control limit of 78.1%, even though the all-time aggregate still reads 97.6%). Kept
+exactly as found rather than tuning the drill's parameters to produce a "more dramatic-sounding"
+number -- a system that revokes trust after ONE real mistake, not ten, is a stronger "Failure
+Recovery" story anyway, and a fabricated one would undermine every other honestly-reported number in
+this project.
+
+`genuine_error` is correctly rejected as a drill target up front (it's in `NEVER_AUTO_RESOLVE` by
+construction -- there's nothing to revoke since it can never qualify in the first place), rather than
+silently running a pointless loop.
+
+New endpoint `POST /api/drift/drill`. New frontend panel `RevocationDrill.tsx`, placed next to the
+live calibration dial, reusing its badge/table visual language -- verified live via Playwright: ran
+the drill for real through the browser, got the same real "1 decision, ₹500" result, zero console
+errors. 5 new tests (`test_revocation_drill.py`), 189/189 total suite passing.
+
+---

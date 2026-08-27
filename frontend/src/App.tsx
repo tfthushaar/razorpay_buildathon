@@ -13,6 +13,7 @@ import { ForecastPanel } from "./components/ForecastPanel";
 import { ErpExport } from "./components/ErpExport";
 import { AuditLogView } from "./components/AuditLogView";
 import { SettlementQA } from "./components/SettlementQA";
+import { RevocationDrill } from "./components/RevocationDrill";
 import { BreakItPanel } from "./components/BreakItPanel";
 import { GuidedTour } from "./components/GuidedTour";
 import "./App.css";
@@ -105,6 +106,7 @@ function App() {
           <ForecastPanel refreshKey={refreshKey} />
           <ErpExport result={result} />
           <CalibrationPanel initialReport={result.calibration} refreshKey={refreshKey} onReportChange={setLiveCalibration} />
+          <RevocationDrill />
           <EscalationQueue
             escalations={result.escalations}
             runId={result.run_id}

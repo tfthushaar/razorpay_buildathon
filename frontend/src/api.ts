@@ -10,6 +10,7 @@ import type {
   QAAnswer,
   RegretReport,
   ResolveResponse,
+  RevocationDrillReport,
 } from "./types";
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
@@ -94,3 +95,9 @@ export const askSettlementQuestion = (question: string, provider?: string) =>
   });
 
 export const getRegret = (threshold: number = 0.9) => request<RegretReport>(`/api/regret?threshold=${threshold}`);
+
+export const runRevocationDrill = (category: string = "netting_trap") =>
+  request<RevocationDrillReport>("/api/drift/drill", {
+    method: "POST",
+    body: JSON.stringify({ category }),
+  });

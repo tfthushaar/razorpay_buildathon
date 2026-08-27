@@ -214,7 +214,20 @@ every push this session.
   project's own real accumulated dev history: 11 real auto-resolved transactions, ₹0 realized
   regret so far (100% correct to date), 0.7 estimated analyst-hours saved — rendered correctly in
   the browser, zero console errors. 7 new tests (`test_regret.py`), 184/184 total suite passing.
-- [ ] Phase 5 — Time-to-revocation drill
+- [x] **Phase 5 — Time-to-revocation drill (2026-08-27)** — a demo harness around the real,
+  already-tested `calibrate()`/`detect_drift()`/`CalibrationHistory` machinery, not new statistics:
+  `app/calibration/revocation_drill.py::run_revocation_drill` seeds a fresh, isolated (throwaway)
+  history with 40 clean decisions for a category (verified directly: `wilson_score_interval(40,40)
+  = 91.2%`, comfortably past both the distinct-transaction floor and the 90% bound), then replays
+  deliberately wrong decisions one at a time via `add_and_report()`, recording exactly which one
+  first flips that category's decision away from `auto_resolve`. Real, empirically-observed result
+  (not an invented target): **1 wrong decision (₹500 in flight) was enough** — the EWMA drift
+  check (Phase-independent machinery already built and tested) reacts far faster than the aggregate
+  Wilson bound, which is the whole reason it exists; a stronger "fails fast, not silently" story
+  than expected, kept exactly as found rather than tuned to look more dramatic. New endpoint
+  `POST /api/drift/drill`; new frontend panel `RevocationDrill.tsx` next to the live calibration
+  dial, verified live via Playwright — real drill run, real result rendered, zero console errors.
+  5 new tests (`test_revocation_drill.py`), 189/189 total suite passing.
 - [ ] Phase 6 — Tax-line matcher, GSTR-2B-complete
 - [ ] Phase 7 — Escalation queue, light polish only
 
