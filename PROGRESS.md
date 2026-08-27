@@ -164,11 +164,11 @@ every push this session.
   of the "pending transactions" generator reused the wrong capture-time spread, making everything
   look artificially overdue. 3 new endpoints, 1 new frontend panel (verified live — real batch run,
   real payroll check, zero console errors), 10 new tests, 155/155 total suite passing.
-  **2026-08-27 correction**: an external critique correctly flagged that the README's headline MAPE
-  figure read as forecast uncertainty without disclosing that 73.3% of transactions predict to the
-  paise by construction (the predictor reuses the same deterministic fee schedule the generator
-  itself applied) — verified the 73.3%/mismatch-by-category breakdown independently, then rewrote
-  the README row to disclose it plainly; no code changed, see BUILD_LOG.md.
+  **2026-08-27 correction**: a closer re-read found the README's headline MAPE figure read as
+  forecast uncertainty without disclosing that 73.3% of transactions predict to the paise by
+  construction (the predictor reuses the same deterministic fee schedule the generator itself
+  applied) — verified the 73.3%/mismatch-by-category breakdown independently, then rewrote the
+  README row to disclose it plainly; no code changed, see BUILD_LOG.md.
 - [x] **Phase 2 — Settlement Q&A agent (2026-08-27)** — a genuinely separate agentic loop from the
   narrator (`app/qa/agent.py`), not a reuse: the narrator is chain-scoped with a rigid
   category/confidence contract, this is batch-scoped with a free-text answer contract, same

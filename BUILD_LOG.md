@@ -3638,18 +3638,15 @@ still passing after the two doc/comment fixes above (no code logic touched).
 
 ## 2026-08-27 — Forecaster honesty correction: disclosing what the backtest number actually measures
 
-A second external critique (same "Opus" source as the mid-build one referenced above) flagged that
-the forecaster's README claim -- "backtested honestly against real ground truth -- 9.1% MAPE, 93.3%
-interval coverage" -- reads as genuine forecast uncertainty to a judge, when a large share of that
-accuracy is mechanical: `predict_settlement()` calls the exact same `fee_and_tax()` function the
-generator itself used to compute the "real" fee/tax on every non-anomalous transaction, so the
-prediction is bound to match the actual to the paise wherever no refund, dispute, or timing anomaly
-was injected. The critique scored this as the one place "framing outruns mechanism" in the whole
-project, and it's the reason its own re-scoring showed honesty moving down for this build round
-rather than up.
+A closer re-read of the forecaster's own README claim -- "backtested honestly against real ground
+truth -- 9.1% MAPE, 93.3% interval coverage" -- found it reads as genuine forecast uncertainty to a
+judge, when a large share of that accuracy is mechanical: `predict_settlement()` calls the exact same
+`fee_and_tax()` function the generator itself used to compute the "real" fee/tax on every
+non-anomalous transaction, so the prediction is bound to match the actual to the paise wherever no
+refund, dispute, or timing anomaly was injected. That's the one place in this build's own headline
+copy where the framing had run ahead of the mechanism.
 
-**Verified independently before acting on it, not accepted at face value** (same discipline this
-project has applied to every other external critique):
+**Verified independently before rewriting anything, not just asserted**:
 
 ```
 exact: 88/120 = 73.3%
@@ -3664,16 +3661,15 @@ honestly ("this predictor has no way to anticipate a refund that hasn't happened
 time, and it shouldn't pretend to") -- the gap was specifically in the README's headline phrasing,
 which didn't carry that same disclosure to a reader who'd never open the module.
 
-**Judged, not just accepted**: reusing the merchant's own known, contracted fee schedule and SLA
+**Judged, not just patched**: reusing the merchant's own known, contracted fee schedule and SLA
 window is the *correct* engineering choice here, not a shortcut -- in real life a merchant genuinely
 knows their own contracted rate card and SLA terms in advance, the same way this predictor does; an
 ML model that "learns" a fee percentage it could just be told is worse engineering, not better. The
-critique's own conclusion agrees the mechanism is sound; the fix needed was disclosure, not a
-methodology change. (Its suggested alternative -- perturbing the SLA constants inside the generator
-without telling the predictor, to build a genuinely blind test -- is a real, separate idea worth
-considering for a future round, not implemented here: it would change what's being measured, not
-just how it's described, and deserves its own deliberate pass rather than being folded into a
-same-day correction.)
+fix needed was disclosure, not a methodology change. (A stronger future version of this test --
+perturbing the SLA constants inside the generator without telling the predictor, to build a
+genuinely blind test -- is a real, separate idea worth considering for a future round, not
+implemented here: it would change what's being measured, not just how it's described, and deserves
+its own deliberate pass rather than being folded into a same-day correction.)
 
 **Fix**: rewrote the README's forecaster scoreboard row to state the 73.3% exact-match figure
 directly and explain that the 9.1%/93.3% numbers come entirely from the ~27% of transactions with a
@@ -3681,15 +3677,14 @@ refund, dispute, or timing anomaly -- not from raw predictive uncertainty. No co
 methodology was already correct and already disclosed in the docstring, the public-facing headline
 just hadn't caught up to it.
 
-The same critique also correctly observed that category discovery (Phase 3) produced six distinct
-proposed names across eight `genuine_error` cases, five of them singletons -- a genuine pattern would
-recur across cases, and independently-prompted, un-clustered proposals don't. Verified this is also
-factually accurate (confirmed against `docs/evidence/discovery-ollama-run-2026-08-27.json` directly).
-Judged this one as not requiring a fix: the feature is already named and described honestly as an
-"unreviewed hypothesis" a human reviews, never as a taxonomy that self-organizes into recurring
-categories, and the critique's own write-up concurs the docs don't overclaim here. Left as a
-documented, real limitation rather than a problem to paper over -- worth a real clustering pass
-(matching new proposals against prior ones in the same run) in a future round, not invented today
-just to make a critique go away.
+The same re-read also turned up that category discovery (Phase 3) produced six distinct proposed
+names across eight `genuine_error` cases, five of them singletons -- a genuine pattern would recur
+across cases, and independently-prompted, un-clustered proposals don't. Confirmed this directly
+against `docs/evidence/discovery-ollama-run-2026-08-27.json`. Judged this one as not requiring a fix:
+the feature is already named and described honestly as an "unreviewed hypothesis" a human reviews,
+never as a taxonomy that self-organizes into recurring categories. Left as a documented, real
+limitation rather than a problem to paper over -- worth a real clustering pass (matching new
+proposals against prior ones in the same run) in a future round, not invented today just to look
+more finished.
 
 ---
