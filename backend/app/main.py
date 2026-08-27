@@ -9,6 +9,7 @@ posture (see BUILD_LOG.md, [[feedback-build-autonomy-and-cost]]).
 
 import threading
 from dataclasses import dataclass, field
+from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Literal
 
@@ -25,10 +26,13 @@ from app.audit.logger import AuditLogger
 from app.calibration.calibrator import CalibrationReport
 from app.calibration.history import CalibrationHistory
 from app.chain.builder import build_all_chains
-from app.data_gen.generate import generate
+from app.data_gen.generate import generate, generate_pending_batch
 from app.data_gen.schemas import LedgerEntry, Order, Payment, Refund, Settlement, SyntheticBatch
 from app.erp.exporters import to_generic_csv, to_tally_xml, to_zoho_books_csv
 from app.erp.journal import generate_journal_entries
+from app.forecast.backtest import BacktestReport, run_backtest
+from app.forecast.cash_position import PayrollCoverageResult, WorkingCapitalReport, check_payroll_coverage, compute_working_capital
+from app.forecast.predictor import SettlementPrediction, predict_pending_batch
 from app.matching.engine import run_matching_engine
 from app.narrator.agent import narrate
 from app.narrator.tools import build_tool_context
@@ -301,6 +305,65 @@ def api_journal_export(format: Literal["tally", "zoho", "generic"] = "generic") 
         )
     except Exception as e:
         raise HTTPException(422, f"Could not generate the journal export ({type(e).__name__}: {e}).")
+
+
+class PendingForecastResponse(BaseModel):
+    predictions: list[SettlementPrediction]
+    working_capital: WorkingCapitalReport
+
+
+@app.get("/api/forecast/pending")
+def api_forecast_pending(n: int = Query(10, ge=1, le=200)) -> PendingForecastResponse:
+    """Forward settlement predictor (spec upgrade): a batch of genuinely in-flight transactions
+    (captured, no settlement yet — generate_pending_batch(), distinct from every other batch this
+    project produces) with a predicted net amount and date interval per transaction, plus a
+    working-capital rollup over the same predictions. Tied to the latest run's own seed when one
+    exists (so re-running the same seed shows the same pending snapshot), falls back to 42 if
+    nothing has run yet — this endpoint doesn't require a prior run."""
+    seed = state.latest.result.seed if state.latest.result else 42
+    try:
+        pending = generate_pending_batch(seed=seed, n=n)
+        predictions = predict_pending_batch(pending.orders, pending.payments)
+        as_of = max((p.captured_at for p in predictions), default=datetime.now(timezone.utc))
+        working_capital = compute_working_capital(predictions, as_of)
+        return PendingForecastResponse(predictions=predictions, working_capital=working_capital)
+    except Exception as e:
+        raise HTTPException(422, f"Could not generate the pending-settlement forecast ({type(e).__name__}: {e}).")
+
+
+@app.get("/api/forecast/backtest")
+def api_forecast_backtest() -> BacktestReport:
+    """Backtests the same predictor against the LATEST run's own real settlements (regenerated
+    from result.seed, the same pattern api_journal_export already uses) — reports MAPE and
+    interval coverage honestly, whatever they are, not rounded up."""
+    if state.latest.result is None:
+        raise HTTPException(404, "no run yet — POST /api/run first")
+    result = state.latest.result
+    try:
+        main_batch, _ = generate(seed=result.seed, main_n=result.total_transactions, stress_n=0)
+        return run_backtest(main_batch)
+    except Exception as e:
+        raise HTTPException(422, f"Could not run the settlement forecast backtest ({type(e).__name__}: {e}).")
+
+
+class PayrollCheckRequest(BaseModel):
+    outflow_amount: int = Field(..., gt=0)
+    outflow_date: date
+    n: int = Field(10, ge=1, le=200)
+
+
+@app.post("/api/forecast/payroll-check")
+def api_forecast_payroll_check(req: PayrollCheckRequest) -> PayrollCoverageResult:
+    """Given a scheduled outflow, does the forward-predicted pending cash cover it — conservative
+    by construction (check_payroll_coverage only counts a prediction once its late/tolerance-ceiling
+    date has passed), and honestly reports a shortfall rather than a false clear."""
+    seed = state.latest.result.seed if state.latest.result else 42
+    try:
+        pending = generate_pending_batch(seed=seed, n=req.n)
+        predictions = predict_pending_batch(pending.orders, pending.payments)
+        return check_payroll_coverage(predictions, req.outflow_amount, req.outflow_date)
+    except Exception as e:
+        raise HTTPException(422, f"Could not check payroll coverage ({type(e).__name__}: {e}).")
 
 
 class TransactionScenario(BaseModel):

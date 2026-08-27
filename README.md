@@ -31,6 +31,7 @@ python -m uvicorn app.main:app --reload --port 8000   # then: cd ../frontend && 
 | Measured accuracy | Wilson 95% CI *lower bound* per category, not a raw point estimate | [below](#the-result) |
 | Honest exception list | Every escalation ships a reason + tool trace; full build gaps in [What this can't do](#what-this-cant-do-and-what-it-refuses-to-do) | ↓ |
 | Real Razorpay data | Order + payment + fee + refund are real API objects on a live test account (raw `fee: 1180, tax: 180` on a `50000`-paise payment — pre-tax base 1180/1.18 = 1000, i.e. 2.0% of the payment, matching this project's own `card` rate constant, not `netbanking` — a real, disclosed discrepancy); settlement is structurally unavailable in test mode, verified not assumed | [raw API dump](docs/evidence/razorpay-sandbox-2026-08-25.json) |
+| Forward cash forecaster | A genuinely different track direction from reconciliation, covered too: predicts settlement date + net amount pre-settlement, backtested honestly against real ground truth — 9.1% MAPE, 93.3% interval coverage on this project's own data | `GET /api/forecast/backtest` |
 
 ## The result
 

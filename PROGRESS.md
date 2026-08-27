@@ -144,5 +144,32 @@ Round 5 found something rounds 1-4 all missed: `_final_decision()` (pipeline.py)
 - [x] **Live, usable deployment (2026-08-25)** — frontend on Vercel (razorpay-buildathon-five.vercel.app), backend on Render, connected via `ALLOWED_ORIGINS`, kept warm with a free UptimeRobot ping so judges don't hit a cold start or a calibration-state reset. Verified end to end via Playwright against the actual public URLs, not local dev servers. Docker installed and genuinely verified along the way (previously only "reviewed, never run") — caught a real hardcoded-port bug that would have broken on Render before it shipped. See BUILD_LOG.md's "Actually deployed live" entry for the full trail.
 - [!] **Rotate the GROQ_API_KEY before recording the pitch video, or before setting it as `GROQ_API_KEY` on Render** — it was shared in this session's chat and is not committed, but should be rotated at console.groq.com as a precaution. The live deployment currently runs `LLM_PROVIDER=mock` only; this only matters if/when Groq gets added to the deployed environment.
 
+## Upgrade build (2026-08-26) — plan reviewed and approved before any code was written
+
+Full plan: `C:\Users\Admin\.claude\plans\proud-puzzling-piglet.md`. Seven phases: forecasting core,
+settlement Q&A agent, category discovery, regret-in-rupees, time-to-revocation drill, tax-line
+matcher (GSTR-2B), and a light escalation-queue polish (no full ops-console — descoped deliberately,
+see BUILD_LOG.md). Each phase is its own commit; each push gets a separate confirmation, same as
+every push this session.
+
+- [x] **Phase 1 — forward settlement forecasting (2026-08-26)** — a genuinely different track
+  direction from reconciliation ("forward cash forecaster"), built on top of the existing pipeline.
+  `predict_settlement()` works from Order + Payment alone (confirmed `build_all_chains()` requires a
+  Settlement to exist, no partial-chain support — a forward prediction structurally can't go through
+  `CausalChain`), reusing the same fee/SLA constants the narrator's tools already use. Backtested
+  honestly against a real batch's own real settlements: **9.1% MAPE, 93.3% interval coverage** — not
+  rounded up, and not perfect, since the batch's own adversarial cases are exactly what a
+  pre-settlement forecast can't fully anticipate. Working capital and payroll-coverage checks are
+  thin layers on the same predictions. Caught and fixed a real bug along the way: the first version
+  of the "pending transactions" generator reused the wrong capture-time spread, making everything
+  look artificially overdue. 3 new endpoints, 1 new frontend panel (verified live — real batch run,
+  real payroll check, zero console errors), 10 new tests, 155/155 total suite passing.
+- [ ] Phase 2 — Settlement Q&A agent
+- [ ] Phase 3 — Category discovery (replaces standalone adversarial-generation item)
+- [ ] Phase 4 — Regret in rupees
+- [ ] Phase 5 — Time-to-revocation drill
+- [ ] Phase 6 — Tax-line matcher, GSTR-2B-complete
+- [ ] Phase 7 — Escalation queue, light polish only
+
 ---
 *This file is the resumption point if the session breaks mid-build — re-read it before starting again rather than re-deriving state.*

@@ -107,6 +107,59 @@ export interface JournalExportResponse {
   pending_count: number;
 }
 
+export interface SettlementPrediction {
+  transaction_id: string;
+  rail: string;
+  captured_amount: number;
+  predicted_fee: number;
+  predicted_tax: number;
+  predicted_net_amount: number;
+  captured_at: string;
+  predicted_date_low: string;
+  predicted_date_high: string;
+}
+
+export interface AgedBucket {
+  label: string;
+  amount: number;
+  count: number;
+}
+
+export interface WorkingCapitalReport {
+  as_of: string;
+  total_unsettled_net: number;
+  total_unsettled_gross: number;
+  by_rail: Record<string, number>;
+  at_sla_risk_amount: number;
+  aged_buckets: AgedBucket[];
+}
+
+export interface PendingForecastResponse {
+  predictions: SettlementPrediction[];
+  working_capital: WorkingCapitalReport;
+}
+
+export interface ForwardCurvePoint {
+  settlement_date: string;
+  predicted_amount: number;
+  actual_amount: number;
+}
+
+export interface BacktestReport {
+  n: number;
+  mape: number;
+  interval_coverage: number;
+  forward_curve: ForwardCurvePoint[];
+}
+
+export interface PayrollCoverageResult {
+  outflow_amount: number;
+  outflow_date: string;
+  predicted_available_amount: number;
+  clears: boolean;
+  shortfall_amount: number;
+}
+
 export interface ResolveResponse {
   transaction_id: string;
   predicted_category: string;

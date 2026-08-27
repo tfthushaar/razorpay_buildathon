@@ -95,3 +95,14 @@ class SyntheticBatch(BaseModel):
 
     def transaction_ids(self) -> list[str]:
         return [o.order_id for o in self.orders]
+
+
+class PendingBatch(BaseModel):
+    """Orders + captured payments with deliberately NO settlement yet -- genuinely in-flight
+    money, not the "closed" transactions every other batch in this project produces (which all
+    have a Settlement by construction, since build_all_chains() requires one). This is what a
+    forward settlement prediction actually predicts over; there is nothing to compare it against
+    yet, by definition, until it's no longer pending."""
+
+    orders: list[Order]
+    payments: list[Payment]

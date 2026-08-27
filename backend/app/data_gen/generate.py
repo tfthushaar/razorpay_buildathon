@@ -21,6 +21,7 @@ from app.data_gen.schemas import (
     LedgerEntry,
     Order,
     Payment,
+    PendingBatch,
     Rail,
     Refund,
     Settlement,
@@ -506,6 +507,31 @@ class SyntheticDataGenerator:
         self.rng.shuffle(batches)
         return self._merge(batches)
 
+    def generate_pending_batch(self, n: int = 10) -> PendingBatch:
+        """Orders + captured payments with NO settlement -- genuinely in-flight money, unlike
+        every other batch this generator produces (all of which are "closed" by construction,
+        since build_all_chains() requires a Settlement to exist). Reuses
+        _build_order_and_payment exactly as-is; the only difference from a normal transaction is
+        that the settlement step this generator would normally take next is simply never taken.
+
+        Deliberately does NOT use _rand_created_at() -- that spreads captures across a full 20-day
+        window, appropriate for a batch of already-resolved transactions but wrong for "still in
+        flight right now": nearly every one of them would already look overdue against a 1-5 day
+        SLA window purely from the spread, not from anything genuinely wrong. Captures here are
+        clustered in the last 0-2 days instead, the way an actual snapshot of unsettled payments
+        would look."""
+        orders: list[Order] = []
+        payments: list[Payment] = []
+        recent_base = self.base_date + timedelta(days=self.rng.randint(18, 20))
+        for _ in range(n):
+            rail = self._pick_rail()
+            amount = self._rand_amount()
+            created_at = recent_base - timedelta(hours=self.rng.randint(0, 48))
+            order, payment, _fee, _tax = self._build_order_and_payment(amount, rail, "INR", created_at)
+            orders.append(order)
+            payments.append(payment)
+        return PendingBatch(orders=orders, payments=payments)
+
     def generate_stress_batch(self, n: int = 40) -> SyntheticBatch:
         """Dedicated 100%-adversarial stress batch (spec §4, "A separate 100%-adversarial
         stress batch"). Never blended into the main batch's reported accuracy — scored and
@@ -541,3 +567,12 @@ def generate_fee_leak_batch(seed: int = 42, n: int = 20) -> SyntheticBatch:
     SyntheticDataGenerator, and app/feeleak/detector.py)."""
     gen = SyntheticDataGenerator(seed=seed + 2)
     return gen.generate_fee_leak_batch(n)
+
+
+def generate_pending_batch(seed: int = 42, n: int = 10) -> PendingBatch:
+    """Independent stream (seed+3) -- in-flight transactions for the forward settlement
+    predictor, distinct from every other batch this generator produces since it's the only one
+    without a Settlement at all (see generate_pending_batch on SyntheticDataGenerator, and
+    app/forecast/predictor.py)."""
+    gen = SyntheticDataGenerator(seed=seed + 3)
+    return gen.generate_pending_batch(n)

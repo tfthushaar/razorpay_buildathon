@@ -9,6 +9,7 @@ import { CalibrationPanel } from "./components/CalibrationPanel";
 import { EscalationQueue } from "./components/EscalationQueue";
 import { StressScorecard } from "./components/StressScorecard";
 import { FeeLeakAnalysis } from "./components/FeeLeakAnalysis";
+import { ForecastPanel } from "./components/ForecastPanel";
 import { ErpExport } from "./components/ErpExport";
 import { AuditLogView } from "./components/AuditLogView";
 import { BreakItPanel } from "./components/BreakItPanel";
@@ -100,6 +101,7 @@ function App() {
             <StressScorecard stress={result.stress} />
           </div>
           <FeeLeakAnalysis result={result} />
+          <ForecastPanel refreshKey={refreshKey} />
           <ErpExport result={result} />
           <CalibrationPanel initialReport={result.calibration} refreshKey={refreshKey} onReportChange={setLiveCalibration} />
           <EscalationQueue

@@ -1164,3 +1164,20 @@ button:disabled {
   background: #6ecf8e;
   animation: pulse-ring 1.2s ease-in-out infinite;
 }
+
+/* Forecast panel */
+
+.payroll-check {
+  margin-top: var(--space-5);
+  padding-top: var(--space-5);
+  border-top: 1px solid var(--border);
+}
+
+.payroll-check h3 {
+  font-size: 0.98rem;
+  margin: 0 0 var(--space-1);
+}
+
+.payroll-check .run-controls-grid {
+  align-items: end;
+}

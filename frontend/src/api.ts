@@ -1,4 +1,14 @@
-import type { AuditEntry, BatchRunResult, CalibrationReport, EvaluateResponse, JournalExportResponse, ResolveResponse } from "./types";
+import type {
+  AuditEntry,
+  BacktestReport,
+  BatchRunResult,
+  CalibrationReport,
+  EvaluateResponse,
+  JournalExportResponse,
+  PayrollCoverageResult,
+  PendingForecastResponse,
+  ResolveResponse,
+} from "./types";
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
 
@@ -62,3 +72,14 @@ export const evaluateScenario = (scenarioJson: object) =>
 
 export const exportJournal = (format: "tally" | "zoho" | "generic") =>
   request<JournalExportResponse>(`/api/journal/export?format=${format}`);
+
+export const getPendingForecast = (n: number = 10) =>
+  request<PendingForecastResponse>(`/api/forecast/pending?n=${n}`);
+
+export const getForecastBacktest = () => request<BacktestReport>("/api/forecast/backtest");
+
+export const checkPayrollCoverage = (outflow_amount: number, outflow_date: string, n: number = 10) =>
+  request<PayrollCoverageResult>("/api/forecast/payroll-check", {
+    method: "POST",
+    body: JSON.stringify({ outflow_amount, outflow_date, n }),
+  });
