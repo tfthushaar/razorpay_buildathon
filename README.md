@@ -44,7 +44,10 @@ auto-resolved with zero human review**, not the same handful of transactions cou
 re-scoring (`duplicate_refund` earned the same status separately: 37 cases, 100% accuracy). Getting
 here took real setbacks — 100% accuracy at 29 distinct cases still didn't clear the bound, and a
 couple of genuine misclassifications happened before enough further evidence pulled it past 90% for
-good.
+good. Replaying this same evidence chronologically (`GET /api/regret` — realized cost, not
+`amount_at_risk`'s forward-looking estimate) shows **₹0 in realized regret across 8 real
+auto-resolved transactions so far** — an honest, small, still-early number, not rounded up to
+match the pitch.
 
 The counterweight is the actual point. `genuine_error` sat at 80.3% measured accuracy across the same
 evidence and **stayed escalated anyway**, because it's the one category that never auto-resolves
@@ -104,7 +107,7 @@ Three commands, all working on a genuinely fresh clone — not read off a dashbo
 hand:
 
 ```bash
-cd backend && python -m pytest tests/ -v                                          # 177 tests
+cd backend && python -m pytest tests/ -v                                          # 184 tests
 python scripts/audit_calibration.py --db ../docs/evidence/verified_calibration_history.db  # the netting_trap/duplicate_refund result above, recomputed live
 python -c "from app.pipeline import run_batch; r = run_batch(seed=42, main_n=120, stress_n=40, provider='mock'); print(r.fee_leak_report.total_fee_recovery, r.total_itc_separated)"  # fee-leak + ITC figures
 ```

@@ -25,6 +25,7 @@ import os
 from app.audit.logger import AuditLogger
 from app.calibration.calibrator import CalibrationReport
 from app.calibration.history import CalibrationHistory
+from app.calibration.regret import RegretReport, compute_regret
 from app.chain.builder import build_all_chains
 from app.data_gen.generate import generate, generate_pending_batch
 from app.data_gen.schemas import LedgerEntry, Order, Payment, Refund, Settlement, SyntheticBatch
@@ -198,6 +199,13 @@ def api_calibration(threshold: float = Query(0.90, ge=0.0, le=1.0)) -> Calibrati
     """The live threshold dial: a cheap re-aggregation over the accumulated history, not a
     pipeline re-run (spec §6.5)."""
     return calibration_history.report(threshold=threshold)
+
+
+@app.get("/api/regret")
+def api_regret(threshold: float = Query(0.90, ge=0.0, le=1.0)) -> RegretReport:
+    """Regret in rupees (upgrade build Phase 4): the realized cost of calibrated autonomy, replayed
+    chronologically over the accumulated history -- see app/calibration/regret.py."""
+    return compute_regret(calibration_history, threshold=threshold)
 
 
 @app.post("/api/escalations/resolve")

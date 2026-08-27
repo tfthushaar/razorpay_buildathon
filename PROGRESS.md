@@ -200,7 +200,20 @@ every push this session.
   field, 1 new frontend block (`EscalationQueue.tsx`), 1 new evidence script, 18 new tests
   (8 discovery unit tests + 2 pipeline integration tests, run through the full suite), 177/177
   total suite passing.
-- [ ] Phase 4 — Regret in rupees
+- [x] **Phase 4 — Regret in rupees (2026-08-27)** — `app/calibration/regret.py::compute_regret`
+  replays the accumulated calibration history chronologically to answer a narrower, harder
+  question than `amount_at_risk`'s forward-looking estimate: of the real decisions actually
+  auto-resolved without a human looking at them, which ones were actually wrong, and how much real
+  money did that touch? Only counts a decision once its category had already qualified (cleared the
+  distinct-transaction floor, the Wilson bound, and no active drift alert) at the time, and only
+  non-mock decisions (mock is never actually auto-resolved past a human, per `_final_decision`).
+  Paired with a clearly disclosed *estimate* (never presented as measured) of analyst hours saved,
+  from a stated 4-minutes-per-review assumption. New endpoint `GET /api/regret`; two new tiles in
+  `SummaryTiles.tsx`, live-fetched the same way `CalibrationPanel` refetches on `refreshKey` (regret
+  is accumulated-history data, not part of one batch's own result). Verified live against this
+  project's own real accumulated dev history: 11 real auto-resolved transactions, ₹0 realized
+  regret so far (100% correct to date), 0.7 estimated analyst-hours saved — rendered correctly in
+  the browser, zero console errors. 7 new tests (`test_regret.py`), 184/184 total suite passing.
 - [ ] Phase 5 — Time-to-revocation drill
 - [ ] Phase 6 — Tax-line matcher, GSTR-2B-complete
 - [ ] Phase 7 — Escalation queue, light polish only

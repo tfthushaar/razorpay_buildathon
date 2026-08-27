@@ -3424,3 +3424,45 @@ integration tests confirming proposals are empty by default and exactly one-per-
 when enabled), 177/177 total suite passing.
 
 ---
+
+## 2026-08-27 — Upgrade build, Phase 4: regret in rupees
+
+Fourth phase of the approved upgrade plan. `calibrator.py`'s existing `amount_at_risk` is already a
+real, useful number, but it's a forward-looking statistical estimate -- `(1 - accuracy) *
+distinct_amount_total`, applied uniformly across a category's whole distinct money once it's
+auto-resolving. This phase answers a narrower, harder-to-fake question instead: of the decisions
+that were ACTUALLY auto-resolved (no human ever looked at them), which ones were ACTUALLY wrong, and
+how much real money did that touch? That requires a genuine chronological replay, not a single
+aggregate calculation.
+
+`app/calibration/regret.py::compute_regret` walks `CalibrationHistory.all_decisions()` in id order
+(already guaranteed chronological -- the same ordering guarantee `calibrate()`'s own EWMA drift
+detection already depends on) and, for every real (non-mock) decision, recomputes `calibrate()` over
+only that category's strictly-prior decisions to ask "was this category already qualified for
+auto-resolve at the moment this decision was made?" Only if yes -- and only if the decision was
+actually wrong -- does its real amount count as realized regret. This correctly handles a category
+that later loses auto-resolve status to a drift alert (calibrator.py's own drift gate): decisions
+made before the alert still count if the category was qualified then; decisions after a drift
+revocation don't, because a fresh replay at that later point would show it no longer qualified.
+Deduped by `transaction_id` (first occurrence only), matching `distinct_amount_total`'s own
+established discipline against inflating money by counting a re-scored case more than once.
+
+**Paired with a clearly disclosed *estimate*, never presented as a measured fact**: `auto_resolved_
+transaction_count` (distinct real transactions ever actually auto-resolved, correct or wrong) times
+a stated `minutes_per_manual_review_assumption` (4.0, disclosed in the API response itself, not
+buried in code) gives `estimated_analyst_hours_saved`. Both the assumption and the word "estimate"
+travel all the way to the UI copy, not just the code comment -- the same "label an assumption as an
+assumption" discipline the forecast panel's payroll-check already followed in Phase 1.
+
+New endpoint `GET /api/regret`. Frontend: two new tiles in `SummaryTiles.tsx` (not a new panel, per
+the plan), fetched live the same way `CalibrationPanel` re-fetches on `refreshKey` -- regret is
+accumulated-history data, not part of any one batch's own `BatchRunResult`. Verified live against
+this project's own real, already-accumulated dev calibration history (built up from real Ollama/Groq
+runs across this whole session): **11 real auto-resolved transactions, ₹0 realized regret to date
+(100% correct so far), 0.7 estimated analyst-hours saved** -- rendered correctly in the browser via
+Playwright, zero console errors, screenshot confirmed both tiles sit naturally among the existing
+seven. 7 new tests (`test_regret.py`, covering the pre-qualification-is-never-regret case, the
+mock-never-counts case, the re-scored-transaction-not-double-counted case, and `genuine_error`'s
+structural inability to ever contribute), 184/184 total suite passing.
+
+---

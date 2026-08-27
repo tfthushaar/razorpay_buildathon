@@ -1,7 +1,26 @@
-import type { BatchRunResult } from "../types";
+import { useEffect, useState } from "react";
+import { getRegret } from "../api";
+import type { BatchRunResult, RegretReport } from "../types";
 import { pct, rupees } from "../formatters";
 
-export function SummaryTiles({ result }: { result: BatchRunResult }) {
+interface Props {
+  result: BatchRunResult;
+  refreshKey: number; // bump after a run or a resolved escalation, same convention as CalibrationPanel
+}
+
+export function SummaryTiles({ result, refreshKey }: Props) {
+  const [regret, setRegret] = useState<RegretReport | null>(null);
+
+  // Regret is accumulated-history data (app/calibration/regret.py), not part of this one batch's
+  // own result -- refetched the same way CalibrationPanel re-fetches the live dial, not read off
+  // `result` itself.
+  useEffect(() => {
+    getRegret(result.threshold)
+      .then(setRegret)
+      .catch(console.error);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refreshKey]);
+
   // 0/0 is NaN, which renders as the literal string "NaN%" -- reachable with a deliberately
   // zero-sized batch (main_n=0), which the backend itself handles fine (an all-zero result, not a
   // crash). Guarded here rather than on the batch-size input, since the input's min is just a soft
@@ -53,6 +72,26 @@ export function SummaryTiles({ result }: { result: BatchRunResult }) {
         <span className="tile-value">{rupees(result.total_itc_separated)}</span>
         <span className="tile-sub">GST-on-fee split into its own ledger line across the batch's journal, ready for GSTR-2B</span>
       </div>
+      {regret && (
+        <>
+          <div className={regret.realized_regret_amount > 0 ? "tile tile-warn" : "tile tile-good"}>
+            <span className="tile-label">Regret in rupees</span>
+            <span className="tile-value">{rupees(regret.realized_regret_amount)}</span>
+            <span className="tile-sub">
+              {regret.realized_regret_transaction_count} real transaction{regret.realized_regret_transaction_count === 1 ? "" : "s"}{" "}
+              actually auto-resolved wrong, across all accumulated history — realized, not a forward-looking estimate
+            </span>
+          </div>
+          <div className="tile">
+            <span className="tile-label">Analyst hours saved</span>
+            <span className="tile-value">{regret.estimated_analyst_hours_saved.toFixed(1)}h</span>
+            <span className="tile-sub">
+              estimate — {regret.auto_resolved_transaction_count} auto-resolved transactions × {regret.minutes_per_manual_review_assumption}
+              min/review assumption, not a measured fact
+            </span>
+          </div>
+        </>
+      )}
     </section>
   );
 }

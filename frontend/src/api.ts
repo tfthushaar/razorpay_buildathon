@@ -8,6 +8,7 @@ import type {
   PayrollCoverageResult,
   PendingForecastResponse,
   QAAnswer,
+  RegretReport,
   ResolveResponse,
 } from "./types";
 
@@ -91,3 +92,5 @@ export const askSettlementQuestion = (question: string, provider?: string) =>
     method: "POST",
     body: JSON.stringify({ question, provider }),
   });
+
+export const getRegret = (threshold: number = 0.9) => request<RegretReport>(`/api/regret?threshold=${threshold}`);

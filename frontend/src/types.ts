@@ -100,6 +100,15 @@ export interface BatchRunResult {
   category_proposals: CategoryProposal[];
 }
 
+export interface RegretReport {
+  threshold: number;
+  realized_regret_amount: number;
+  realized_regret_transaction_count: number;
+  auto_resolved_transaction_count: number;
+  minutes_per_manual_review_assumption: number;
+  estimated_analyst_hours_saved: number;
+}
+
 export interface CategoryProposal {
   transaction_id: string;
   proposed_name: string | null;

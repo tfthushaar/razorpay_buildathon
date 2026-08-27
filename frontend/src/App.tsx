@@ -96,7 +96,7 @@ function App() {
               Running a new batch — showing the previous run's results until it lands
             </div>
           )}
-          <SummaryTiles result={result} />
+          <SummaryTiles result={result} refreshKey={refreshKey} />
           <div className="two-column">
             <BaselineComparison result={result} />
             <StressScorecard stress={result.stress} />
