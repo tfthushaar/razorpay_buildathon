@@ -73,8 +73,10 @@ reproducible on a fresh clone, not just re-verified against local state.
    merchant's own contract. That's invisible to every check above; only comparing against the actual
    contracted rate catches it. One of its two patterns is specifically a tax-line check — GST computed
    on the wrong base — and every transaction's correctly-computed GST-on-fee is separated into its own
-   ITC-eligible journal line, so this also covers the track's "tax-line matcher" direction, not just
-   fee auditing. Detail: [docs/track04-*.md §12](docs/track04-settlement-reconciliation-copilot.md#12-beyond-the-original-spec-fee-leak-detection-and-erp-posting-added-post-build).
+   ITC-eligible journal line, then matched against a *simulated* GSTR-2B (`GET /api/gstr2b` — real
+   structure, verified before building; three disjoint, disclosed mismatch kinds, one honestly labeled
+   as illustrative rather than realistic for a gateway fee), so this fully covers the track's
+   "tax-line matcher" direction, not just fee auditing. Detail: [docs/track04-*.md §12](docs/track04-settlement-reconciliation-copilot.md#12-beyond-the-original-spec-fee-leak-detection-and-erp-posting-added-post-build).
 
 **Where the LLM actually sits, stated plainly:** 85% of a batch resolves deterministically, zero LLM
 calls — that's the design, not a shortfall. The model is reserved for the three exception categories
@@ -108,7 +110,7 @@ Three commands, all working on a genuinely fresh clone — not read off a dashbo
 hand:
 
 ```bash
-cd backend && python -m pytest tests/ -v                                          # 189 tests
+cd backend && python -m pytest tests/ -v                                          # 196 tests
 python scripts/audit_calibration.py --db ../docs/evidence/verified_calibration_history.db  # the netting_trap/duplicate_refund result above, recomputed live
 python -c "from app.pipeline import run_batch; r = run_batch(seed=42, main_n=120, stress_n=40, provider='mock'); print(r.fee_leak_report.total_fee_recovery, r.total_itc_separated)"  # fee-leak + ITC figures
 ```

@@ -3507,3 +3507,48 @@ the drill for real through the browser, got the same real "1 decision, ₹500" r
 errors. 5 new tests (`test_revocation_drill.py`), 189/189 total suite passing.
 
 ---
+
+## 2026-08-27 — Upgrade build, Phase 6: tax-line matcher, GSTR-2B-complete
+
+Sixth phase of the approved upgrade plan, formally completing the "tax-line matcher" track direction
+(the fee-leak detector's GST-wrong-base pattern and the journal's ITC-separation already partially
+covered this, per the 2026-08-26 decision documented above -- this phase closes the rest of it).
+
+GSTR-2B's real structure was verified via a live search before writing any code, not assumed:
+eligible vs. ineligible ITC sections, invoice-level fields (document type, document number,
+document date), a Section 17(5) blocked-credit reason when ineligible, and supplier-wise detail.
+`app/erp/gstr2b.py` does two distinct things:
+
+1. `to_gstr2b_format` reshapes this project's own books -- the GST-on-fee ITC line
+   `app/erp/journal.py` already separates out -- into that same government-schema shape. A
+   structured export, not a comparison.
+2. `match_against_gstr2b` compares our own books against a **simulated** counterpart statement, as
+   if auto-drafted from the payment gateway's own GSTR-1/IFF filing. This mirrors
+   `app/feeleak/detector.py`'s own "compare against an independent reference" pattern exactly,
+   applied to tax reconciliation instead of fee reconciliation -- and for the identical underlying
+   reason: a real reconciliation always needs two independent sides, and this project only has one
+   (its own books), so the second side is honestly simulated rather than assumed to always agree.
+
+The simulator injects three disjoint mismatch kinds at a combined 16% rate (8% not-yet-filed by the
+supplier, 5% amount mismatch, 3% blocked credit), leaving 84% to match cleanly -- a realistic
+"mostly matches, a real minority of exceptions" shape, not a suspiciously perfect 100% or an
+implausibly high exception rate. **Honesty note kept directly in the module docstring and in the
+UI-facing exception detail text**: gateway processing fees are an ordinary input service and are, in
+the overwhelming realistic case, ITC-eligible -- Section 17(5)'s actual blocked categories (motor
+vehicles, employee benefits, and similar) don't apply to this project's scenario. The synthetic
+blocked-credit case exists purely to exercise that code path for real, not to claim it's a realistic
+outcome for a payment-gateway fee specifically -- the same "don't overclaim what a synthetic case
+proves" discipline this project has applied to every other injected scenario.
+
+New endpoint `GET /api/gstr2b`. Frontend: extends `ErpExport.tsx` with a fourth "GSTR-2B match"
+button (not a separate panel) showing a matched/exception summary (reusing the fee-leak panel's own
+summary-stat styling) and a detail table of every exception with its kind, both ITC amounts, and a
+plain-language reason. Verified live via Playwright at main_n=150: **120 transactions matched
+cleanly (₹2,740.19), 30 exceptions (₹444.17) across all three kinds** — confirmed the count matched
+the summary exactly after an initial page-wide table selector in the verification script
+over-counted rows from the calibration/fee-leak tables that share the same CSS class, rescoped and
+re-verified before trusting the number. Zero console errors. 7 new tests (`test_gstr2b.py`,
+including reproducibility-for-the-same-seed and a forced-missing-entry case), 196/196 total suite
+passing.
+
+---

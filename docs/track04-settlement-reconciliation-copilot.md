@@ -310,9 +310,15 @@ otherwise-clean transactions.
 Track 04 lists "Tax-line matcher" as one of four example directions alongside multi-source
 reconciliation (this project's primary identity), a settlement Q&A agent, and a forward cash
 forecaster. This project doesn't claim to be a tax-line matcher first — but the GST-wrong-base
-pattern below and the ERP journal's GST-on-fee ITC separation (§ ERP posting & ITC reclaim above) are
-a real, working, tested instance of that direction too, not a stretch of the fee-leak framing to fit
-a checklist.
+pattern below, the ERP journal's GST-on-fee ITC separation (§ ERP posting & ITC reclaim above), and
+`app/erp/gstr2b.py`'s matching against a simulated GSTR-2B (upgrade build Phase 6 — see
+BUILD_LOG.md 2026-08-27) are a real, working, tested instance of that direction, not a stretch of
+the fee-leak framing to fit a checklist. GSTR-2B's real structure (eligible/ineligible ITC sections,
+invoice-level fields, the Section 17(5) blocked-credit reason) was verified via a live search before
+building any of it, and the simulated counterpart honestly discloses which of its injected mismatch
+kinds are realistic (not-yet-filed, amount mismatch) versus purely illustrative (blocked credit,
+which doesn't realistically apply to an ordinary payment-gateway fee) — see the module's own
+docstring for the full reasoning.
 
 | Pattern | What's actually wrong | How it's caught |
 |---|---|---|

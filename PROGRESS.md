@@ -228,7 +228,21 @@ every push this session.
   `POST /api/drift/drill`; new frontend panel `RevocationDrill.tsx` next to the live calibration
   dial, verified live via Playwright — real drill run, real result rendered, zero console errors.
   5 new tests (`test_revocation_drill.py`), 189/189 total suite passing.
-- [ ] Phase 6 — Tax-line matcher, GSTR-2B-complete
+- [x] **Phase 6 — Tax-line matcher, GSTR-2B-complete (2026-08-27)** — GSTR-2B's real structure was
+  verified via a live search before building this (eligible/ineligible ITC sections, invoice-level
+  fields, a Section 17(5) blocked-credit reason), not assumed. `app/erp/gstr2b.py` has two jobs:
+  `to_gstr2b_format` reshapes our own already-separated GST-on-fee ITC ledger (app/erp/journal.py)
+  into that same schema, and `match_against_gstr2b` compares it against a **simulated** counterpart
+  statement, the same "compare against an independent reference" pattern `feeleak/detector.py`
+  established for fee auditing — a real reconciliation always needs two independent sides, and this
+  project only has one (its own books). The simulator injects three disjoint, realistic mismatch
+  kinds (not-yet-filed, amount mismatch, blocked credit) at a combined 16% rate, honestly labeling
+  the blocked-credit path as synthetic/illustrative rather than claiming it's a realistic outcome
+  for a payment-gateway fee specifically. New endpoint `GET /api/gstr2b`; extends `ErpExport.tsx`
+  with a fourth "GSTR-2B match" option showing a matched/exception summary and a detail table.
+  Verified live via Playwright at main_n=150: 120 matched (₹2,740.19), 30 exceptions (₹444.17)
+  across all three kinds, zero console errors. 7 new tests (`test_gstr2b.py`), 196/196 total suite
+  passing.
 - [ ] Phase 7 — Escalation queue, light polish only
 
 ---

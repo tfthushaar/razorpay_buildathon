@@ -7,6 +7,7 @@ import type {
   JournalExportResponse,
   PayrollCoverageResult,
   PendingForecastResponse,
+  Gstr2bResponse,
   QAAnswer,
   RegretReport,
   ResolveResponse,
@@ -76,6 +77,8 @@ export const evaluateScenario = (scenarioJson: object) =>
 
 export const exportJournal = (format: "tally" | "zoho" | "generic") =>
   request<JournalExportResponse>(`/api/journal/export?format=${format}`);
+
+export const getGstr2bMatch = () => request<Gstr2bResponse>("/api/gstr2b");
 
 export const getPendingForecast = (n: number = 10) =>
   request<PendingForecastResponse>(`/api/forecast/pending?n=${n}`);

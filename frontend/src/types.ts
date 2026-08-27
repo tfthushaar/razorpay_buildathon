@@ -128,6 +128,27 @@ export interface CategoryProposal {
   provider: string;
 }
 
+export interface Gstr2bException {
+  transaction_id: string;
+  kind: "missing_in_gstr2b" | "amount_mismatch" | "blocked_credit";
+  our_itc_amount: number;
+  gstr2b_itc_amount: number | null;
+  detail: string;
+}
+
+export interface Gstr2bMatchReport {
+  matched_count: number;
+  matched_itc_amount: number;
+  exceptions: Gstr2bException[];
+  exception_itc_amount: number;
+  by_kind: Record<string, number>;
+}
+
+export interface Gstr2bResponse {
+  formatted: { part_a_eligible_itc: Record<string, unknown>[]; part_b_ineligible_itc: Record<string, unknown>[]; total_eligible_itc: number; supplier_gstin: string };
+  match_report: Gstr2bMatchReport;
+}
+
 export interface JournalExportResponse {
   format: "tally" | "zoho" | "generic";
   content: string;

@@ -31,6 +31,7 @@ from app.chain.builder import build_all_chains
 from app.data_gen.generate import generate, generate_pending_batch
 from app.data_gen.schemas import LedgerEntry, Order, Payment, Refund, Settlement, SyntheticBatch
 from app.erp.exporters import to_generic_csv, to_tally_xml, to_zoho_books_csv
+from app.erp.gstr2b import Gstr2bMatchReport, generate_simulated_gstr2b, match_against_gstr2b, to_gstr2b_format
 from app.erp.journal import generate_journal_entries
 from app.forecast.backtest import BacktestReport, run_backtest
 from app.forecast.cash_position import PayrollCoverageResult, WorkingCapitalReport, check_payroll_coverage, compute_working_capital
@@ -335,6 +336,32 @@ def api_journal_export(format: Literal["tally", "zoho", "generic"] = "generic") 
         )
     except Exception as e:
         raise HTTPException(422, f"Could not generate the journal export ({type(e).__name__}: {e}).")
+
+
+class Gstr2bResponse(BaseModel):
+    formatted: dict
+    match_report: Gstr2bMatchReport
+
+
+@app.get("/api/gstr2b")
+def api_gstr2b(seed_for_simulation: int | None = None) -> Gstr2bResponse:
+    """Tax-line matcher, GSTR-2B-complete (upgrade build Phase 6): regenerates the latest run's own
+    chains from its seed (same pattern api_journal_export already uses), reshapes our own books into
+    GSTR-2B's own schema, and matches them against a simulated counterpart statement -- see
+    app/erp/gstr2b.py's module docstring for why the counterpart is simulated rather than assumed to
+    always agree."""
+    if state.latest.result is None:
+        raise HTTPException(404, "no run yet — POST /api/run first")
+    result = state.latest.result
+    try:
+        main_batch, _ = generate(seed=result.seed, main_n=result.total_transactions, stress_n=0)
+        chains = build_all_chains(main_batch)
+        formatted = to_gstr2b_format(chains)
+        simulated = generate_simulated_gstr2b(chains, seed=seed_for_simulation if seed_for_simulation is not None else result.seed)
+        match_report = match_against_gstr2b(chains, simulated)
+        return Gstr2bResponse(formatted=formatted, match_report=match_report)
+    except Exception as e:
+        raise HTTPException(422, f"Could not generate the GSTR-2B match ({type(e).__name__}: {e}).")
 
 
 class PendingForecastResponse(BaseModel):
