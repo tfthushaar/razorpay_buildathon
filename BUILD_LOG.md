@@ -3419,7 +3419,7 @@ card as "Proposed new category (unreviewed)."
 
 One new module (`app/narrator/discovery.py`), one new request field, one new frontend block
 (`EscalationQueue.tsx`'s "Proposed new category" callout plus a `RunControls.tsx` checkbox), one new
-evidence-generation script, 18 new tests (`test_discovery.py`'s 8 unit tests plus 2 pipeline
+evidence-generation script, 10 new tests (`test_discovery.py`'s 8 unit tests plus 2 pipeline
 integration tests confirming proposals are empty by default and exactly one-per-genuine_error-case
 when enabled), 177/177 total suite passing.
 
@@ -3585,5 +3585,53 @@ correctly, with the corrected "above" wording, zero console errors.
 
 No new backend code, no new tests -- 196/196 total suite unaffected, frontend build and lint clean.
 This completes all seven phases of the 2026-08-26 upgrade plan.
+
+---
+
+## 2026-08-27 — My audit loop, final round: the 7-phase upgrade build, 90/100
+
+Comprehensive independent re-verification of all seven upgrade-build phases, not a narrow diff check
+and not a re-statement of what this log already claims. **Score: 90/100** (AI Judgment 18/20,
+Failure Recovery 19/20, Measured Accuracy 14/15, Bounded & Gated 14/15, Throughput 8/10, Real
+Problem 9/10, Submission Readiness 8/10) — ties the pre-upgrade final round's 90/100 exactly; the new
+work doesn't regress the score, and some of it (the revocation drill, the GSTR-2B match) is among the
+most rigorously reproducible evidence in the whole project, but a couple of small, genuine
+documentation slips keep it from clearing higher.
+
+Independently re-ran, cold, rather than trusted from this log's own prior entries: the full test
+suite (196/196, matches exactly); `wilson_score_interval(40, 40)` and `(35, 35)` against the
+revocation drill's stated basis (91.2% / 90.1%, both match); `run_revocation_drill()` itself
+(reproduced the exact "1 decision, ₹500, EWMA 70.0% vs. control limit 78.1%" result — deterministic,
+not cherry-picked, since the drill uses fixed decisions, no RNG); the GSTR-2B match at seed=42/
+main_n=150 (120 matched at ₹2,740.19, 30 exceptions at ₹444.17, split 14/9/7 by kind — exact match);
+the forecast backtest at both cited scales (n=30: 9.08%/93.33%, matching the README headline; n=120:
+8.63%/90.83%, matching this log's own parenthetical) — and confirmed the *default* UI state
+(`RunControls.tsx`'s `main_n=30`) is genuinely what produces the headline number a judge sees on
+first click, not a cherry-picked alternate config; the category-discovery evidence file's specific
+cited transaction (`order_f469ef861c62`'s `netting_partner_offset` proposal, exact delta match); the
+Q&A agent's actual tool-dispatch code (confirmed `list_flagged_transactions` is really wired into
+both the Groq and Ollama paths, and the hallucinated-id guard really precedes `check_batch_anomalies`
+without touching the narrator's own version); `compute_regret`'s replay loop line-by-line for
+lookahead bias (confirmed `calibrate(items[:i], ...)` — strictly prior decisions, current one
+excluded — no off-by-one); and git history for any leaked credential across every phase's diff (none
+found). Also rebuilt a worktree at the commit immediately before Phase 1 and re-ran `npm run lint`
+there to confirm the one existing warning (`RunControls.tsx`, `react(set-state-in-effect)`) predates
+all seven phases rather than being introduced by them.
+
+Three findings, all minor and now fixed: (1) Phase 3's own entry above claimed "18 new tests" for
+`test_discovery.py` + `test_pipeline.py`'s additions — the real count is 10 (8 + 2), confirmed by
+counting `def test_` in both files directly; the running totals elsewhere in this log (167 → 177)
+were already correct, only that one prose figure was wrong — fixed in place rather than left
+standing, since this log's whole value is that its own arithmetic can be trusted at face value.
+(2) Phase 7's code comment in `EscalationQueue.tsx` still said "notice the calibration table below
+change" after the user-facing copy was correctly fixed to "above" — the render-order bug itself
+never shipped to a user, but the explanatory comment sitting next to the fix hadn't been updated to
+match it; fixed. (3) Phase 7's "build and lint clean" framing didn't distinguish that the one lint
+warning present is pre-existing, not something that phase introduced — noted for precision, no code
+change needed.
+
+No correctness bugs, no security issues, no scope creep, no fabricated numbers, and no
+gating/autonomy violations found in six new subsystems built across seven phases. 196/196 tests
+still passing after the two doc/comment fixes above (no code logic touched).
 
 ---
