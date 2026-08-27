@@ -846,6 +846,12 @@ button:disabled {
   word-break: break-word;
 }
 
+.tool-call-result {
+  display: block;
+  max-height: 140px;
+  overflow-y: auto;
+}
+
 .escalation-tool-calls {
   margin-top: 8px;
   margin-bottom: var(--space-3);
@@ -856,6 +862,48 @@ button:disabled {
 .escalation-item .tool-call-toggle {
   display: block;
   margin-bottom: var(--space-2);
+}
+
+.qa-input-row {
+  display: flex;
+  gap: var(--space-2);
+  margin: var(--space-3) 0;
+}
+
+.qa-input-row input {
+  flex: 1;
+}
+
+.qa-history {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.qa-entry {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--space-3);
+  background: var(--track);
+}
+
+.qa-question {
+  font-weight: 700;
+  color: var(--ink);
+  margin: 0 0 6px;
+}
+
+.qa-answer {
+  margin: 0 0 6px;
+}
+
+.qa-citations {
+  font-size: 0.75rem;
+  color: var(--muted);
+  margin: 0 0 6px;
 }
 
 /* Decision-colored dot in the audit table -- same semantic mapping as the calibration badges

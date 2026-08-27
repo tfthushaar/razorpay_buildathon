@@ -164,7 +164,25 @@ every push this session.
   of the "pending transactions" generator reused the wrong capture-time spread, making everything
   look artificially overdue. 3 new endpoints, 1 new frontend panel (verified live — real batch run,
   real payroll check, zero console errors), 10 new tests, 155/155 total suite passing.
-- [ ] Phase 2 — Settlement Q&A agent
+- [x] **Phase 2 — Settlement Q&A agent (2026-08-27)** — a genuinely separate agentic loop from the
+  narrator (`app/qa/agent.py`), not a reuse: the narrator is chain-scoped with a rigid
+  category/confidence contract, this is batch-scoped with a free-text answer contract, same
+  provider dispatch (mock/groq/ollama), circuit breaker, and fail-safe discipline. Reuses
+  `check_batch_anomalies` from the narrator's own tools directly. Caught two real bugs via the
+  mandated live-Ollama-verification step, not by inspection: (1) the model hallucinated a
+  transaction id and calling `check_batch_anomalies` with it crashed with a raw `KeyError` —
+  `check_batch_anomalies`'s unchecked `context.chains[transaction_id]` is safe for the narrator
+  (always calls it with its own guaranteed-valid chain) but unsafe for this agent (a model-supplied,
+  possibly-hallucinated id) — fixed by validating the id at this new caller's dispatch layer, not by
+  changing the narrator's own function. (2) a batch-wide question like "are there any duplicate
+  refunds in this batch" had no tool that could answer it — `check_batch_anomalies` is scoped to one
+  id, `find_transactions_by_date` to one date — found live via Playwright driving the real panel with
+  exactly that question, and the model correctly said it needed more information rather than
+  guessing. Fixed by adding a fourth tool, `list_flagged_transactions`, that scans the whole batch.
+  1 new endpoint (`POST /api/qa/ask`), 1 new frontend panel (`SettlementQA.tsx` — question input,
+  suggested questions, answer with citations and the real tool-call trace, verified live: real Groq
+  call from the browser, correct citations, zero console errors), 12 new tests, 167/167 total suite
+  passing.
 - [ ] Phase 3 — Category discovery (replaces standalone adversarial-generation item)
 - [ ] Phase 4 — Regret in rupees
 - [ ] Phase 5 — Time-to-revocation drill

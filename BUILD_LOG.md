@@ -3319,3 +3319,62 @@ tests (`test_forecast.py`), assertions grounded in the real numbers verified by 
 invented round targets. 155/155 tests passing.
 
 ---
+
+## 2026-08-27 — Upgrade build, Phase 2: settlement Q&A agent
+
+Second phase of the approved upgrade plan. `app/qa/agent.py` is a genuinely separate agentic loop
+from the narrator (`app/narrator/agent.py`), confirmed before writing it: the narrator is scoped to
+one `CausalChain` per call with a rigid category/confidence/reasoning contract validated against
+`NARRATOR_CATEGORIES` -- there is no way to ask it a free-text question about the whole batch. This
+loop reuses the same provider dispatch (mock/groq/ollama), the same circuit breaker and
+retry-with-backoff machinery, and the same fail-safe discipline, under a different system prompt and
+a free-text `QAAnswer { answer, cited_transaction_ids, tool_calls, provider }` contract. Two of its
+three tools are new (`app/qa/tools.py`): `find_transactions_by_date` (batch-wide search by real
+settlement date) and `get_transaction_detail` (full causal-chain detail for one id); the third,
+`check_batch_anomalies`, is reused directly, unmodified, from the narrator's own tools.
+
+**Two real bugs found by actually running the mandated live-Ollama/live-browser verification, not by
+inspection:**
+
+1. A real (non-mocked) Ollama call asked "are there any transactions that look like duplicate
+   refunds in this batch" and the model called `check_batch_anomalies` with a hallucinated
+   transaction id (`TXN_1234567890`) that doesn't exist in the batch. `check_batch_anomalies` does
+   an unchecked `context.chains[transaction_id]` -- correct and safe for the narrator, which only
+   ever calls it with its own guaranteed-valid chain's id, but unsafe for this agent, whose whole
+   point is letting the model name *any* transaction id, including one it made up. Crashed with a
+   raw `KeyError`. Fixed at the new caller's dispatch layer (`_execute_tool` in `app/qa/agent.py`)
+   by validating the id against `context.chains` before calling through -- deliberately not changing
+   the narrator's own function, which is correctly designed for its actual, different caller.
+   Re-ran the identical live Ollama call after the fix: the hallucinated ids each got a clean
+   `{"error": "no transaction ... in this batch"}` and the agent finished its answer normally
+   instead of crashing.
+
+2. Driving the real frontend panel live via Playwright with that same duplicate-refund question (via
+   the real, un-mocked Groq path -- this project's backend defaults `LLM_PROVIDER=groq`) surfaced a
+   second, different gap: none of the three original tools can answer a question that isn't scoped
+   to one specific transaction id or one specific date. The model correctly said it needed a
+   settlement date rather than guessing -- a legitimate fail-safe response, but a real capability gap
+   for exactly the flagship question this feature exists to answer. Fixed by adding a fourth tool,
+   `list_flagged_transactions`, that scans every chain in the batch and returns the ones
+   `check_batch_anomalies` flags -- cheap in full (dict lookups plus a same-settlement-batch scan,
+   and this project's batches top out in the low hundreds of transactions). Re-verified live: the
+   same question, through the real browser, through the real Groq call, now correctly names the
+   actual flagged transactions and cites them.
+
+A third, purely cosmetic issue turned up in the same live pass: `list_flagged_transactions`'s result
+can be large (every flagged transaction's full detail), and dumping it as raw JSON in the tool-call
+trace blew the panel's layout out to an ungainly wall of text. Fixed with `max-height: 140px;
+overflow-y: auto` on `.tool-call-result` -- caught mid-fix that the element is a `<span>`
+(inline), so `max-height`/`overflow` silently no-op without `display: block` alongside them; verified
+after the fix by reading the element's actual computed style and `scrollHeight`/`clientHeight` in the
+live page, not just eyeballing a screenshot.
+
+One new endpoint (`POST /api/qa/ask`), one new frontend component (`SettlementQA.tsx` -- a genuinely
+new UI pattern: a question input, three suggested questions, and an answer with citations plus the
+same tool-call-trace disclosure `EscalationQueue.tsx` already uses), 12 new backend tests
+(`test_qa_agent.py`, including a regression test for `list_flagged_transactions` against real
+ground-truth duplicate_refund/netting_trap cases), 167/167 total suite passing. Verified live twice
+over: a real Ollama call before and after the KeyError fix, and a real Groq call driven through the
+actual browser UI before and after the missing-tool fix -- zero console errors either time.
+
+---

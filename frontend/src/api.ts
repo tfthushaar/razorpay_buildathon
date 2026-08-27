@@ -7,6 +7,7 @@ import type {
   JournalExportResponse,
   PayrollCoverageResult,
   PendingForecastResponse,
+  QAAnswer,
   ResolveResponse,
 } from "./types";
 
@@ -82,4 +83,10 @@ export const checkPayrollCoverage = (outflow_amount: number, outflow_date: strin
   request<PayrollCoverageResult>("/api/forecast/payroll-check", {
     method: "POST",
     body: JSON.stringify({ outflow_amount, outflow_date, n }),
+  });
+
+export const askSettlementQuestion = (question: string, provider?: string) =>
+  request<QAAnswer>("/api/qa/ask", {
+    method: "POST",
+    body: JSON.stringify({ question, provider }),
   });

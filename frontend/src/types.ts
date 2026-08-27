@@ -181,6 +181,20 @@ export interface EvaluateResponse {
   results: EvaluatedTransaction[];
 }
 
+export interface QAToolCallRecord {
+  tool: string;
+  arguments: Record<string, unknown>;
+  result: Record<string, unknown>;
+}
+
+export interface QAAnswer {
+  question: string;
+  answer: string;
+  cited_transaction_ids: string[];
+  tool_calls: QAToolCallRecord[];
+  provider: string;
+}
+
 export interface AuditEntry {
   id: number;
   run_id: string;

@@ -12,6 +12,7 @@ import { FeeLeakAnalysis } from "./components/FeeLeakAnalysis";
 import { ForecastPanel } from "./components/ForecastPanel";
 import { ErpExport } from "./components/ErpExport";
 import { AuditLogView } from "./components/AuditLogView";
+import { SettlementQA } from "./components/SettlementQA";
 import { BreakItPanel } from "./components/BreakItPanel";
 import { GuidedTour } from "./components/GuidedTour";
 import "./App.css";
@@ -113,6 +114,7 @@ function App() {
             }}
             liveAutoResolveCategories={liveAutoResolveCategories}
           />
+          <SettlementQA key={refreshKey} />
           <AuditLogView runId={result.run_id} refreshKey={refreshKey} />
         </div>
       )}

@@ -36,6 +36,8 @@ from app.forecast.predictor import SettlementPrediction, predict_pending_batch
 from app.matching.engine import run_matching_engine
 from app.narrator.agent import narrate
 from app.narrator.tools import build_tool_context
+from app.qa.agent import QAAnswer, answer_question
+from app.qa.tools import build_settled_at_index
 from app.pipeline import BatchRunResult, _final_decision, run_batch
 
 DATA_DIR = Path(__file__).resolve().parents[1] / "data"
@@ -364,6 +366,31 @@ def api_forecast_payroll_check(req: PayrollCheckRequest) -> PayrollCoverageResul
         return check_payroll_coverage(predictions, req.outflow_amount, req.outflow_date)
     except Exception as e:
         raise HTTPException(422, f"Could not check payroll coverage ({type(e).__name__}: {e}).")
+
+
+class QARequest(BaseModel):
+    question: str = Field(..., min_length=1, max_length=500)
+    provider: Literal["mock", "groq", "ollama"] | None = None  # None -> LLM_PROVIDER env var, default "mock"
+
+
+@app.post("/api/qa/ask")
+def api_qa_ask(req: QARequest) -> QAAnswer:
+    """Settlement Q&A agent (spec upgrade): a genuinely separate agentic loop from the narrator
+    (app/qa/agent.py) — regenerates the latest run's own chains from its seed, the same pattern
+    api_journal_export/api_forecast_backtest already use, and answers a free-text question by
+    walking the causal chain and citing the specific transaction(s), with the tool-call trace as
+    evidence."""
+    if state.latest.result is None:
+        raise HTTPException(404, "no run yet — POST /api/run first")
+    result = state.latest.result
+    try:
+        main_batch, _ = generate(seed=result.seed, main_n=result.total_transactions, stress_n=0)
+        chains = build_all_chains(main_batch)
+        context = build_tool_context(main_batch, chains)
+        settled_at_index = build_settled_at_index(main_batch)
+        return answer_question(req.question, context, settled_at_index, provider=req.provider)
+    except Exception as e:
+        raise HTTPException(422, f"Could not answer the question ({type(e).__name__}: {e}).")
 
 
 class TransactionScenario(BaseModel):
