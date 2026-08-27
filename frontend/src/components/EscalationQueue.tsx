@@ -58,12 +58,23 @@ export function EscalationQueue({ escalations, runId, onResolved, liveAutoResolv
       .catch(console.error);
   }, [runId]);
 
+  const [crossedThreshold, setCrossedThreshold] = useState<Record<string, boolean>>({});
+
   const handleResolve = async (transactionId: string) => {
     setPending(transactionId);
     setResolveErrors((prev) => ({ ...prev, [transactionId]: "" }));
     try {
+      const category = escalations.find((e) => e.transaction_id === transactionId)?.category;
+      const wasAutoResolveBefore = category !== undefined && liveAutoResolveCategories.has(category);
       const resp = await resolveEscalation(transactionId);
+      const isAutoResolveAfter = resp.updated_calibration.categories.some((c) => c.category === category && c.decision === "auto_resolve");
       setResolved((prev) => ({ ...prev, [transactionId]: resp }));
+      // The moment a category earns auto-resolve is otherwise invisible unless a viewer happens to
+      // notice the calibration table below change on its own -- this makes the exact resolve action
+      // that caused it explicit, right where it happened, rather than something to spot separately.
+      if (!wasAutoResolveBefore && isAutoResolveAfter) {
+        setCrossedThreshold((prev) => ({ ...prev, [transactionId]: true }));
+      }
       onResolved();
     } catch (err) {
       // used to just log to the console and silently re-enable the button, leaving no trace
@@ -178,6 +189,12 @@ export function EscalationQueue({ escalations, runId, onResolved, liveAutoResolv
                 <strong>{categoryLabel(r.confirmed_true_label)}</strong> {r.was_correct ? "✓" : "✗"}
               </span>
             </div>
+            {crossedThreshold[r.transaction_id] && (
+              <p className="threshold-crossed-callout">
+                🎯 This confirmation just pushed <strong>{categoryLabel(r.predicted_category)}</strong> over the auto-resolve
+                threshold, live — see the calibration table above.
+              </p>
+            )}
           </li>
         ))}
       </ul>

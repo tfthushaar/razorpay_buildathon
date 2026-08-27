@@ -3552,3 +3552,38 @@ including reproducibility-for-the-same-seed and a forced-missing-entry case), 19
 passing.
 
 ---
+
+## 2026-08-27 — Upgrade build, Phase 7: escalation queue, light polish only
+
+Seventh and final phase of the approved upgrade plan. Confirmed at planning time (see the
+2026-08-26 entry above) that the "category climbs into autonomy live" moment already substantially
+works via the existing human-feedback loop (`confirm_human_resolution`, `app/calibration/history.py`)
+-- this phase makes that exact moment visible rather than building anything new underneath it. No
+full ops-console (assignment/bulk-resolve workflows) built, per the same earlier decision: that's
+product/workflow breadth, not something the judging criteria actually score.
+
+`EscalationQueue.tsx`'s `handleResolve` already had everything it needed: `liveAutoResolveCategories`
+(a prop reflecting the calibration dial's position just before this action) for the "before" state,
+and the resolve response's own `updated_calibration` for the "after" state. Comparing the two for the
+specific category just confirmed, and rendering a distinct callout only when it crossed from
+`escalate` to `auto_resolve` on exactly this confirmation, needed zero new backend code.
+
+**One real bug caught while writing the copy, not after**: the callout's first draft said "see the
+calibration table below" -- checking `App.tsx`'s actual render order (rather than assuming, the same
+discipline this project applies everywhere else) showed `CalibrationPanel` renders *above*
+`EscalationQueue`, not below. Fixed to "above" before it ever shipped.
+
+**Verification note**: reproducing the exact statistical moment a category crosses the threshold
+live would require many real, accumulated LLM batches (Phase 5's drill already showed how sensitive
+this can be -- sometimes one decision, sometimes many, depending on prior history). Rather than
+burning that much real API budget just to catch this one UI transition, the resolve response was
+intercepted via Playwright's route mocking to construct the exact crossing -- a real click, driving
+the real component's real state update and conditional render, against a controlled network
+response, the same category of technique this project's own backend tests already use
+(`patch("groq.Groq")`, `patch("ollama.Client")`) for hard-to-reproduce paths. The callout rendered
+correctly, with the corrected "above" wording, zero console errors.
+
+No new backend code, no new tests -- 196/196 total suite unaffected, frontend build and lint clean.
+This completes all seven phases of the 2026-08-26 upgrade plan.
+
+---

@@ -243,7 +243,24 @@ every push this session.
   Verified live via Playwright at main_n=150: 120 matched (₹2,740.19), 30 exceptions (₹444.17)
   across all three kinds, zero console errors. 7 new tests (`test_gstr2b.py`), 196/196 total suite
   passing.
-- [ ] Phase 7 — Escalation queue, light polish only
+- [x] **Phase 7 — Escalation queue, light polish only (2026-08-27)** — confirmed (per the earlier
+  decision) that "a category climbing into autonomy live" already substantially works via the
+  existing human-feedback loop, so no new backend work: this phase makes that exact moment
+  explicit rather than something a viewer has to notice by comparing the calibration table
+  before/after. `EscalationQueue.tsx`'s `handleResolve` now compares the category's auto-resolve
+  status just before the resolve action (`liveAutoResolveCategories`, already a prop) against the
+  real `updated_calibration` the resolve response already returns; if a category crosses from
+  escalate to auto-resolve on exactly this confirmation, a distinct callout appears on that
+  resolved row. No full ops-console (assignment/bulk-resolve) built, per the earlier explicit
+  descope. Caught and fixed one real bug while writing it: the callout's own draft copy said "see
+  the calibration table below," which was backwards — the calibration panel actually renders
+  *above* the escalation queue in `App.tsx`, caught by checking the actual render order rather than
+  assuming. Verified live via Playwright: since reproducing the exact statistical crossing needs
+  many real accumulated LLM batches, the resolve response was intercepted to construct that precise
+  transition (a real click driving real component state through a controlled network response, the
+  same kind of technique this project's own backend tests already use for hard-to-reproduce API
+  failure paths) — the callout rendered correctly, zero console errors. No new backend code, no new
+  tests; 196/196 suite unaffected.
 
 ---
 *This file is the resumption point if the session breaks mid-build — re-read it before starting again rather than re-deriving state.*
