@@ -24,6 +24,7 @@ from app.matching.baseline import run_naive_baseline
 from app.matching.engine import MatchResult, run_matching_engine
 from app.matching.escalation import EscalationItem, build_escalation_item, triage
 from app.narrator.agent import narrate
+from app.narrator.discovery import CategoryProposal, propose_category
 from app.narrator.tools import ToolContext, build_tool_context
 
 
@@ -81,6 +82,12 @@ class BatchRunResult(BaseModel):
     # actual reconciliation batch would cost in wall-clock time.
     elapsed_seconds: float
     narrated_count: int  # of total_transactions, how many actually reached the narrator
+
+    # Category discovery (upgrade build, Phase 3) -- one proposal per genuine_error case, only when
+    # `enable_discovery=True` was passed to run_batch. Empty by default so every existing caller
+    # (including every prior test) sees no behavior change. Never auto-adopted into
+    # NARRATOR_CATEGORIES -- these are for a human to review, see app/narrator/discovery.py.
+    category_proposals: list[CategoryProposal] = []
 
     @computed_field  # type: ignore[prop-decorator]
     @property
@@ -186,13 +193,14 @@ def run_batch(
     provider: str | None = None,
     audit_logger: AuditLogger | None = None,
     calibration_history: CalibrationHistory | None = None,
+    enable_discovery: bool = False,
 ) -> BatchRunResult:
     run_id = str(uuid.uuid4())
     provider = provider or os.environ.get("LLM_PROVIDER", "mock")
     started_at = time.monotonic()
     main_batch, stress_batch = generate(seed=seed, main_n=main_n, stress_n=stress_n)
 
-    chains, match_results, narrator_outputs, _ = _process_batch(main_batch, provider)
+    chains, match_results, narrator_outputs, context = _process_batch(main_batch, provider)
     elapsed_seconds = time.monotonic() - started_at
     gt_by_id = {g.transaction_id: g.true_label for g in main_batch.ground_truth}
     baseline_results = run_naive_baseline(chains)
@@ -229,6 +237,7 @@ def run_batch(
 
     escalations: list[EscalationItem] = []
     audit_entries: list[AuditEntry] = []
+    category_proposals: list[CategoryProposal] = []
     amount_reconciled = 0
     escalated_count = 0
     total_amount = sum(c.actual_settled_amount for c in chains.values())
@@ -240,6 +249,8 @@ def run_batch(
             decision = _final_decision(result, output.category, output.provider, auto_resolve_categories)
             tool_calls = [tc.model_dump() for tc in output.tool_calls]
             audit_entries.append(_audit_entry_for(run_id, result, decision, output.category, output.confidence, output.reasoning, tool_calls))
+            if enable_discovery and output.category == "genuine_error":
+                category_proposals.append(propose_category(chain, tool_calls, context, provider=provider))
             if decision == "escalated":
                 escalated_count += 1
                 escalations.append(
@@ -301,4 +312,5 @@ def run_batch(
         total_itc_separated=total_itc_separated,
         elapsed_seconds=elapsed_seconds,
         narrated_count=len(narrator_outputs),
+        category_proposals=category_proposals,
     )

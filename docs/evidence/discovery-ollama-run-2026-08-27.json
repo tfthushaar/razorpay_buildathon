@@ -1,0 +1,93 @@
+{
+  "seed": 42,
+  "main_n": 150,
+  "provider": "ollama",
+  "genuine_error_escalation_count": 8,
+  "category_proposals": [
+    {
+      "transaction_id": "order_8a4b999d10b3",
+      "proposed_name": "unexplained_ledger_gap",
+      "hypothesis": "The ledger gap exists despite all hop deltas being zero, suggesting an issue with the post_tax_to_post_refunds hop.",
+      "supporting_evidence": [
+        "post_tax_to_post_refunds: expected=148230, actual=148230, delta=0",
+        "post_tax_to_post_refunds: expected=148230, actual=189930, delta=41700"
+      ],
+      "confidence": 0.7,
+      "provider": "ollama"
+    },
+    {
+      "transaction_id": "order_cd18b8a557f7",
+      "proposed_name": "unexplained_delta",
+      "hypothesis": "The final hop delta of 30600 does not match the expected delta, suggesting an unexplained discrepancy.",
+      "supporting_evidence": [
+        "post_refunds_to_settlement: expected=2491150, actual=2521750, delta=30600"
+      ],
+      "confidence": 0.8,
+      "provider": "ollama"
+    },
+    {
+      "transaction_id": "order_216611c41395",
+      "proposed_name": "ledger_gap_post_refunds",
+      "hypothesis": "A ledger gap appears after post_refunds_to_settlement hop, possibly due to a timing issue between post_refunds and settlement processing.",
+      "supporting_evidence": [
+        "post_refunds_to_settlement: expected=732300, actual=646400, delta=-85900"
+      ],
+      "confidence": 0.7,
+      "provider": "ollama"
+    },
+    {
+      "transaction_id": "order_cc8dab80cb66",
+      "proposed_name": "ledger_gap_netbanking",
+      "hypothesis": "The settlement delta indicates a ledger gap specific to netbanking rails, possibly due to delayed fee or tax adjustments.",
+      "supporting_evidence": [
+        "settlement delta: -55500",
+        "rail: netbanking"
+      ],
+      "confidence": 0.7,
+      "provider": "ollama"
+    },
+    {
+      "transaction_id": "order_f469ef861c62",
+      "proposed_name": "netting_partner_offset",
+      "hypothesis": "The transaction is part of a netting process with another transaction in the same batch, causing a ledger gap.",
+      "supporting_evidence": [
+        "netting_partner",
+        "post_refunds_to_settlement: expected=49410, actual=69410, delta=20000",
+        "check_batch_anomalies({'transaction_id': 'order_f469ef861c62'}) -> {'netting_partner': {'transaction_id': 'order_a724eaad155f', 'delta': -20000, 'note': 'another transaction in the same settlement batch has the exact offsetting delta'}}"
+      ],
+      "confidence": 0.8,
+      "provider": "ollama"
+    },
+    {
+      "transaction_id": "order_bc037cf0d494",
+      "proposed_name": "ledger_gap_post_refunds",
+      "hypothesis": "A ledger gap appears only after the post_refunds_to_settlement hop, suggesting an issue specific to this hop or the subsequent settlement process.",
+      "supporting_evidence": [
+        "post_refunds_to_settlement.delta=-64400",
+        "ledger_gap:64400"
+      ],
+      "confidence": 0.8,
+      "provider": "ollama"
+    },
+    {
+      "transaction_id": "order_add70005a869",
+      "proposed_name": "ledger_gap_post_refunds",
+      "hypothesis": "The ledger gap is only realized after the post_refunds_to_settlement hop, suggesting an issue with how refunds are accounted for in the system.",
+      "supporting_evidence": [
+        "post_refunds_to_settlement: expected=48820, actual=14920, delta=-33900"
+      ],
+      "confidence": 0.8,
+      "provider": "ollama"
+    },
+    {
+      "transaction_id": "order_e4723d497a12",
+      "proposed_name": "ledger_gap_in_last_hop",
+      "hypothesis": "The ledger gap appears only in the last hop, suggesting an issue specific to the settlement process.",
+      "supporting_evidence": [
+        "post_refunds_to_settlement: expected=4982300, actual=4904800, delta=-77500"
+      ],
+      "confidence": 0.8,
+      "provider": "ollama"
+    }
+  ]
+}

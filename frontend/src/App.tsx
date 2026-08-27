@@ -113,6 +113,7 @@ function App() {
               setResolveSignal((s) => s + 1);
             }}
             liveAutoResolveCategories={liveAutoResolveCategories}
+            categoryProposals={result.category_proposals}
           />
           <SettlementQA key={refreshKey} />
           <AuditLogView runId={result.run_id} refreshKey={refreshKey} />

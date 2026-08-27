@@ -25,6 +25,7 @@ export function RunControls({ onRun, loading, error }: Props) {
   const [stressN, setStressN] = useState(10);
   const [provider, setProvider] = useState("mock");
   const [resetHistory, setResetHistory] = useState(false);
+  const [enableDiscovery, setEnableDiscovery] = useState(false);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -80,9 +81,23 @@ export function RunControls({ onRun, loading, error }: Props) {
           <input type="checkbox" checked={resetHistory} onChange={(e) => setResetHistory(e.target.checked)} />
           Reset calibration history
         </label>
+        <label className="checkbox-label" title="For each genuine_error case, ask the model to propose a named candidate category — never auto-adopted, shown on the escalation card for a human to review">
+          <input type="checkbox" checked={enableDiscovery} onChange={(e) => setEnableDiscovery(e.target.checked)} />
+          Propose new categories (genuine_error)
+        </label>
         <button
           disabled={loading}
-          onClick={() => onRun({ seed, main_n: mainN, stress_n: stressN, threshold: 0.9, provider, reset_history: resetHistory })}
+          onClick={() =>
+            onRun({
+              seed,
+              main_n: mainN,
+              stress_n: stressN,
+              threshold: 0.9,
+              provider,
+              reset_history: resetHistory,
+              enable_discovery: enableDiscovery,
+            })
+          }
         >
           {loading ? `Running… ${elapsedSeconds}s` : "Run batch"}
         </button>

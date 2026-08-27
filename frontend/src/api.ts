@@ -44,6 +44,7 @@ export interface RunRequest {
   threshold: number;
   provider?: string;
   reset_history?: boolean;
+  enable_discovery?: boolean;
 }
 
 export const runBatch = (req: RunRequest) =>

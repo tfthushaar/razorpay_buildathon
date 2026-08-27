@@ -122,6 +122,7 @@ class RunRequest(BaseModel):
     # at the function level, for callers other than these two endpoints.
     provider: Literal["mock", "groq", "ollama"] | None = None  # None -> LLM_PROVIDER env var, default "mock"
     reset_history: bool = False
+    enable_discovery: bool = False  # opt-in: propose a candidate category for each genuine_error case (never auto-adopted)
 
 
 class ResolveRequest(BaseModel):
@@ -157,6 +158,7 @@ def api_run(req: RunRequest) -> BatchRunResult:
             provider=req.provider,
             audit_logger=audit_logger,
             calibration_history=calibration_history,
+            enable_discovery=req.enable_discovery,
         )
         escalations_by_id = {e.transaction_id: e.model_dump() for e in result.escalations}
 

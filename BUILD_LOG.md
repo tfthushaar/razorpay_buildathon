@@ -3378,3 +3378,49 @@ over: a real Ollama call before and after the KeyError fix, and a real Groq call
 actual browser UI before and after the missing-tool fix -- zero console errors either time.
 
 ---
+
+## 2026-08-27 — Upgrade build, Phase 3: category discovery
+
+Third phase of the approved upgrade plan, replacing the original list's standalone
+"AI-generates-adversarial-failure-modes" item with the one genuinely actionable idea a second
+external critique surfaced: when the narrator would otherwise fail safe to `genuine_error` -- an
+honest "no known pattern explains this," today's dead end -- one additional model call proposes a
+**named, specific hypothesis** grounded in evidence, rather than the system just giving up.
+
+**Deliberately not a second tool-calling loop.** `app/narrator/discovery.py::propose_category` takes
+the narrator's own `tool_calls` for that transaction (already real, already gathered) and asks a
+single completion: "given this evidence, what pattern might this actually be?" No new tool round
+trips, because there's nothing new to look up -- the evidence to reason over already exists. Same
+provider dispatch (mock/groq/ollama), same fail-safe discipline (malformed JSON, missing API key,
+unknown provider) as the narrator and the Q&A agent, its own circuit breakers per provider (not
+shared with the narrator's, matching how the Q&A agent's own breakers were kept separate in Phase 2).
+
+**Never auto-adopted.** A proposal is explicitly not a new member of `NARRATOR_CATEGORIES` --
+graduating one would be a deliberate, separate, human decision (editing the taxonomy and the
+matching engine), not something this module does on its own. Wired as opt-in:
+`enable_discovery: bool = False` on `POST /api/run` (and `run_batch()` itself), off by default so
+every existing caller -- including every test written before this phase -- sees zero behavior
+change. When on, one proposal is generated per `genuine_error` case and shown on that escalation's
+card as "Proposed new category (unreviewed)."
+
+**Real live verification, both directions:**
+- `scripts/generate_discovery_evidence.py` (mirroring `generate_verified_evidence.py`'s pattern) ran
+  a real, non-mocked Ollama batch (seed=42, main_n=150) and produced 8 real proposals, each citing
+  actual hop deltas or actual tool results -- e.g. `netting_partner_offset` on `order_f469ef861c62`,
+  citing the real `check_batch_anomalies` result that found the actual offsetting transaction
+  (`order_a724eaad155f`, delta -20000) elsewhere in the same settlement batch. Committed to
+  `docs/evidence/discovery-ollama-run-2026-08-27.json` so the claim is checkable, not asserted.
+- Separately verified live via Playwright, driving the real frontend (seed=42, main_n=150,
+  provider=ollama, "Propose new categories" checked) through the actual "Run batch" button: the
+  proposal block rendered correctly on a real genuine_error escalation card, citing real evidence,
+  zero console errors. A second real Ollama run (same seed) produced a slightly different genuine_error
+  count and different proposal text than the evidence script's run -- expected, honest
+  non-determinism in a live model at temperature 0.1, not a bug.
+
+One new module (`app/narrator/discovery.py`), one new request field, one new frontend block
+(`EscalationQueue.tsx`'s "Proposed new category" callout plus a `RunControls.tsx` checkbox), one new
+evidence-generation script, 18 new tests (`test_discovery.py`'s 8 unit tests plus 2 pipeline
+integration tests confirming proposals are empty by default and exactly one-per-genuine_error-case
+when enabled), 177/177 total suite passing.
+
+---

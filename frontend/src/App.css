@@ -548,6 +548,40 @@ button:disabled {
   border-left-color: var(--border);
 }
 
+.category-proposal {
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-sm);
+  padding: var(--space-3);
+  margin-bottom: var(--space-3);
+  background: var(--track);
+}
+
+.category-proposal-name {
+  font-weight: 700;
+  color: var(--ink);
+  margin: 6px 0 4px;
+}
+
+.category-proposal-hypothesis {
+  font-size: 0.85rem;
+  color: var(--ink-soft);
+  margin: 0 0 6px;
+}
+
+.category-proposal-evidence {
+  margin: 0 0 6px;
+  padding-left: 18px;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.category-proposal-footer {
+  font-size: 0.75rem;
+  color: var(--muted-2);
+  margin: 0;
+  font-style: italic;
+}
+
 .escalation-resolved.was-correct {
   background: color-mix(in srgb, var(--good) 8%, transparent);
   border-left-color: var(--good);

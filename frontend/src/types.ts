@@ -97,6 +97,16 @@ export interface BatchRunResult {
   elapsed_seconds: number;
   narrated_count: number;
   transactions_per_second: number;
+  category_proposals: CategoryProposal[];
+}
+
+export interface CategoryProposal {
+  transaction_id: string;
+  proposed_name: string | null;
+  hypothesis: string;
+  supporting_evidence: string[];
+  confidence: number;
+  provider: string;
 }
 
 export interface JournalExportResponse {

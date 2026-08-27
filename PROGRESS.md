@@ -183,7 +183,23 @@ every push this session.
   suggested questions, answer with citations and the real tool-call trace, verified live: real Groq
   call from the browser, correct citations, zero console errors), 12 new tests, 167/167 total suite
   passing.
-- [ ] Phase 3 — Category discovery (replaces standalone adversarial-generation item)
+- [x] **Phase 3 — Category discovery (2026-08-27)** — replaces the standalone
+  "AI-generates-adversarial-failure-modes" item from the original upgrade list. When a transaction
+  would otherwise fail safe to `genuine_error` (today's dead end), one additional single-shot model
+  call (`app/narrator/discovery.py::propose_category`) proposes a named candidate category,
+  grounded only in the narrator's own already-gathered tool-call evidence for that transaction — no
+  second round of tool calls, no fresh unstructured guess. Never auto-adopted into
+  `NARRATOR_CATEGORIES`: a proposal is opt-in (`enable_discovery` on `POST /api/run`, off by
+  default so every existing caller sees zero behavior change) and surfaced on the escalation card
+  as "Proposed new category (unreviewed)" for a human to review. Real live Ollama run (seed=42,
+  main_n=150) produced 8 real proposals grounded in real hop deltas and tool results — e.g.
+  `netting_partner_offset` citing the actual `check_batch_anomalies` result that found the real
+  offsetting transaction; committed to `docs/evidence/discovery-ollama-run-2026-08-27.json`. Also
+  verified live via Playwright driving the real frontend with that same run — the proposal block
+  rendered correctly on a real genuine_error card, zero console errors. 1 new module, 1 new request
+  field, 1 new frontend block (`EscalationQueue.tsx`), 1 new evidence script, 18 new tests
+  (8 discovery unit tests + 2 pipeline integration tests, run through the full suite), 177/177
+  total suite passing.
 - [ ] Phase 4 — Regret in rupees
 - [ ] Phase 5 — Time-to-revocation drill
 - [ ] Phase 6 — Tax-line matcher, GSTR-2B-complete

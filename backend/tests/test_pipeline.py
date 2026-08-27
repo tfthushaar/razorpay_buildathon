@@ -21,6 +21,23 @@ def test_full_pipeline_runs_end_to_end_with_mock_provider():
     assert result.escalated_count >= 0
 
 
+def test_category_proposals_are_empty_by_default():
+    """enable_discovery defaults to False -- every existing caller (including every other test in
+    this file) must see zero behavior change."""
+    result = run_batch(seed=42, main_n=150, stress_n=0, provider="mock")
+    assert result.category_proposals == []
+
+
+def test_enable_discovery_proposes_once_per_genuine_error_case():
+    result = run_batch(seed=42, main_n=150, stress_n=0, provider="mock", enable_discovery=True)
+    genuine_error_escalations = [e for e in result.escalations if e.category == "genuine_error"]
+    assert genuine_error_escalations, "fixture assumption: seed 42 at main_n=150 should escalate a genuine_error case"
+    proposed_ids = {p.transaction_id for p in result.category_proposals}
+    assert proposed_ids == {e.transaction_id for e in genuine_error_escalations}
+    for proposal in result.category_proposals:
+        assert proposal.provider == "mock"
+
+
 def test_run_batch_includes_a_real_fee_leak_report():
     """Fee leak detection (Pillar 2) is a genuinely separate axis from reconciliation -- runs
     against its own dedicated batch (generate_fee_leak_batch), never mixed into

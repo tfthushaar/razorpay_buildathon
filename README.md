@@ -33,6 +33,7 @@ python -m uvicorn app.main:app --reload --port 8000   # then: cd ../frontend && 
 | Real Razorpay data | Order + payment + fee + refund are real API objects on a live test account (raw `fee: 1180, tax: 180` on a `50000`-paise payment — pre-tax base 1180/1.18 = 1000, i.e. 2.0% of the payment, matching this project's own `card` rate constant, not `netbanking` — a real, disclosed discrepancy); settlement is structurally unavailable in test mode, verified not assumed | [raw API dump](docs/evidence/razorpay-sandbox-2026-08-25.json) |
 | Forward cash forecaster | A genuinely different track direction from reconciliation, covered too: predicts settlement date + net amount pre-settlement, backtested honestly against real ground truth — 9.1% MAPE, 93.3% interval coverage on this project's own data | `GET /api/forecast/backtest` |
 | Settlement Q&A agent | A second, separate agentic loop over the same batch — free-text questions like "are there any duplicate refunds in this batch," answered by real tool calls with the trace shown, not a canned lookup; two real bugs (a hallucinated-transaction-id crash, a missing batch-wide-scan tool) were only found by actually driving it live, both fixed | `POST /api/qa/ask` |
+| Category discovery | Instead of just giving up on a `genuine_error` case, one more real model call proposes a named, evidence-grounded hypothesis — never auto-adopted, shown as "unreviewed" for a human to confirm; real live Ollama run: 8 real proposals citing real hop deltas and tool results, committed | [raw evidence](docs/evidence/discovery-ollama-run-2026-08-27.json) |
 
 ## The result
 
@@ -103,7 +104,7 @@ Three commands, all working on a genuinely fresh clone — not read off a dashbo
 hand:
 
 ```bash
-cd backend && python -m pytest tests/ -v                                          # 167 tests
+cd backend && python -m pytest tests/ -v                                          # 177 tests
 python scripts/audit_calibration.py --db ../docs/evidence/verified_calibration_history.db  # the netting_trap/duplicate_refund result above, recomputed live
 python -c "from app.pipeline import run_batch; r = run_batch(seed=42, main_n=120, stress_n=40, provider='mock'); print(r.fee_leak_report.total_fee_recovery, r.total_itc_separated)"  # fee-leak + ITC figures
 ```

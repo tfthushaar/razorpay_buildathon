@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import { getAudit, resolveEscalation } from "../api";
-import type { AuditEntry, EscalationItem, ResolveResponse } from "../types";
+import type { AuditEntry, CategoryProposal, EscalationItem, ResolveResponse } from "../types";
 import { categoryLabel, rupees, pct, parseToolCalls } from "../formatters";
 
 interface Props {
@@ -9,6 +9,7 @@ interface Props {
   runId: string; // used to fetch this run's tool-call trace for each escalated case, same source the audit log reads
   onResolved: () => void; // tells the parent to bump the calibration refresh key
   liveAutoResolveCategories: Set<string>; // reflects the calibration dial's current position, not the run-time threshold
+  categoryProposals: CategoryProposal[]; // only non-empty when the run had "Propose new categories" enabled
 }
 
 // Total wall-clock budget for the staggered reveal -- mirrors AuditLogView's so both "decision
@@ -16,7 +17,7 @@ interface Props {
 const REVEAL_BUDGET_MS = 1200;
 const REVEAL_MAX_PER_ITEM_MS = 90;
 
-export function EscalationQueue({ escalations, runId, onResolved, liveAutoResolveCategories }: Props) {
+export function EscalationQueue({ escalations, runId, onResolved, liveAutoResolveCategories, categoryProposals }: Props) {
   const [resolved, setResolved] = useState<Record<string, ResolveResponse>>({});
   const [pending, setPending] = useState<string | null>(null);
   const [resolveErrors, setResolveErrors] = useState<Record<string, string>>({});
@@ -75,6 +76,8 @@ export function EscalationQueue({ escalations, runId, onResolved, liveAutoResolv
   };
 
   const pendingItems = escalations.filter((e) => !resolved[e.transaction_id]);
+  const proposalByTxn: Record<string, CategoryProposal> = {};
+  for (const p of categoryProposals) proposalByTxn[p.transaction_id] = p;
 
   return (
     <section className="panel" id="escalation-queue-panel">
@@ -113,6 +116,24 @@ export function EscalationQueue({ escalations, runId, onResolved, liveAutoResolv
                 {wouldAutoResolve && <span className="badge badge-good">Would auto-resolve at current dial</span>}
               </div>
               <p className="escalation-reasoning">{item.reasoning}</p>
+              {item.category === "genuine_error" && proposalByTxn[item.transaction_id]?.proposed_name && (
+                <div className="category-proposal">
+                  <span className="badge badge-neutral">Proposed new category (unreviewed)</span>
+                  <p className="category-proposal-name mono">{proposalByTxn[item.transaction_id].proposed_name}</p>
+                  <p className="category-proposal-hypothesis">{proposalByTxn[item.transaction_id].hypothesis}</p>
+                  {proposalByTxn[item.transaction_id].supporting_evidence.length > 0 && (
+                    <ul className="category-proposal-evidence">
+                      {proposalByTxn[item.transaction_id].supporting_evidence.map((ev, i) => (
+                        <li key={i}>{ev}</li>
+                      ))}
+                    </ul>
+                  )}
+                  <p className="category-proposal-footer">
+                    confidence {pct(proposalByTxn[item.transaction_id].confidence)} — a candidate hypothesis for a human to review, never
+                    auto-adopted
+                  </p>
+                </div>
+              )}
               {toolCalls.length > 0 && (
                 <button
                   type="button"
