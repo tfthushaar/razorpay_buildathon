@@ -9,7 +9,7 @@ minute; this is the full picture — real LLM providers, Docker, and how the liv
 ```bash
 cd backend
 python -m venv .venv
-.venv/Scripts/activate       # .venv\Scripts\activate on Windows cmd, source .venv/bin/activate on macOS/Linux
+source .venv/bin/activate    # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 python -m uvicorn app.main:app --reload --port 8000
 ```

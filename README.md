@@ -157,8 +157,6 @@ including exactly why `backend/data/*.db` is gitignored and what to use instead:
   the fee-leak detector's design.
 - [BUILD_LOG.md](BUILD_LOG.md) — ~39,000 words, every real bug found and how it was fixed, in
   chronological order. Long because it's a process record, not a pitch document.
-- [PROGRESS.md](PROGRESS.md) — the current status checklist against the original build plan, not a
-  narrative; skip it unless you want a phase-by-phase build tracker.
 - [Screenshot gallery](docs/screenshots.md) · [Full setup, Docker, deployment](docs/setup.md) ·
   [Raw evidence JSONs](docs/evidence/)
 

@@ -3710,3 +3710,20 @@ proposals against prior ones in the same run) in a future round, not invented to
 more finished.
 
 ---
+
+## 2026-08-27 — Deleted PROGRESS.md
+
+It duplicated this log's own audit-round scores (rounds 1-5, the same 84/79/83/72 figures, in both
+files) while itself abandoned mid-stream at round 5 -- this log continued to round 22 and beyond.
+Its per-item checklist entries had grown into 300-500-word narrative paragraphs in places (the
+calibration-layer line alone covered the provider-aware fix, the distinct-transaction floor, the
+gaming vector, and two test descriptions), which made it a worse-organized duplicate of this file
+rather than a genuine at-a-glance status tracker. Everything in it exists here, in fuller and
+better-ordered form. Removed the file and the README's link to it (added only last pass) rather than
+try to trim it into an actual one-line-per-item checklist -- nothing pointed at it besides that one
+link, and this log's own 16 historical mentions of it are left as-is: accurate statements about what
+was found at the time, not live navigation that breaks by the file being gone now.
+
+No code changed; 196/196 tests unaffected.
+
+---
