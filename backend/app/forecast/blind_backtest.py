@@ -13,8 +13,12 @@ a schedule perturbed from the canonical one -- a hidden, per-rail fee-rate and S
 once per seed by `DriftedSchedule` and never exposed to `predict_settlement`, which keeps calling the
 exact same canonical `fee_and_tax`/`BASE_SLA_DAYS` it always has, genuinely blind to the drift. Scored
 by reusing `run_backtest`'s own MAPE/interval-coverage logic unchanged (via a `SyntheticBatch` with
-only orders/payments/settlements populated), so the blind number and the existing non-blind number
-measure the same two things and are directly comparable, not two different metrics side by side."""
+only orders/payments/settlements populated) -- but the two numbers are NOT a clean before/after on the
+same population: this batch has no refunds and no timing anomalies at all (every transaction here is
+a plain capture-then-settle, only schedule drift as a source of error), while the non-blind batch's
+own error comes almost entirely from its ~27% of transactions WITH a refund, dispute, or timing
+anomaly (see LIMITATIONS.md). Read the two numbers as answers to two different questions -- robustness
+to a stale schedule vs. correct application of a known one -- not as the same metric measured twice."""
 
 from __future__ import annotations
 

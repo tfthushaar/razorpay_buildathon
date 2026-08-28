@@ -83,8 +83,10 @@ Full list: [LIMITATIONS.md](docs/LIMITATIONS.md).
   the API's own run state.
 - An external review caught a headline rupee figure inflated by re-scoring the same transactions
   across runs.
+- The flagship multi-way netting experiment's own first result (Groq 8/8) turned out to have a
+  leaked strategy and a trivially-satisfiable grader; the corrected, harder version scores 4/8.
 
-Eleven incidents, fixed format: [WHAT_BROKE.md](docs/WHAT_BROKE.md).
+Twelve incidents, fixed format: [WHAT_BROKE.md](docs/WHAT_BROKE.md).
 
 ## Get it running
 

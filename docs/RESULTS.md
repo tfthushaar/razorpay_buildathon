@@ -27,7 +27,7 @@ become a wrong autonomous action.
 
 | Experiment | Result | Reproduce |
 |---|---|---|
-| Time-to-revocation drill | 1 wrong decision (₹500) revoked a category's auto-resolve status after 40 clean decisions, even with the all-time aggregate still at 97.6% | `curl -X POST localhost:8000/api/drift/drill -d '{}'` |
+| Time-to-revocation drill | 1 wrong decision (₹500) revoked a category's auto-resolve status after 40 clean decisions, even with the all-time aggregate still at 97.6% | `curl -X POST localhost:8000/api/drift/drill -H 'Content-Type: application/json' -d '{}'` |
 | Regret in rupees | ₹0 realized regret across 8 real auto-resolved transactions in the committed evidence db — the realized cost of autonomy, not `amount_at_risk`'s forward-looking estimate | `GET /api/regret` reads whatever history has actually accumulated locally — 0/0 on a fresh clone until real batches run; the 8 above is `verified_calibration_history.db`'s own accumulated total |
 
 ## Cross-run memory for `recall_similar_resolutions`
@@ -72,7 +72,10 @@ predictor and the batch that scores it — a real gap, since a merchant's actual
 real settlement timing can drift from what a platform's own schedule still assumes.
 `GET /api/forecast/blind-backtest` scores the same predictor against a self-contained batch whose
 real settlements are computed with a hidden, per-rail fee-rate/SLA-day drift (up to 15% / 2 days,
-`app/forecast/blind_backtest.py`) the predictor never sees. Measured over seeds 1–20 at n=120:
+`app/forecast/blind_backtest.py`) the predictor never sees. This batch has no refunds or timing
+anomalies at all — schedule drift is the *only* source of error here, unlike the non-blind number
+above, whose error comes almost entirely from the ~27% with a refund/dispute/anomaly — so the two
+numbers answer different questions, not the same one twice. Measured over seeds 1–20 at n=120:
 
 | Metric | Mean | Range across seeds |
 |---|---|---|
@@ -82,7 +85,9 @@ real settlements are computed with a hidden, per-rail fee-rate/SLA-day drift (up
 The amount forecast barely moves (a fee is a small fraction of settled value even with real-rate
 drift), but interval coverage is highly sensitive to SLA drift specifically — a few days of real
 timing drift can push the actual settlement date entirely outside the predictor's own narrow
-tolerance window. Reproduce a single seed: `GET /api/forecast/blind-backtest?seed=1&n=120`.
+tolerance window. Reproduce a single seed: `GET /api/forecast/blind-backtest?seed=42&n=120` (45.8%
+coverage — seed 1 is the top of the 20-seed range at 100%, seed 4 the bottom at 3.3%; seed 42 is
+picked here for being unremarkable, not for being representative of any particular tail).
 
 ## Where the rule beats the LLM, measured directly
 
@@ -122,9 +127,10 @@ non-answer, not a wrong one); of the 4 that actually answered, 1 was correct. **
 all 8 answered and all 8 were correct** — the tool didn't just raise accuracy, it eliminated the
 non-answers entirely. **Ollama with verification**: 4 of 8 never converged within the tool-call
 budget (the extra round-trip the tool adds gives a small model more chances to get stuck, not
-fewer); of the 4 that did answer, 1 was correct. Ollama's *non-verified* baseline never failed to
-answer (0 non-answers in 8) — it was simply wrong or garbled every time it didn't get it right,
-a different failure shape than the verified condition's non-convergence.
+fewer), 1 more returned unparseable content — leaving 3 that actually answered, of which 1 was
+correct. Ollama's *non-verified* baseline had 0 empty responses in 8, but 2 were unparseable/garbled
+(the same non-answer category as Groq's, above) and the other 6 answered and were simply wrong — a
+different failure shape than the verified condition's non-convergence.
 
 One specific Ollama failure is worth naming directly: asked to investigate `order_f9d807a89e11`,
 the model queried the tool with the id `f9d807a89e11` (missing the `order_` prefix — its own

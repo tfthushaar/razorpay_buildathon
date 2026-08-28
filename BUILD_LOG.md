@@ -4017,6 +4017,58 @@ its own).
 
 ---
 
+## 2026-08-29 (III) — A re-review of the docs pass itself: two broken commands, an outlier reproduce link, two arithmetic slips, and a missing WHAT_BROKE entry
+
+Re-checked the previous two entries' own published docs the same way every real-provider claim in
+this project gets checked: by running the exact thing that's written down, not trusting memory of
+having fixed it before.
+
+**The drill command still 422'd.** `curl -X POST localhost:8000/api/drift/drill -d '{}'` — copy-pasted
+verbatim — returns a 422, not the 200 the row next to it implies. Root cause: `curl -d` without an
+explicit `Content-Type` header sends form-urlencoded, and FastAPI's pydantic body validation rejects
+that for a JSON-typed request. **Fix:** added `-H 'Content-Type: application/json'`; re-ran the
+corrected command and got a real 200 with the revocation result.
+
+**The blind-backtest reproduce link pointed at the best seed in the range, unlabeled.**
+`?seed=1&n=120` returns 100% interval coverage — seed 1 is rank 1 of 20, and only seed 2 also reaches
+100%. Sitting directly under a table whose own mean is 56.5%, a reader clicking the link lands on the
+best case in the whole sweep with nothing telling them so. **Fix:** switched the link to seed 42
+(45.8%, unremarkable) and added the seed 1/seed 4 range endpoints inline so the number isn't presented
+without its own context.
+
+**Two arithmetic slips in the one paragraph whose entire job is denominator precision.** "Ollama's
+non-verified baseline never failed to answer (0 non-answers in 8)" — re-reading the evidence file
+directly, 2 of 8 (seeds 6 and 200) are unparseable garbage-prefixed responses, which is exactly the
+"non-answer" category the same paragraph defines two sentences earlier for Groq. And "Ollama with
+verification: of the 4 that did answer, 1 was correct" — 8 minus 4 not-converged minus 1 separately
+unparseable leaves 3 that answered, not 4. **Fix:** corrected both counts in place — "0 empty
+responses... but 2 unparseable" and "3 that actually answered."
+
+**The multi-way netting methodology self-correction (2026-08-28 (II)) never made it into
+WHAT_BROKE.md.** It's arguably the single most relevant incident in the file for a reader who just
+finished RESULTS.md's own account of that experiment: the flagship result's first version had five
+real design flaws, self-caught by re-reading its own evidence file, and the corrected version scores
+worse (Groq 4/8, not 8/8) as a direct, honest consequence of removing the bias. Added as its own
+entry, second in the file.
+
+**One overclaim in code, not docs.** `blind_backtest.py`'s own docstring said the blind and non-blind
+backtest numbers are "directly comparable" — they use the same MAPE/coverage formula, but on
+genuinely different populations: the blind batch has zero refunds or timing anomalies by
+construction, while the non-blind number's error comes almost entirely from the ~27% of transactions
+that have one. Fixed the docstring, and added the same clarifying sentence to RESULTS.md's own prose
+next to the table, since a reader wouldn't get this from the number alone either.
+
+**WHAT_BROKE.md was cut by ~10% while adding a new entry.** 2,242 words for 11 entries felt over
+budget for a file whose whole point is staying scannable; trimmed each entry's Root Cause by roughly
+a sentence (cutting restated context, keeping every number) and added the methodology-correction entry
+above. Net: 2,019 words across 12 entries.
+
+221/221 tests passing (no test logic changed — every fix this entry describes was in published prose
+or a docstring, verified by re-running the actual commands against a live server, not by editing a
+test to match).
+
+---
+
 ## On the audit rounds and the scores
 
 Roughly every few hours during the build, a deliberate adversarial pass ran over the project's own
