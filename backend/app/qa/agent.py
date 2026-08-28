@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import time
 from typing import Callable, TypeVar
 
@@ -161,18 +162,61 @@ def _parse_json_response(content: str) -> dict:
     return json.loads(text.strip())
 
 
+_DATE_RE = re.compile(r"\d{4}-\d{2}-\d{2}")
+_ANOMALY_KEYWORDS = ("duplicate", "netting", "anomal", "flagged", "suspicious", "fraud")
+
+
 def answer_mock(question: str, context: ToolContext, settled_at_by_transaction_id: dict) -> QAAnswer:
     """Zero-cost, deterministic stand-in: calls the real tools (so a mock answer is grounded in the
     same real data a live model would see), but the final synthesis is a fixed rule rather than an
-    LLM call -- same posture as narrate_mock, and for the same reason (cheap pipeline testing)."""
+    LLM call -- same posture as narrate_mock, and for the same reason (cheap pipeline testing).
+
+    Routes on simple keyword/date matching in the question, same as narrate_mock's own if/elif over
+    real tool output -- not a simulation of the model's reasoning, but no longer indifferent to what
+    was actually asked either. A prior version always called get_transaction_detail on the first 3
+    transaction ids regardless of the question, which read as broken (not clearly a cost-saving
+    stand-in) on a fresh default-provider run -- caught by actually running the default path, not
+    assumed fine because the real providers work."""
     tool_calls_log: list[ToolCallRecord] = []
+    question_lower = question.lower()
+
+    date_match = _DATE_RE.search(question)
+    if date_match:
+        date_str = date_match.group(0)
+        result = find_transactions_by_date(date_str, context.chains, settled_at_by_transaction_id)
+        tool_calls_log.append(ToolCallRecord(tool="find_transactions_by_date", arguments={"date": date_str}, result=result))
+        matches = result.get("matches", [])
+        cited = [m["transaction_id"] for m in matches]
+        answer = (
+            f"Mock provider: {len(cited)} transaction(s) settled on {date_str} (real lookup, no LLM synthesis)."
+            if cited
+            else f"Mock provider: no transactions settled on {date_str} in this batch (real lookup, no LLM synthesis)."
+        )
+        return QAAnswer(question=question, answer=answer, cited_transaction_ids=cited, tool_calls=tool_calls_log, provider="mock")
+
+    if any(kw in question_lower for kw in _ANOMALY_KEYWORDS):
+        result = list_flagged_transactions(context)
+        tool_calls_log.append(ToolCallRecord(tool="list_flagged_transactions", arguments={}, result=result))
+        flagged = result.get("flagged", [])
+        cited = [f["transaction_id"] for f in flagged]
+        answer = (
+            f"Mock provider: {len(cited)} flagged transaction(s) found (real check, no LLM synthesis)."
+            if cited
+            else "Mock provider: no duplicate-refund or netting anomalies found in this batch (real check, no LLM synthesis)."
+        )
+        return QAAnswer(question=question, answer=answer, cited_transaction_ids=cited, tool_calls=tool_calls_log, provider="mock")
+
     txn_ids = list(context.chains.keys())[:3]
     for txn_id in txn_ids:
         result = get_transaction_detail(txn_id, context.chains)
         tool_calls_log.append(ToolCallRecord(tool="get_transaction_detail", arguments={"transaction_id": txn_id}, result=result))
     return QAAnswer(
         question=question,
-        answer=f"Mock provider: checked {len(txn_ids)} transaction(s) for detail; a real provider would synthesize an actual answer from these tool results.",
+        answer=(
+            f"Mock provider: this question isn't date- or anomaly-specific, so it defaulted to detail on "
+            f"{len(txn_ids)} transaction(s) (real lookups, no LLM synthesis) — select ollama or groq above for an "
+            f"actual free-text answer."
+        ),
         cited_transaction_ids=txn_ids,
         tool_calls=tool_calls_log,
         provider="mock",

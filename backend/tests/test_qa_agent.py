@@ -83,6 +83,27 @@ def test_answer_mock_grounds_its_answer_in_real_tool_calls():
     assert set(answer.cited_transaction_ids).issubset(context.chains.keys())
 
 
+def test_answer_mock_routes_a_date_question_to_find_transactions_by_date():
+    main, chains, context, settled_at_index = _real_context()
+    some_txn_id, some_date = next(iter(settled_at_index.items()))
+    date_str = some_date.date().isoformat()
+    answer = answer_mock(f"which transactions settled on {date_str}?", context, settled_at_index)
+    assert answer.provider == "mock"
+    assert answer.tool_calls[0].tool == "find_transactions_by_date"
+    assert some_txn_id in answer.cited_transaction_ids
+
+
+def test_answer_mock_routes_an_anomaly_question_to_list_flagged_transactions():
+    main, _ = generate(seed=42, main_n=150, stress_n=0)
+    chains = build_all_chains(main)
+    context = build_tool_context(main, chains)
+    settled_at_index = build_settled_at_index(main)
+    answer = answer_mock("are there any duplicate refunds in this batch?", context, settled_at_index)
+    assert answer.provider == "mock"
+    assert answer.tool_calls[0].tool == "list_flagged_transactions"
+    assert set(answer.cited_transaction_ids).issubset(context.chains.keys())
+
+
 def test_answer_groq_cites_only_transaction_ids_it_actually_looked_up():
     _, _, context, settled_at_index = _real_context()
     real_txn_id = next(iter(context.chains))

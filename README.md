@@ -97,12 +97,44 @@ just re-verified against local state.
    contracted rate catches it — one of the two building blocks behind the tax-line matcher in the
    table above. Detail: [docs/track04-*.md §9](docs/track04-settlement-reconciliation-copilot.md#9-beyond-the-original-spec-fee-leak-detection-and-erp-posting-added-post-build).
 
-**Where the LLM actually sits, stated plainly:** 85% of a batch resolves deterministically, zero LLM
-calls — that's the design, not a shortfall. The model is reserved for the three exception categories
-where real judgment is required (`duplicate_refund`, `netting_trap`, `genuine_error`), and every one
-of its calls is tool-grounded — it looks up the fee schedule, checks the SLA window, cross-references
-past resolutions — and audited, not a bare classification. Autonomy in bullet 2 above is earned by
-*that* judgment, specifically, not by the deterministic 85%.
+**Where the LLM actually sits, stated plainly — including where it doesn't help.** 85% of a batch
+resolves deterministically, zero LLM calls, by design. But the three categories the model is reserved
+for (`duplicate_refund`, `netting_trap`, `genuine_error`) are not, on their own, genuinely ambiguous
+to the tools that gather evidence for them: measured directly, a 20-line deterministic stand-in that
+just reads `check_batch_anomalies`'s own output scores **100.0% on all three, across 519 real
+narration-queue cases** (the same author wrote both the injector that creates these cases and the
+exact-match detector that finds them). The real Ollama/Groq narrator does not match that — 98.3% on
+`netting_trap`, 80.3% on `genuine_error`. On this specific classification task, the shipped
+deterministic rule is a strict upgrade over the LLM, not the reverse. What the real-provider call
+earns autonomy for here is reliability under conditions the rule alone never faces — real API
+failures, malformed tool arguments, a hallucinated id — not resolving a case the rule genuinely
+couldn't. For a case the rule genuinely can't resolve, see the next section.
+
+## One task the rule provably can't do
+
+`check_batch_anomalies` only ever checks pairs: does one *other* transaction in the same settlement
+batch have the exact opposite delta. A group of three or more transactions whose deltas cancel
+*together*, with no pair among them cancelling alone, is invisible to it — a structural limit of what
+the function checks, not a missed edge case. The combinatorial (subset-sum) version of the rule is a
+real, available fix; rather than quietly writing it, this project measured whether an LLM given the
+same raw data (`list_batch_deltas`, a tool exposing every other transaction's delta in the batch)
+could close the gap through its own reasoning instead.
+
+Hand-constructed case: three transactions in one settlement batch, deltas +₹200, +₹150, −₹350 —
+cancel as a group, no pair does. `check_batch_anomalies` finds nothing on any of the three, every
+time, by construction, not by sampling ([tested directly](backend/tests/test_multiway_netting_experiment.py)).
+Then, across 8 seeds, a real model was asked to explain the −₹350 transaction with only that same
+tool available:
+
+| Provider | Correct | Evidence |
+|---|---|---|
+| Groq (`openai/gpt-oss-20b`) | **8/8** | [raw evidence](docs/evidence/multiway-netting-experiment-2026-08-28.json) |
+| Ollama (`qwen2.5:7b-instruct`, local) | 1/8 | same file |
+
+Two honest findings, not one convenient one: the rule really can't do this, structurally and
+provably — and a capable model reliably can, through genuine compositional reasoning over raw data,
+not by forwarding an oracle's answer. The smaller local model mostly can't either, which is itself
+the point: "an LLM helps" isn't a blanket claim here — it depends on which one.
 
 ## What this can't do, and what it refuses to do
 
@@ -140,7 +172,7 @@ past resolutions — and audited, not a bare classification. Autonomy in bullet 
 Three commands, all working on a genuinely fresh clone:
 
 ```bash
-cd backend && python -m pytest tests/ -v                                          # 196 tests
+cd backend && python -m pytest tests/ -v                                          # 204 tests
 python scripts/audit_calibration.py --db ../docs/evidence/verified_calibration_history.db  # the netting_trap/duplicate_refund result above, recomputed live
 python -c "from app.pipeline import run_batch; r = run_batch(seed=42, main_n=120, stress_n=40, provider='mock'); print(r.fee_leak_report.total_fee_recovery, r.total_itc_separated)"  # fee-leak + ITC figures
 ```

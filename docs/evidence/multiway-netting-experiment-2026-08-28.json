@@ -1,0 +1,214 @@
+{
+  "rule": {
+    "duplicate_refund_match_found": false,
+    "netting_partner_found": false,
+    "verdict": "genuine_error"
+  },
+  "ollama": [
+    {
+      "seed": 777,
+      "target_transaction_id": "order_d09119ae737e",
+      "group_transaction_ids": [
+        "order_f9d807a89e11",
+        "order_d679a8a90ce5"
+      ],
+      "correct": false,
+      "cited_transaction_ids": [],
+      "raw_response": "experiment call failed (JSONDecodeError: Expecting value: line 1 column 1 (char 0))"
+    },
+    {
+      "seed": 42,
+      "target_transaction_id": "order_15fc3391bdf8",
+      "group_transaction_ids": [
+        "order_b321b8901398",
+        "order_5c0dc61e9b37"
+      ],
+      "correct": false,
+      "cited_transaction_ids": [],
+      "raw_response": "experiment call failed (JSONDecodeError: Expecting value: line 1 column 1 (char 0))"
+    },
+    {
+      "seed": 999,
+      "target_transaction_id": "order_aa0cb9948fb2",
+      "group_transaction_ids": [
+        "order_87eaaadad2f0",
+        "order_1eb48d7ec70d"
+      ],
+      "correct": false,
+      "cited_transaction_ids": [],
+      "raw_response": "experiment call failed (JSONDecodeError: Expecting value: line 1 column 1 (char 0))"
+    },
+    {
+      "seed": 5,
+      "target_transaction_id": "order_fb547e1d82ed",
+      "group_transaction_ids": [
+        "order_5bda8dc3025d",
+        "order_6d7b9f13d78e"
+      ],
+      "correct": true,
+      "cited_transaction_ids": [
+        "order_5bda8dc3025d",
+        "order_6d7b9f13d78e"
+      ],
+      "raw_response": "{\"explanation\": \"Transaction order_5bda8dc3025d and order_6d7b9f13d78e together explain the delta of transaction order_fb547e1d82ed. The sum of their deltas (20000 + 15000 - 35000) is -35000.\", \"cited_transaction_ids\": [\"order_5bda8dc3025d\", \"order_6d7b9f13d78e\"]}"
+    },
+    {
+      "seed": 6,
+      "target_transaction_id": "order_99a5f79e240c",
+      "group_transaction_ids": [
+        "order_c029fb5073de",
+        "order_a9584a729f17"
+      ],
+      "correct": false,
+      "cited_transaction_ids": [],
+      "raw_response": "{\"explanation\": \"no transaction '99a5f79e240c' in this batch\", \"cited_transaction_ids\": []}"
+    },
+    {
+      "seed": 100,
+      "target_transaction_id": "order_f0c00d46a3ab",
+      "group_transaction_ids": [
+        "order_f265811b4aa3",
+        "order_92ad2cb10934"
+      ],
+      "correct": false,
+      "cited_transaction_ids": [],
+      "raw_response": "experiment call failed (JSONDecodeError: Expecting value: line 1 column 1 (char 0))"
+    },
+    {
+      "seed": 200,
+      "target_transaction_id": "order_b8fabf32b0c6",
+      "group_transaction_ids": [
+        "order_b2d40720473d",
+        "order_4d438ea677e3"
+      ],
+      "correct": false,
+      "cited_transaction_ids": [],
+      "raw_response": "experiment call failed (JSONDecodeError: Expecting value: line 1 column 1 (char 0))"
+    },
+    {
+      "seed": 300,
+      "target_transaction_id": "order_833ae1111098",
+      "group_transaction_ids": [
+        "order_f78e92159ade",
+        "order_50ee5289ca7e"
+      ],
+      "correct": false,
+      "cited_transaction_ids": [],
+      "raw_response": "experiment call failed (JSONDecodeError: Expecting value: line 1 column 1 (char 0))"
+    }
+  ],
+  "groq": [
+    {
+      "seed": 777,
+      "target_transaction_id": "order_d09119ae737e",
+      "group_transaction_ids": [
+        "order_f9d807a89e11",
+        "order_d679a8a90ce5"
+      ],
+      "correct": true,
+      "cited_transaction_ids": [
+        "order_f9d807a89e11",
+        "order_d679a8a90ce5"
+      ],
+      "raw_response": "{\"explanation\":\"order_f9d807a89e11 and order_d679a8a90ce5 offset the delta of order_d09119ae737e\",\"cited_transaction_ids\":[\"order_f9d807a89e11\",\"order_d679a8a90ce5\"]}"
+    },
+    {
+      "seed": 42,
+      "target_transaction_id": "order_15fc3391bdf8",
+      "group_transaction_ids": [
+        "order_b321b8901398",
+        "order_5c0dc61e9b37"
+      ],
+      "correct": true,
+      "cited_transaction_ids": [
+        "order_b321b8901398",
+        "order_5c0dc61e9b37"
+      ],
+      "raw_response": "{\"explanation\":\"order_b321b8901398 (+20000) and order_5c0dc61e9b37 (+15000) together offset the -35000 delta of order_15fc3391bdf8\",\"cited_transaction_ids\":[\"order_b321b8901398\",\"order_5c0dc61e9b37\"]}"
+    },
+    {
+      "seed": 999,
+      "target_transaction_id": "order_aa0cb9948fb2",
+      "group_transaction_ids": [
+        "order_87eaaadad2f0",
+        "order_1eb48d7ec70d"
+      ],
+      "correct": true,
+      "cited_transaction_ids": [
+        "order_87eaaadad2f0",
+        "order_1eb48d7ec70d"
+      ],
+      "raw_response": "{\"explanation\":\"order_87eaaadad2f0 (+20000) and order_1eb48d7ec70d (+15000) together offset the -35000 delta of order_aa0cb9948fb2\",\"cited_transaction_ids\":[\"order_87eaaadad2f0\",\"order_1eb48d7ec70d\"]}"
+    },
+    {
+      "seed": 5,
+      "target_transaction_id": "order_fb547e1d82ed",
+      "group_transaction_ids": [
+        "order_5bda8dc3025d",
+        "order_6d7b9f13d78e"
+      ],
+      "correct": true,
+      "cited_transaction_ids": [
+        "order_5bda8dc3025d",
+        "order_6d7b9f13d78e"
+      ],
+      "raw_response": "{\"explanation\":\"order_5bda8dc3025d (+20000) and order_6d7b9f13d78e (+15000) together offset the -35000 delta of order_fb547e1d82ed\",\"cited_transaction_ids\":[\"order_5bda8dc3025d\",\"order_6d7b9f13d78e\"]}"
+    },
+    {
+      "seed": 6,
+      "target_transaction_id": "order_99a5f79e240c",
+      "group_transaction_ids": [
+        "order_c029fb5073de",
+        "order_a9584a729f17"
+      ],
+      "correct": true,
+      "cited_transaction_ids": [
+        "order_c029fb5073de",
+        "order_a9584a729f17"
+      ],
+      "raw_response": "{\"explanation\":\"The negative delta of -35000 is offset by the two other transactions in the same batch: order_c029fb5073de (+20000) and order_a9584a729f17 (+15000), whose combined delta (+35000) cancels the -35000.\",\"cited_transaction_ids\":[\"order_c029fb5073de\",\"order_a9584a729f17\"]}"
+    },
+    {
+      "seed": 100,
+      "target_transaction_id": "order_f0c00d46a3ab",
+      "group_transaction_ids": [
+        "order_f265811b4aa3",
+        "order_92ad2cb10934"
+      ],
+      "correct": true,
+      "cited_transaction_ids": [
+        "order_f265811b4aa3",
+        "order_92ad2cb10934"
+      ],
+      "raw_response": "{\"explanation\":\"order_f265811b4aa3 (+20000) and order_92ad2cb10934 (+15000) together offset the -35000 delta of order_f0c00d46a3ab\",\"cited_transaction_ids\":[\"order_f265811b4aa3\",\"order_92ad2cb10934\"]}"
+    },
+    {
+      "seed": 200,
+      "target_transaction_id": "order_b8fabf32b0c6",
+      "group_transaction_ids": [
+        "order_b2d40720473d",
+        "order_4d438ea677e3"
+      ],
+      "correct": true,
+      "cited_transaction_ids": [
+        "order_b2d40720473d",
+        "order_4d438ea677e3"
+      ],
+      "raw_response": "{\"explanation\":\"order_b2d40720473d and order_4d438ea677e3 offset the delta of order_b8fabf32b0c6\",\"cited_transaction_ids\":[\"order_b2d40720473d\",\"order_4d438ea677e3\"]}"
+    },
+    {
+      "seed": 300,
+      "target_transaction_id": "order_833ae1111098",
+      "group_transaction_ids": [
+        "order_f78e92159ade",
+        "order_50ee5289ca7e"
+      ],
+      "correct": true,
+      "cited_transaction_ids": [
+        "order_f78e92159ade",
+        "order_50ee5289ca7e"
+      ],
+      "raw_response": "{\"explanation\":\"order_f78e92159ade and order_50ee5289ca7e offset the delta\",\"cited_transaction_ids\":[\"order_f78e92159ade\",\"order_50ee5289ca7e\"]}"
+    }
+  ]
+}

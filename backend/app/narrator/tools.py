@@ -95,6 +95,27 @@ def check_batch_anomalies(transaction_id: str, context: ToolContext) -> dict:
     return result
 
 
+def list_batch_deltas(transaction_id: str, context: ToolContext) -> dict:
+    """Every OTHER transaction in the same settlement batch as `transaction_id`, with its own
+    settlement_delta -- the raw material `check_batch_anomalies` itself only searches over
+    (pairwise, exact-offset-only), never exposed to a caller directly. Not part of the narrator's
+    own TOOL_SCHEMAS/production tool-calling loop: `check_batch_anomalies` covers the pairwise case
+    deterministically and cheaply, which is the common real case, and this project's narrator is
+    deliberately kept to bounded, cheap checks. This tool exists for
+    app/narrator/multiway_netting_experiment.py, which tests whether an LLM given raw access to
+    the same-batch deltas can find a netting pattern spanning MORE than two transactions -- a
+    pattern check_batch_anomalies structurally cannot find, since it never checks combinations."""
+    chain = context.chains.get(transaction_id)
+    if chain is None:
+        return {"error": f"no transaction {transaction_id!r} in this batch"}
+    others = {
+        other_id: context.chains[other_id].settlement_delta
+        for other_id in context.transaction_ids_by_settlement_batch.get(chain.settlement_batch_id, [])
+        if other_id != transaction_id
+    }
+    return {"transaction_id": transaction_id, "own_delta": chain.settlement_delta, "other_transactions_in_same_batch": others}
+
+
 def recall_similar_resolutions(category_guess: str, context: ToolContext) -> dict:
     matches = [entry for entry in context.audit_log if entry["category"] == category_guess]
     if not matches:
