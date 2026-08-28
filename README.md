@@ -14,7 +14,7 @@ what it has measured itself accurate on.
 
 | Metric | Result | Reproduce |
 |---|---|---|
-| Match rate | 99.3% of settlement value, real provider, 7 escalations of 120 | `python scripts/audit_calibration.py --db docs/evidence/verified_calibration_history.db` |
+| Match rate | 99.3% of settlement value, real provider, 7 escalations of 120 | `cd backend && python scripts/audit_calibration.py --db ../docs/evidence/verified_calibration_history.db` |
 | Throughput | 2.58 tx/sec (real LLM, measured) — 5,508 tx/sec (mock, 50k scale) | [SETUP.md](docs/SETUP.md) |
 | Per-category accuracy | `netting_trap` 98.3% (91.0% Wilson lower bound), `duplicate_refund` 100%, `genuine_error` 80.3% (never auto-resolves) | same command |
 | Adversarial stress batch | 40/40 correctly handled, 0 wrongly auto-resolved | [raw output](docs/evidence/verified-ollama-run-2026-08-25.json) |

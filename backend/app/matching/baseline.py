@@ -1,4 +1,4 @@
-"""Naive baseline reconciler (spec §6.7).
+"""Naive baseline reconciler.
 
 Deliberately dumb: pure amount equality between the ledger's expected amount and the
 settlement's actual amount. No chain logic, no date/SLA awareness, no LLM, no categories,

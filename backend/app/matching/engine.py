@@ -1,9 +1,9 @@
-"""Matching engine (spec §6.3).
+"""Matching engine.
 
 Pass 1: exact match (ledger amount == settlement amount, settled within the rail's normal SLA
 window). Pass 2 (unresolved only): a *deterministic* structured diff — is the delta explained by
 a known fee, a refund on record, FX rounding noise, or a timing lag within tolerance? Only what
-Pass 2 cannot explain gets sent to the agentic narrator (spec §6.4).
+Pass 2 cannot explain gets sent to the agentic narrator.
 
 This ordering is a deliberate cost decision, not just an engineering one: in the main batch,
 Pass 1 + Pass 2 resolve clean_match, fee_deduction, partial_refund, timing_lag, and

@@ -1,5 +1,5 @@
 """Wires the Merkle-tree divergence pre-filter (merkle.py) into the live matching pipeline as an
-opt-in "Pass 0", run before Pass 1 (spec §3, §6.3, §9 stretch goal).
+opt-in "Pass 0", run before Pass 1 (a stretch goal).
 
 Correctness invariant this module exists to protect: the pre-filter must NEVER change what a
 transaction resolves to, only how cheaply the "provably clean" majority gets there. It identifies

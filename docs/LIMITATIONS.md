@@ -20,10 +20,14 @@ itself is real and tested, its scope is just narrower than "all history ever."
 TallyPrime install** — no license was available to test against. Structurally correct per the
 published spec, but not confirmed to actually import cleanly into a real Tally instance.
 
-**The fee-leak detector ships two patterns** (blended-rate overcharge, GST-computed-on-the-wrong-base),
-not an exhaustive taxonomy of every way a fee could be miscomputed. The architecture extends to more
-patterns without a redesign — only these two are actually built, tested, and measured
-(₹2,634.50 recoverable in a real review batch; see [RESULTS.md](RESULTS.md)).
+**The fee-leak detector ships three patterns** (blended-rate overcharge, GST-computed-on-the-wrong-base,
+GST-computed-at-the-wrong-rate), not an exhaustive taxonomy of every way a fee could be miscomputed.
+The third pattern (a real GST slab, e.g. 0%, mistakenly applied instead of 18%) is restricted to
+`card`-rail transactions — verified directly that UPI's and netbanking's much smaller contracted fee
+rates can produce a delta too small to clear the same rounding-noise threshold the other two patterns
+use, at this generator's smaller transaction amounts. The architecture extends to more patterns
+without a redesign — only these three are actually built, tested, and measured (₹1,497.40 recoverable
+fees, ₹15,181.65 miscalculated tax in a real review batch; see [RESULTS.md](RESULTS.md)).
 
 **Four of five causal-chain hops are real Razorpay API objects** (order, captured payment, fee/tax,
 refund); the fifth, settlement, is structurally excluded from test mode on *any* Razorpay account —
@@ -47,8 +51,19 @@ recur across similar cases; independently-prompted proposals, with no memory of 
 the same run, don't. The feature is accurately described as an "unreviewed hypothesis" a human
 confirms, never as a self-organizing category system.
 
+**The Q&A agent's mock provider only routes on a few keywords.** A date pattern or a word like
+"duplicate"/"anomaly" routes to a real, specific lookup; anything else — including an entirely
+reasonable question like "how many transactions were escalated?" — falls back to detail on the
+first 3 transactions in the batch, with an honest label pointing at `ollama`/`groq` for a real
+answer. Disclosed here rather than left to surprise a judge on a default-provider run.
+
 **On the multi-way netting experiment** ([RESULTS.md](RESULTS.md)): even with a verification tool
-available, the smaller local model (`qwen2.5:7b-instruct`) solved only 1 of 8 hand-constructed cases.
-"An LLM helps here" depends heavily on which model — this project's own local-first default is not
-the strongest option for genuinely hard compositional reasoning, only for the deterministic-oracle
-classification task the shipped narrator actually performs day to day.
+available, the smaller local model (`qwen2.5:7b-instruct`) solved only 1 of 8 hand-constructed cases
+— and 4 of those 8 never converged on any answer at all, so the real capability gap is narrower than
+"1/8" alone suggests but still real: of the runs that produced an answer, most were wrong. "An LLM
+helps here" depends heavily on which model — this project's own local-first default is not the
+strongest option for genuinely hard compositional reasoning, only for the deterministic-oracle
+classification task the shipped narrator actually performs day to day. One Ollama run also
+hallucinated a transaction id, received a real tool error back, and narrated that error as a
+confirmed finding rather than recognizing the lookup had failed — see RESULTS.md for the exact
+case.

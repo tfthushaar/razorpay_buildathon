@@ -12,7 +12,7 @@ on any account, verified rather than assumed (see below) -- not a gap this conne
 left unfixed.
 
 Scope, verified by hand against the live API before this was written (see
-docs/track04-settlement-reconciliation-copilot.md §12 and BUILD_LOG.md for the full
+docs/ARCHITECTURE.md and BUILD_LOG.md for the full
 trail): `POST /v1/orders`, `GET /v1/payments`, and `GET /v1/settlements` are real,
 working endpoints on this account. `POST /v1/payments/test_payment` does not exist —
 there is no API that manufactures a captured payment directly in test mode. The only

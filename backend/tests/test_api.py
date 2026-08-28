@@ -1,4 +1,4 @@
-"""API-level smoke tests for the FastAPI layer (spec §7). Uses the mock provider throughout —
+"""API-level smoke tests for the FastAPI layer. Uses the mock provider throughout —
 zero cost, deterministic. These exercise the same module-level app state a real dashboard session
 would, including the live threshold dial and the human-feedback resolve flow end-to-end over HTTP.
 
@@ -145,7 +145,7 @@ def test_concurrent_resolve_of_the_same_escalation_only_counts_once(isolated_app
 
 
 def test_evaluate_endpoint_catches_a_hand_crafted_duplicate_refund(isolated_app_state):
-    """The 'break it' live path (spec §6.10): a judge-submitted scenario, not a pre-generated
+    """The 'break it' live path : a judge-submitted scenario, not a pre-generated
     batch. Hand-builds a transaction where a refund is on record once but deducted twice from
     settlement, and checks the API correctly flags it as duplicate_refund via the real
     check_batch_anomalies tool, not a canned answer."""

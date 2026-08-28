@@ -38,6 +38,13 @@ from app.data_gen.schemas import Order, Payment
 # ROUNDING_EPSILON for the identical reason (FX/rounding drift isn't a finding worth surfacing).
 LEAK_EPSILON = 100
 
+# India's actual other GST slabs (0%, 5%, 12%, 28% -- 18% is the correct rate for payment gateway/
+# financial services). A real, plausible slab-confusion error: GST correctly based on the fee
+# itself (not gross, which is the OTHER pattern below), but at one of these other real rates
+# instead of 18% -- e.g. 12% is a genuine slab for some other service categories, so "someone
+# applied the wrong service's slab" is a realistic story, not an invented one.
+OTHER_GST_SLABS = [0.0, 0.05, 0.12, 0.28]
+
 
 class FeeLeakFinding(BaseModel):
     transaction_id: str
@@ -82,11 +89,32 @@ def detect_fee_leak(order: Order, payment: Payment) -> FeeLeakFinding | None:
             f"Fee deducted at a rate inconsistent with the contracted rate for {order.rail} "
             f"(a flat/blended rate appears to have been applied instead)",
         )
-    else:
+    elif abs(payment.tax_amount - round(order.amount * GST_RATE)) <= LEAK_EPSILON:
         pattern, label = (
             "gst_wrong_base",
             "GST appears to have been computed on the gross transaction amount instead of the gateway fee",
         )
+    else:
+        # Fee itself is correct and GST isn't on the gross amount either -- check whether it's
+        # correctly based on the fee but at one of India's OTHER real GST slabs instead of 18%,
+        # a distinct, plausible slab-confusion error, not the same mistake as the two checks above.
+        matched_slab = next(
+            (slab for slab in OTHER_GST_SLABS if abs(payment.tax_amount - round(payment.fee_amount * slab)) <= LEAK_EPSILON), None
+        )
+        if matched_slab is not None:
+            pattern, label = (
+                "gst_wrong_rate",
+                f"GST correctly based on the gateway fee but computed at {matched_slab:.0%} instead of the "
+                f"18% rate that applies to payment gateway services",
+            )
+        else:
+            # Doesn't match either known hypothesis exactly -- still a real, flagged GST
+            # discrepancy, just not attributable to one of the two specific known causes above.
+            pattern, label = (
+                "gst_miscomputed",
+                "GST doesn't match the gateway fee at the correct 18% rate, and isn't explained by "
+                "either the gross-amount or wrong-slab patterns this detector specifically checks for",
+            )
 
     return FeeLeakFinding(
         transaction_id=order.order_id,

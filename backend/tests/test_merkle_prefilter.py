@@ -56,7 +56,7 @@ def test_filtered_and_unfiltered_pipelines_produce_identical_results():
 
 
 def test_50000_record_realistic_scale_benchmark():
-    """The honest, measured pitch numbers for the actual live-pipeline integration (spec §9: have
+    """The honest, measured pitch numbers for the actual live-pipeline integration (have
     real numbers ready, not estimates) -- both the comparison-count reduction (merkle.py's own
     strength) AND the wall-clock difference in THIS project's specific in-memory implementation,
     reported as measured, not assumed. See BUILD_LOG.md for the numbers this run produced and the

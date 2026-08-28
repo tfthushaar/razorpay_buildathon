@@ -1,4 +1,4 @@
-"""FastAPI layer (spec §7) — exposes the pipeline over HTTP for the React dashboard.
+"""FastAPI layer — exposes the pipeline over HTTP for the React dashboard.
 
 Single-session, in-memory app state is deliberate: this is a hackathon demo tool for one
 presenter driving one dashboard, not a multi-tenant service. The audit log and calibration
@@ -199,7 +199,7 @@ def api_latest_run() -> BatchRunResult:
 @app.get("/api/calibration")
 def api_calibration(threshold: float = Query(0.90, ge=0.0, le=1.0)) -> CalibrationReport:
     """The live threshold dial: a cheap re-aggregation over the accumulated history, not a
-    pipeline re-run (spec §6.5)."""
+    pipeline re-run."""
     return calibration_history.report(threshold=threshold)
 
 
@@ -229,7 +229,7 @@ def api_drift_drill(req: DrillRequest) -> RevocationDrillReport:
 
 @app.post("/api/escalations/resolve")
 def api_resolve_escalation(req: ResolveRequest) -> ResolveResponse:
-    """The human-feedback loop (spec §6.5): confirms one escalated case against its real source
+    """The human-feedback loop : confirms one escalated case against its real source
     records and folds the outcome back into the accumulated calibration history."""
     # check-then-delete used to be two separate steps (a .get() here, a del at the bottom) with no
     # lock between them -- a real TOCTOU race under FastAPI's genuinely-concurrent threadpool
@@ -451,7 +451,7 @@ def api_qa_ask(req: QARequest) -> QAAnswer:
 class TransactionScenario(BaseModel):
     """A judge-submitted (or hand-crafted) scenario — one or more transactions, evaluated live
     against the real pipeline instead of a pre-generated batch. This is the 'break it' demo path
-    (spec §6.10): submit a duplicate-refund-shaped or netting-trap-shaped case and watch the system
+    : submit a duplicate-refund-shaped or netting-trap-shaped case and watch the system
     correctly escalate instead of guessing. Never scored against ground truth (there isn't any) —
     this is "what would the system do", not a calibration input.
 

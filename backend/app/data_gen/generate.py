@@ -1,11 +1,11 @@
 """Synthetic data generator with a hidden ground-truth answer key.
 
-Spec: docs/track04-settlement-reconciliation-copilot.md §4, §6.1.
+Spec: docs/ARCHITECTURE.md.
 
 Everything downstream (chain builder, matching engine, calibration, dashboard) depends on
 this being right, so it's built first and tested in isolation (see backend/tests/test_generate.py).
 
-Distribution (documented, per spec §6.1): 60% clean, 25% explainable exceptions,
+Distribution (documented): 60% clean, 25% explainable exceptions,
 10% adversarial traps, 5% genuinely ambiguous. The ground truth is never read by anything
 except the scoring/calibration code — matching and narration logic must not import this module's
 labels.
@@ -258,7 +258,7 @@ class SyntheticDataGenerator:
         """Two independent transactions whose individual errors are +X and -X. Summed at the
         batch level they look perfectly reconciled; per-transaction (causal chain) matching is
         required to catch that each one is individually wrong. Directly validates the
-        'causal chain matching, not row matching' pitch (spec §3.1)."""
+        'causal chain matching, not row matching' pitch."""
         rail = self._pick_rail()
         created_at = self._rand_created_at()
         x = self.rng.choice([50, 100, 150, 200]) * 100  # paise
@@ -342,7 +342,7 @@ class SyntheticDataGenerator:
         )
 
     def generate_main_batch(self, n: int = 120, clean_ratio: float = 0.60) -> SyntheticBatch:
-        """Main batch: `clean_ratio` clean (default 60%, spec §6.1), remaining share split
+        """Main batch: `clean_ratio` clean (default 60%), remaining share split
         25:10:5 (explainable:adversarial:ambiguous -- the spec's original relative proportions
         among non-clean records) as `clean_ratio` moves away from the default. netting_trap
         consumes 2 slots per pair, so the adversarial-trap share is built from pairs + singles
@@ -491,19 +491,73 @@ class SyntheticDataGenerator:
         )
         return [order], [payment], [], [settlement], [ledger], [gt]
 
+    def _gen_fee_leak_gst_wrong_rate(self):
+        """Fee-leak pattern: GST correctly based on the gateway fee itself (unlike gst_wrong_base
+        above, which uses the wrong base entirely) but computed at the wrong RATE -- 0% instead of
+        the 18% that actually applies to payment gateway/financial services. 0% is a real GST slab
+        (zero-rated/exempt services), so "an exemption meant for a different service got applied
+        here" is a plausible, realistic error, not an invented one -- see app/feeleak/detector.py's
+        OTHER_GST_SLABS for the full set this project's detector checks against.
+
+        Restricted to `card` specifically, not `self._pick_rail()` -- verified directly (not
+        assumed): even a full 18-percentage-point GST-rate error produces a rupee delta small
+        enough to fall under LEAK_EPSILON's rounding-noise threshold for UPI (0.3% fee) and
+        netbanking (1% fee) at this generator's smaller amounts (e.g. UPI/₹500: fee=150,
+        delta=27 paise). Only `card`'s 2% contracted fee produces a delta that clears the epsilon
+        threshold across this generator's entire amount range (worst case, ₹500: fee=1000,
+        delta=180 paise) -- narrower than the other two patterns' rail coverage, disclosed here
+        rather than silently shipping a pattern that sometimes can't be detected by construction.
+
+        Reconciles cleanly, same as the other two fee-leak patterns; only visible by checking
+        tax_amount against fee_amount at the correct rate, exactly what standard reconciliation
+        doesn't do."""
+        rail: Rail = "card"
+        amount = self._rand_amount()
+        created_at = self._rand_created_at()
+        order_id = self._new_id("order")
+        payment_id = self._new_id("pay")
+        fee = round(amount * FEE_PCT[rail])  # fee itself is correctly contracted
+        wrong_gst_rate = 0.0  # a real other GST slab (zero-rated), mistakenly applied instead of 18%
+        tax = round(fee * wrong_gst_rate)  # correctly based on the fee, but at the wrong rate
+        captured_at = created_at + timedelta(minutes=self.rng.randint(1, 45))
+        order = Order(order_id=order_id, merchant_id=self.rng.choice(self.merchant_ids), amount=amount, currency="INR", created_at=created_at, rail=rail)
+        payment = Payment(
+            payment_id=payment_id,
+            order_id=order_id,
+            status="captured",
+            captured=True,
+            captured_amount=amount,
+            fee_amount=fee,
+            tax_amount=tax,
+            gateway=self.rng.choice(GATEWAYS),
+            captured_at=captured_at,
+        )
+        net = amount - fee - tax
+        settlement = self._build_settlement(payment_id, rail, net, captured_at)
+        ledger = self._build_ledger(order_id, net, created_at + timedelta(minutes=5))
+        gt = GroundTruthEntry(
+            transaction_id=order_id,
+            true_label="clean_match",
+            injected_by_you=True,
+            internal_note=f"fee_leak:gst_wrong_rate rail={rail} fee={fee} correct_gst={round(fee * GST_RATE)} actual_gst={tax} (at {wrong_gst_rate:.0%})",
+        )
+        return [order], [payment], [], [settlement], [ledger], [gt]
+
     def generate_fee_leak_batch(self, n: int = 20) -> SyntheticBatch:
         """A separate, additional batch of transactions that reconcile perfectly cleanly (no
         ledger/settlement exception at all) but were charged fees inconsistent with the merchant's
         own contract -- the blind spot standard reconciliation can't see, and the reason this is a
         genuinely different axis of analysis from everything else this generator produces. Never
         blended into the main/stress batches' reported accuracy, same convention as
-        generate_stress_batch."""
+        generate_stress_batch. Three patterns, cycled evenly."""
         batches = []
         for i in range(n):
-            if i % 2 == 0:
+            if i % 3 == 0:
                 batches.append(self._gen_fee_leak_blended_rate())
-            else:
+            elif i % 3 == 1:
                 batches.append(self._gen_fee_leak_gst_wrong_base())
+            else:
+                batches.append(self._gen_fee_leak_gst_wrong_rate())
         self.rng.shuffle(batches)
         return self._merge(batches)
 
@@ -533,7 +587,7 @@ class SyntheticDataGenerator:
         return PendingBatch(orders=orders, payments=payments)
 
     def generate_stress_batch(self, n: int = 40) -> SyntheticBatch:
-        """Dedicated 100%-adversarial stress batch (spec §4, "A separate 100%-adversarial
+        """Dedicated 100%-adversarial stress batch ("A separate 100%-adversarial
         stress batch"). Never blended into the main batch's reported accuracy — scored and
         reported on its own as a single clean stat."""
         trap_gens = [self._gen_duplicate_refund, self._gen_fee_deduction, self._gen_genuine_error]

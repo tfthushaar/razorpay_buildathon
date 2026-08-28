@@ -1,7 +1,7 @@
 """Wilson score confidence interval for a binomial proportion.
 
 Used instead of a raw accuracy percentage because per-category sample sizes in a 50-200 record
-batch are small (spec §6.5) — a flat "92%" with no interval invites exactly the kind of scrutiny
+batch are small — a flat "92%" with no interval invites exactly the kind of scrutiny
 a judge should apply. The auto-resolve threshold is checked against the *lower bound* of this
 interval, not the point estimate.
 """

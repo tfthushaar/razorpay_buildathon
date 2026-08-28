@@ -1,7 +1,7 @@
-"""Calibration / auto-resolve layer (spec §6.5).
+"""Calibration / auto-resolve layer.
 
 Applies only to narrator-classified decisions — duplicate_refund, netting_trap, genuine_error,
-the three categories that ever reach "needs_narration" (spec §6.3). Deterministic Pass 1/Pass 2
+the three categories that ever reach "needs_narration" . Deterministic Pass 1/Pass 2
 resolutions are arithmetic facts, not statistical estimates, so running a confidence interval over
 them would be conceptually wrong (and could wrongly gate a provably-correct category on small-N
 noise) — they're reported separately as exact, not calibrated. Calibration is reserved for
@@ -9,7 +9,7 @@ exactly the cases where "AI Judgment" is actually being exercised.
 
 The threshold is checked against the CI *lower bound*, not the raw accuracy, and the whole
 function is cheap enough to re-run on every threshold change (spec's "live dial" — see
-docs/track04-settlement-reconciliation-copilot.md §6.5) since it's just a re-aggregation over
+docs/ARCHITECTURE.md) since it's just a re-aggregation over
 already-scored decisions, not a re-run of the pipeline.
 
 IMPORTANT — provider-aware gating (added 2026-08-24, after an external audit caught this): only
@@ -29,7 +29,7 @@ from pydantic import BaseModel
 from app.calibration.drift import detect_drift
 from app.calibration.wilson import wilson_score_interval
 
-# Escalation *is* the correct resolution for genuine_error by definition (spec §4: "a genuinely
+# Escalation *is* the correct resolution for genuine_error by definition ("a genuinely
 # ambiguous case with no clean explanation... should escalate, not guess") — no accuracy number,
 # however high, makes auto-resolving an admittedly-unexplained case the right move.
 NEVER_AUTO_RESOLVE = {"genuine_error"}

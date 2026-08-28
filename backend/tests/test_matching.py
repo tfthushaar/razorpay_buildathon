@@ -1,4 +1,4 @@
-"""Regression tests for the causal chain builder + matching engine (spec §6.2, §6.3).
+"""Regression tests for the causal chain builder + matching engine.
 
 The critical property under test: the deterministic Pass 1 + Pass 2 must correctly resolve
 clean_match / fee_deduction / partial_refund / timing_lag / currency_rounding *without* ever
@@ -68,7 +68,7 @@ def test_only_the_genuinely_hard_slice_reaches_the_narrator():
 def test_naive_baseline_silently_misses_timing_lag():
     """Documents the baseline's blind spot on purpose: it has no date/SLA awareness, so a
     transaction stuck beyond the rail's normal window still reads as 'clean' if the amount
-    happens to match. This is the false-negative half of the lift story (spec §6.7)."""
+    happens to match. This is the false-negative half of the lift story."""
     main, chains, _, gt_by_id = _setup()
     baseline = run_naive_baseline(chains)
     timing_lag_ids = [txn_id for txn_id, label in gt_by_id.items() if label == "timing_lag"]
@@ -89,7 +89,7 @@ def test_naive_baseline_false_positives_on_rounding_noise():
 
 
 def test_match_rate_lift_over_naive_baseline():
-    """The one-sentence pitch stat (spec §6.7): our system should resolve (clean + deterministic
+    """The one-sentence pitch stat: our system should resolve (clean + deterministic
     + eventually-narrated) a materially higher share correctly than the naive baseline's blind
     binary check."""
     main, chains, results, gt_by_id = _setup(main_n=150)

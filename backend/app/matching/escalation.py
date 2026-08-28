@@ -1,4 +1,4 @@
-"""Escalation triage (spec §6.6): rank escalated exceptions by rupee amount x ambiguity instead
+"""Escalation triage : rank escalated exceptions by rupee amount x ambiguity instead
 of arrival order, so the highest-value, least-certain cases surface first — how a reconciliation
 ops team would actually work the queue, not just a dump of unresolved rows."""
 
@@ -13,7 +13,7 @@ class EscalationItem(BaseModel):
     amount: int
     priority_score: float
     provider: str  # which narrator backend produced this prediction -- carried through so a
-    # human resolving it (spec §6.5 feedback loop) records the confirmation against the right
+    # human resolving it (the feedback loop) records the confirmation against the right
     # provider, and a mock-derived guess can't count toward the AI-judgment gate just because a
     # human later looked at it.
 

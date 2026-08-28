@@ -1,8 +1,8 @@
-"""Causal chain builder (spec §6.2).
+"""Causal chain builder.
 
 For each order, stitches order -> payment -> fee/tax -> refund(s) -> settlement into one
 structured object, and locates the *specific hop* where cumulative expected != actual first
-diverges — this is what makes matching "causal chain matching, not row matching" (spec §3.1).
+diverges — this is what makes matching "causal chain matching, not row matching".
 
 Every number here is computed only from that transaction's own records (order/payment/refund/
 settlement/ledger) — never from the hidden ground truth. This module has no idea what the
@@ -58,7 +58,7 @@ class CausalChain(BaseModel):
 
     first_divergence_hop: str | None
 
-    # source-row references, for audit-log drill-down (spec §6.8) and cross-transaction tool checks
+    # source-row references, for audit-log drill-down and cross-transaction tool checks
     order_id: str
     payment_id: str
     settlement_id: str

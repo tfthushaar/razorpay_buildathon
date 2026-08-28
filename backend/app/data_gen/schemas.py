@@ -3,7 +3,7 @@
 Field names deliberately mirror Razorpay's real public API shapes where practical
 (`entity` tag, `utr` on Settlement, `fee`/`tax`/`captured` on Payment, amounts in the
 smallest currency unit — paise for INR, cents for USD — not decimal rupees) rather than
-generic finance field names. See docs/track04-settlement-reconciliation-copilot.md §4.
+generic finance field names. See docs/ARCHITECTURE.md.
 """
 
 from datetime import datetime

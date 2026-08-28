@@ -1,4 +1,4 @@
-"""Tools available to the agentic discrepancy narrator (spec §6.4).
+"""Tools available to the agentic discrepancy narrator.
 
 Every tool here does a real lookup against actual data — the fee/SLA tools consult the same
 reference tables the generator used to inject deltas in the first place (app.data_gen.fee_schedule),

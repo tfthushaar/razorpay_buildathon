@@ -2,14 +2,14 @@
 human-confirmed escalation, so trust earned in one run isn't lost on the next.
 
 This is a mid-build architecture change, not part of the original per-batch design: at the spec's
-suggested batch size (50-200 records, §6.1), each narrator category only gets ~3-12 samples in a
+suggested batch size (50-200 records), each narrator category only gets ~3-12 samples in a
 single batch, split across duplicate_refund/netting_trap/genuine_error. A Wilson lower bound
 mathematically cannot clear a 90% threshold at that N even at 100% point accuracy (needs roughly
 N=40 at 100% accuracy — see BUILD_LOG.md 2026-08-23 for the worked numbers from a real run). Reset
 per batch, the calibration layer would escalate every narrator-classified transaction forever,
 which makes "calibrated autonomy" true but never demonstrable. Trust has to accumulate the way a
 real system's would — across batches and across human-confirmed resolutions (spec's feedback
-loop, §6.5) — not re-earned from zero every run.
+loop) — not re-earned from zero every run.
 """
 
 import sqlite3
@@ -92,7 +92,7 @@ class CalibrationHistory:
     def confirm_human_resolution(
         self, transaction_id: str, predicted_category: str, confirmed_true_label: str, amount: int, provider: str, threshold: float
     ) -> CalibrationReport:
-        """The feedback loop entry point (spec §6.5): a human resolving an escalated case is a
+        """The feedback loop entry point : a human resolving an escalated case is a
         confirmed data point, folded straight back into the accumulated history. `provider` is
         whatever produced the *original* prediction being confirmed — a human confirming a
         mock-derived guess still doesn't make it AI judgment, so it must not silently start

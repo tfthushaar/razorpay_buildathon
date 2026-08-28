@@ -30,7 +30,7 @@ export function CalibrationPanel({ initialReport, refreshKey, onReportChange }: 
   };
 
   // the live dial: dragging the slider re-fetches a cheap re-aggregation over the accumulated
-  // history (GET /api/calibration), never re-running the batch pipeline (spec §6.5).
+  // history (GET /api/calibration), never re-running the batch pipeline.
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {

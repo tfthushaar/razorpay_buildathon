@@ -1,4 +1,4 @@
-"""End-to-end batch pipeline (spec §5): generate -> chains -> matching -> narration ->
+"""End-to-end batch pipeline: generate -> chains -> matching -> narration ->
 calibration -> audit log -> baseline comparison -> stress scorecard.
 
 This is what the FastAPI layer calls for a batch run, and what a script/test can call directly
@@ -54,7 +54,7 @@ class BatchRunResult(BaseModel):
     baseline_false_negative_timing_lag: int
     baseline_false_positive_rounding: int
 
-    # Three-way decomposition (spec's "real problem, not cherry-picked" §11): naive baseline vs.
+    # Three-way decomposition ("real problem, not cherry-picked"): naive baseline vs.
     # this project's own deterministic Pass1+2 engine alone (no LLM, no calibration) vs. the full
     # system with the narrator. Isolates what the agentic layer specifically contributes on top of
     # good deterministic engineering, rather than only comparing against a naive strawman. Added

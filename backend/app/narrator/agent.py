@@ -1,4 +1,4 @@
-"""Agentic discrepancy narrator (spec §6.4).
+"""Agentic discrepancy narrator.
 
 Only ever called for transactions the matching engine's deterministic Pass 1/2 could not explain
 (duplicate_refund, netting_trap, genuine_error candidates — currency_rounding, fee_deduction,

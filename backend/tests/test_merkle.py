@@ -1,4 +1,4 @@
-"""Tests for the Merkle-tree divergence pre-filter (spec §3, §9 stretch goal).
+"""Tests for the Merkle-tree divergence pre-filter (a stretch goal).
 
 Two things need proving, not just asserting: (1) the diverging keys it finds are *exactly* the
 same set brute-force comparison would find — a pre-filter that misses or invents divergences is
@@ -89,7 +89,7 @@ def test_real_batch_matches_ledger_gap_ground_truth():
 
 
 def test_50000_record_scale_demonstration():
-    """The actual pitch number (spec §9: 'have these numbers ready, not approximate'). Builds a
+    """The actual pitch number. Builds a
     50,000-key dataset that's 99.8% identical between the two views (a realistic 'mostly clean'
     reconciliation batch) and reports the real measured comparison count."""
     rng = random.Random(7)

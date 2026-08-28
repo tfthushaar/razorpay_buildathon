@@ -56,7 +56,7 @@ export interface StressScorecard {
 export interface FeeLeakFinding {
   transaction_id: string;
   rail: string;
-  pattern: "blended_rate_overcharge" | "gst_wrong_base";
+  pattern: "blended_rate_overcharge" | "gst_wrong_base" | "gst_wrong_rate" | "gst_miscomputed";
   pattern_label: string;
   contracted_fee: number;
   actual_fee: number;

@@ -1,4 +1,4 @@
-"""Audit logger (spec §6.8): every decision, timestamped, with the narrated reason, the
+"""Audit logger: every decision, timestamped, with the narrated reason, the
 tool-call trace, and links back to the source rows it was based on. SQLite, append-only —
 "doesn't need to be fancy" per spec, and this is the primary source material for the
 submission's required "what broke and how I recovered" narrative (pulled from BUILD_LOG.md,

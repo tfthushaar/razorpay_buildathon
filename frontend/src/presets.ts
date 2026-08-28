@@ -1,4 +1,4 @@
-// Hand-crafted example scenarios for the "break it" live demo panel (spec §6.10). Each is a
+// Hand-crafted example scenarios for the "break it" live demo panel. Each is a
 // complete, valid TransactionScenario a presenter can submit as-is or tweak one number in before
 // resubmitting — that tweak-and-resubmit motion is what makes the demo provably not scripted.
 

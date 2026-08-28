@@ -1,4 +1,4 @@
-"""End-to-end pipeline test (spec §5 diagram, full path) — the closest thing to a real batch
+"""End-to-end pipeline test (full path) — the closest thing to a real batch
 run, using the mock narrator provider so it's zero-cost and deterministic in CI."""
 
 import tempfile
@@ -47,7 +47,7 @@ def test_run_batch_includes_a_real_fee_leak_report():
     assert report.findings, "the fee-leak batch should always produce real findings"
     assert report.total_fee_recovery >= 0
     assert report.total_gst_correction >= 0
-    assert set(report.by_pattern) <= {"blended_rate_overcharge", "gst_wrong_base"}
+    assert set(report.by_pattern) <= {"blended_rate_overcharge", "gst_wrong_base", "gst_wrong_rate"}
     # confirms this genuinely didn't leak into the main reconciliation numbers
     assert result.total_transactions == 50
 
@@ -70,7 +70,7 @@ def test_total_itc_separated_is_real_and_distinct_from_the_fee_leak_correction()
 
 
 def test_throughput_is_measured_not_estimated():
-    """Spec explicitly names Throughput as a judged criterion (§9, §11) -- this must be a real
+    """Spec explicitly names Throughput as a judged criterion -- this must be a real
     measured number attached to the result, not just quoted in prose (an external audit flagged
     the earlier version of this project for having no instrumentation backing the throughput
     claim in BUILD_LOG.md)."""
@@ -85,7 +85,7 @@ def test_throughput_is_measured_not_estimated():
 
 
 def test_pitch_stat_engine_beats_naive_baseline():
-    """The one-sentence pitch (spec §6.7): our reconciled amount should beat the naive baseline's
+    """The one-sentence pitch: our reconciled amount should beat the naive baseline's
     "clean" count on this same batch by a real margin, not a marginal one."""
     result = run_batch(seed=42, main_n=150, stress_n=0, threshold=0.90, provider="mock")
     # naive baseline can only ever call something "clean"; it has no auto-resolve concept at all,
@@ -97,7 +97,7 @@ def test_pitch_stat_engine_beats_naive_baseline():
 
 
 def test_three_way_decomposition_isolates_what_the_narrator_adds():
-    """Real Problem / not-cherry-picked (spec §11): the three-way ordering must hold --
+    """Real Problem / not-cherry-picked: the three-way ordering must hold --
     naive baseline <= this project's own deterministic engine alone <= full system with the
     narrator -- so the pitch can isolate what the *agentic* layer specifically contributes on top
     of good deterministic engineering, not just beat a naive strawman. Added 2026-08-24 after an

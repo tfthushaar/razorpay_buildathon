@@ -1,4 +1,4 @@
-"""Merkle-tree divergence pre-filter (optional stretch, spec §3, §6.3, §9).
+"""Merkle-tree divergence pre-filter (optional stretch).
 
 The pitch: "compared 50,000 records using ~200 comparisons." Borrowed from how Cassandra/DynamoDB
 do anti-entropy repair between replicas — hash-chunk two views of the same key space, compare

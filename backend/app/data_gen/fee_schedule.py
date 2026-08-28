@@ -1,7 +1,7 @@
 """Shared fee/SLA reference data.
 
 Deliberately importable by both the data generator (to inject realistic deltas) and the
-narrator's `lookup_fee_schedule` / `check_sla_window` tools later (spec §6.4) — the tools
+narrator's `lookup_fee_schedule` / `check_sla_window` tools later — the tools
 must look up the *same* ground truth the generator used, not a hardcoded copy, so a passing
 tool call is a real check and not theater.
 """

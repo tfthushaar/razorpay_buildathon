@@ -1,4 +1,4 @@
-"""Regression tests for the synthetic data generator (spec §4, §6.1).
+"""Regression tests for the synthetic data generator.
 
 These exist because the entire pipeline depends on the generator producing structurally
 sound, arithmetically correct chains with a genuinely hidden ground truth. A bug here would

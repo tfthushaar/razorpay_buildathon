@@ -1,4 +1,4 @@
-"""Regression tests for the calibration / auto-resolve layer (spec §6.5).
+"""Regression tests for the calibration / auto-resolve layer.
 
 `provider="groq"` in these fixtures stands in for "a real LLM produced this decision" — the exact
 label doesn't matter, only that it isn't "mock". See test_mock_decisions_never_count_toward_the_gate
@@ -113,7 +113,7 @@ def test_live_threshold_dial_changes_decision_without_new_data():
 
 def test_human_feedback_loop_can_flip_a_category_across_threshold():
     """A category that starts below threshold should be able to cross it as more human-confirmed
-    resolutions accumulate — the calibration layer re-earning trust live (spec §6.5)."""
+    resolutions accumulate — the calibration layer re-earning trust live."""
     decisions = [
         ScoredDecision(transaction_id=f"t{i}", predicted_category="netting_trap", true_label="netting_trap", amount=400_00, provider="groq")
         for i in range(4)

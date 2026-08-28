@@ -127,10 +127,12 @@ through and verify a decision instead of taking the narration on faith.
 Track 04 names four example directions. Multi-source reconciliation above is this project's primary
 identity; the other three are also built — see [RESULTS.md](RESULTS.md) for every number.
 
-**Tax-line matcher.** Two fee-leak patterns (`app/feeleak/detector.py`): a blended/flat rate applied
-instead of an instrument's own contracted rate, and GST computed on the gross amount instead of the
-gateway fee — both invisible to standard reconciliation, since a transaction can reconcile perfectly
-while still being charged an inconsistent fee. Checked against the merchant's own contracted rate,
+**Tax-line matcher.** Three fee-leak patterns (`app/feeleak/detector.py`): a blended/flat rate applied
+instead of an instrument's own contracted rate, GST computed on the gross amount instead of the
+gateway fee, and GST computed on the correct base but at the wrong rate (a real other GST slab
+mistakenly applied instead of 18%) — all invisible to standard reconciliation, since a transaction can
+reconcile perfectly while still being charged an inconsistent fee. Checked against the merchant's own
+contracted rate,
 not a blanket legal claim about UPI MDR — Section 10A of the Payment and Settlement Systems Act (the
 zero-MDR mandate) was amended on 4 August 2026, replacing the blanket prohibition with a
 government-notification framework, three weeks before this was written. Completed by

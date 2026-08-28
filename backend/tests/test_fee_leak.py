@@ -48,12 +48,32 @@ def test_gst_wrong_base_is_caught_with_the_correct_amount():
         assert abs(f.fee_variance) <= 100, "the fee itself should be correctly contracted in this pattern"
 
 
+def test_gst_wrong_rate_is_caught_with_the_correct_amount():
+    batch = generate_fee_leak_batch(seed=1, n=21)
+    report = run_fee_leak_detection(batch.orders, batch.payments)
+    wrong_rate_findings = [f for f in report.findings if f.pattern == "gst_wrong_rate"]
+    assert wrong_rate_findings, "should have found at least one gst_wrong_rate finding in 21 fee-leak examples"
+
+    payments_by_order = {p.order_id: p for p in batch.payments}
+    for f in wrong_rate_findings:
+        payment = payments_by_order[f.transaction_id]
+        correct_gst = round(payment.fee_amount * GST_RATE)
+        assert f.contracted_gst == correct_gst
+        assert f.actual_gst == payment.tax_amount
+        assert f.gst_variance == payment.tax_amount - correct_gst
+        assert abs(f.fee_variance) <= 100, "the fee itself should be correctly contracted in this pattern"
+        assert f.rail == "card", "restricted to card -- see the generator's own docstring for why"
+
+
 def test_every_fee_leak_example_produces_a_finding():
     """The generator's whole premise is that these transactions reconcile cleanly but ARE real
-    leaks -- every single one it produces must be caught, not just most of them."""
-    batch = generate_fee_leak_batch(seed=7, n=30)
-    report = run_fee_leak_detection(batch.orders, batch.payments)
-    assert len(report.findings) == len(batch.orders)
+    leaks -- every single one it produces must be caught, not just most of them. Verified across a
+    wider seed sweep, not just one lucky seed, given gst_wrong_rate's narrower (card-only) margin
+    above the rounding-noise epsilon compared to the other two patterns."""
+    for seed in range(1, 20):
+        batch = generate_fee_leak_batch(seed=seed, n=30)
+        report = run_fee_leak_detection(batch.orders, batch.payments)
+        assert len(report.findings) == len(batch.orders), f"seed {seed}: {len(report.findings)}/{len(batch.orders)}"
 
 
 def test_zero_false_positives_against_every_existing_category():

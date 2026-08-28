@@ -1,4 +1,4 @@
-"""Regression tests for the narrator's tools and mock-backend agent loop (spec §6.4).
+"""Regression tests for the narrator's tools and mock-backend agent loop.
 
 Uses the real generator + chain builder + matching engine to produce the actual
 "needs_narration" slice, then checks the mock narrator (which calls the real tool functions,
