@@ -42,7 +42,6 @@ the evidence, not assumed away -- see BUILD_LOG.md):
 
 from __future__ import annotations
 
-import itertools
 import json
 import os
 import random
@@ -52,10 +51,10 @@ from pydantic import BaseModel
 
 from app.chain.builder import CausalChain, build_chain
 from app.data_gen.generate import SyntheticDataGenerator
+from app.data_gen.subset_sum import find_other_subsets_that_cancel
 from app.narrator.tools import ToolContext, check_batch_anomalies, list_batch_deltas, verify_group_sum
 
 N_DISTRACTORS = 8  # unrelated transactions sharing the same settlement batch
-MAX_SUBSET_SIZE_CHECKED_FOR_UNIQUENESS = 4  # brute-force cap; N_DISTRACTORS+2 choose this is cheap
 
 SYSTEM_PROMPT = """You are investigating one settlement transaction whose actual amount doesn't
 match what the records (order, fee, tax, refunds) predict. You have one tool available:
@@ -124,21 +123,6 @@ class ExperimentResult(BaseModel):
     llm_correctly_identified_the_group: bool  # cited ids are EXACTLY the group -- not superset, not subset
 
 
-def _find_other_subsets_that_cancel(target_delta: int, other_deltas: dict[str, int], correct_group: set[str]) -> list[set[str]]:
-    """Brute-force every non-empty subset of `other_deltas` up to size
-    MAX_SUBSET_SIZE_CHECKED_FOR_UNIQUENESS that also cancels target_delta -- used only to verify the
-    hand-constructed case has exactly one right answer, not left to chance."""
-    ids = list(other_deltas.keys())
-    matches = []
-    for size in range(1, MAX_SUBSET_SIZE_CHECKED_FOR_UNIQUENESS + 1):
-        for combo in itertools.combinations(ids, size):
-            if set(combo) == correct_group:
-                continue
-            if target_delta + sum(other_deltas[i] for i in combo) == 0:
-                matches.append(set(combo))
-    return matches
-
-
 def build_experiment_case(seed: int = 777) -> tuple[dict[str, CausalChain], ToolContext, str, list[str]]:
     """Hand-constructs a settlement batch of 1 target + 2 group members + N_DISTRACTORS unrelated
     transactions. The group's two deltas cancel the target's exactly; no distractor, and no OTHER
@@ -196,7 +180,7 @@ def build_experiment_case(seed: int = 777) -> tuple[dict[str, CausalChain], Tool
     # ambiguous (more than one valid explanation exists) and must not be used as an experiment case.
     other_ids = txn_ids[1:]
     other_deltas_by_id = {tid: chains[tid].settlement_delta for tid in other_ids}
-    stray_matches = _find_other_subsets_that_cancel(chains[target_id].settlement_delta, other_deltas_by_id, set(group_ids))
+    stray_matches = find_other_subsets_that_cancel(chains[target_id].settlement_delta, other_deltas_by_id, set(group_ids))
     if stray_matches:
         raise AssertionError(f"seed {seed}: construction is ambiguous, other subsets also cancel the target: {stray_matches}")
 
