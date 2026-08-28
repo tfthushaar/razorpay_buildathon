@@ -21,20 +21,35 @@ python -m uvicorn app.main:app --reload --port 8000   # then: cd ../frontend && 
 *A real escalated case — the exact `check_batch_anomalies` / `check_sla_window` /
 `recall_similar_resolutions` tool calls and results behind "needs a human," not a black-box verdict.*
 
-## Scoreboard
+## Meeting the bar
 
 | The bar (Razorpay's own) | This system | Verify |
 |---|---|---|
 | 50+ record batch | 50,000 (mock provider) / 120 (real Ollama) | [50k run](docs/evidence/50k-batch-run-2026-08-25.json) |
-| Match rate | 99.3% of settlement value reconciled (real Ollama run, 7 escalations of 120) | [below](#the-result) |
+| Match rate | 99.3% of settlement value reconciled (real Ollama run, 7 escalations of 120) — the default mock-provider run reconciles ~86% instead, because mock deliberately escalates all three LLM-judgment categories rather than auto-resolving on unearned trust; see [below](#the-result) | [below](#the-result) |
 | Throughput | 5,508 tx/sec (mock, 50k scale) — 2.58 tx/sec (real LLM, measured, not extrapolated). The 2,000× gap is the deterministic/LLM split below, not two different systems | [docs/setup.md](docs/setup.md) |
 | Measured accuracy | Wilson 95% CI *lower bound* per category, not a raw point estimate | [below](#the-result) |
 | Honest exception list | Every escalation ships a reason + tool trace; full build gaps in [What this can't do](#what-this-cant-do-and-what-it-refuses-to-do) | ↓ |
-| Real Razorpay data | Order + payment + fee + refund are real API objects on a live test account (raw `fee: 1180, tax: 180` on a `50000`-paise payment — pre-tax base 1180/1.18 = 1000, i.e. 2.0% of the payment, matching this project's own `card` rate constant, not `netbanking` — a real, disclosed discrepancy); settlement is structurally unavailable in test mode, verified not assumed | [raw API dump](docs/evidence/razorpay-sandbox-2026-08-25.json) |
-| Forward cash forecaster | A genuinely different track direction: predicts settlement date + net amount from the order + payment + the merchant's own known fee/SLA schedule — real reference data, not a learned model, so it's exact to the paise on 73.3% of transactions by construction. The reported 9.1% MAPE / 93.3% interval coverage comes entirely from the ~27% with a refund, dispute, or timing anomaly the predictor structurally can't see in advance — disclosed here, not left for a judge to discover in the docstring | `GET /api/forecast/backtest` |
-| Settlement Q&A agent | A second, separate agentic loop over the same batch — free-text questions like "are there any duplicate refunds in this batch," answered by real tool calls with the trace shown, not a canned lookup; two real bugs (a hallucinated-transaction-id crash, a missing batch-wide-scan tool) were only found by actually driving it live, both fixed | `POST /api/qa/ask` |
-| Category discovery | Instead of just giving up on a `genuine_error` case, one more real model call proposes a named, evidence-grounded hypothesis — never auto-adopted, shown as "unreviewed" for a human to confirm; real live Ollama run: 8 real proposals citing real hop deltas and tool results, committed | [raw evidence](docs/evidence/discovery-ollama-run-2026-08-27.json) |
-| Time-to-revocation drill | A controlled experiment, not a live number: seed a category into auto-resolve with 40 clean decisions, feed it wrong ones one at a time, measure exactly when trust gets revoked. Real result, kept as found rather than tuned to sound more dramatic: **1 wrong decision (₹500) was enough** — the EWMA drift check reacts far faster than the aggregate ever could | `POST /api/drift/drill` |
+| Real Razorpay data | Order + payment + fee + refund are real API objects on a live test account; settlement is structurally unavailable in test mode, verified not assumed. The fee-rate discrepancy this uncovered is below | [raw API dump](docs/evidence/razorpay-sandbox-2026-08-25.json) |
+
+> **The one thing here a Razorpay engineer doesn't already know**: the real sandbox payment's raw
+> fee (`fee: 1180, tax: 180` on a `50000`-paise capture) implies a 2.0% rate — matching this
+> project's own `card` fee constant, not `netbanking`, the rail the payment actually used. A real,
+> disclosed discrepancy, not hidden or explained away.
+
+## Track 04 listed four example directions. All four are built.
+
+| Direction | Built as | Evidence |
+|---|---|---|
+| Multi-source reconciliation | The primary identity above — causal chain across 5 hops, calibrated auto-resolve | [Why it's not a flat matcher](#why-its-not-a-flat-matcher) |
+| Tax-line matcher | GST-wrong-base detection, ITC separation, and a match against a simulated GSTR-2B | `GET /api/gstr2b` |
+| Settlement Q&A agent | A second agentic loop — free-text questions, real tool calls, trace shown | `POST /api/qa/ask` |
+| Forward cash forecaster | Predicts settlement date + net amount from the merchant's own fee/SLA schedule — 9.1% MAPE, 93.3% interval coverage at this platform's default batch size, [caveats below](#what-this-cant-do-and-what-it-refuses-to-do) | `GET /api/forecast/backtest` |
+
+They share one substrate: once the causal chain and the real rate card exist, the forecaster is
+that chain run forward, and the Q&A agent is the same tool loop pointed at a free-text question
+instead of one transaction. Breadth here cost days, not weeks — depth on the primary direction
+didn't suffer for it. Caveats on the forecaster: [below](#what-this-cant-do-and-what-it-refuses-to-do).
 
 ## The result
 
@@ -43,20 +58,28 @@ auto-resolve: 59 distinct real cases, 98.3% measured accuracy, a 95% Wilson conf
 *lower bound* (91.0%) cleared the 90% trust threshold. That's real, distinct money: **₹4,86,473.13
 auto-resolved with zero human review**, not the same handful of transactions counted once per
 re-scoring (`duplicate_refund` earned the same status separately: 37 cases, 100% accuracy). Getting
-here took real setbacks — 100% accuracy at 29 distinct cases still didn't clear the bound, and a
-couple of genuine misclassifications happened before enough further evidence pulled it past 90% for
-good. Replaying this same evidence chronologically (`GET /api/regret` — realized cost, not
+here took real setbacks — 100% accuracy at 29 distinct cases still didn't clear the bound.
+
+Autonomy is watched, not just earned. A controlled experiment seeds a category into auto-resolve
+with 40 clean decisions, then feeds it wrong ones one at a time (`POST /api/drift/drill` — the
+result is category-independent by construction, a test of the drift mechanism in isolation, not a
+per-category comparison): **1 wrong decision (₹500) revoked it, even with the all-time aggregate
+still reading 97.6% correct.** That's a deliberate choice, not an accident — for autonomous action on
+real money, over-revoking costs one human review; under-revoking costs real rupees. The control
+limit is a tunable parameter, and this project ships it tuned toward the expensive-to-get-wrong side.
+Replaying the real accumulated history chronologically (`GET /api/regret` — realized cost, not
 `amount_at_risk`'s forward-looking estimate) shows **₹0 in realized regret across 8 real
-auto-resolved transactions so far** — an honest, small, still-early number, not rounded up to
-match the pitch.
+auto-resolved transactions so far** — honest, small, still early, not rounded up to match the pitch.
 
 The counterweight is the actual point. `genuine_error` sat at 80.3% measured accuracy across the same
-evidence and **stayed escalated anyway**, because it's the one category that never auto-resolves
-regardless of the numbers — a misclassification there costs a human a glance, never a wrong
-autonomous action, which is exactly why it's excluded from auto-resolve by design rather than a
-category this project tried and failed to improve. A system willing to *not* act is the only reason a
-finance team would ever let it act. [Raw output](docs/evidence/verified-ollama-run-2026-08-25.json) —
-reproducible on a fresh clone, not just re-verified against local state.
+evidence and **stayed escalated anyway** — it's the one category that never auto-resolves regardless
+of the numbers, because a misclassification there should cost a human a glance, never become a wrong
+autonomous action. It doesn't just give up, either: one more real model call proposes a named,
+evidence-grounded hypothesis for what the case might actually be, never auto-adopted, shown as
+"unreviewed" for a human to confirm ([raw evidence](docs/evidence/discovery-ollama-run-2026-08-27.json)).
+A system willing to *not* act is the only reason a finance team would ever let it act.
+[Raw output](docs/evidence/verified-ollama-run-2026-08-25.json) — reproducible on a fresh clone, not
+just re-verified against local state.
 
 ## Why it's not a flat matcher
 
@@ -71,12 +94,8 @@ reproducible on a fresh clone, not just re-verified against local state.
 3. **Audits the fee, not just the reconciliation.** A transaction can reconcile perfectly — ledger
    and settlement agree on every rupee — while still being charged a fee inconsistent with the
    merchant's own contract. That's invisible to every check above; only comparing against the actual
-   contracted rate catches it. One of its two patterns is specifically a tax-line check — GST computed
-   on the wrong base — and every transaction's correctly-computed GST-on-fee is separated into its own
-   ITC-eligible journal line, then matched against a *simulated* GSTR-2B (`GET /api/gstr2b` — real
-   structure, verified before building; three disjoint, disclosed mismatch kinds, one honestly labeled
-   as illustrative rather than realistic for a gateway fee), so this fully covers the track's
-   "tax-line matcher" direction, not just fee auditing. Detail: [docs/track04-*.md §12](docs/track04-settlement-reconciliation-copilot.md#12-beyond-the-original-spec-fee-leak-detection-and-erp-posting-added-post-build).
+   contracted rate catches it — one of the two building blocks behind the tax-line matcher in the
+   table above. Detail: [docs/track04-*.md §9](docs/track04-settlement-reconciliation-copilot.md#9-beyond-the-original-spec-fee-leak-detection-and-erp-posting-added-post-build).
 
 **Where the LLM actually sits, stated plainly:** 85% of a batch resolves deterministically, zero LLM
 calls — that's the design, not a shortfall. The model is reserved for the three exception categories
@@ -103,6 +122,15 @@ past resolutions — and audited, not a bare classification. Autonomy in bullet 
   against Razorpay's own docs, not an account limitation or something more real data would fix. The
   synthetic generator covers the settlement leg alone, for exactly this reason — full trail:
   [BUILD_LOG.md](BUILD_LOG.md).
+- **The forecaster is exact by construction on ~73% of transactions** — it reuses the merchant's own
+  known fee/SLA schedule, not a learned model, so its MAPE/coverage come entirely from the
+  ~27% of transactions with a refund, dispute, or timing anomaly it structurally can't see in
+  advance. Disclosed, not hidden. The reported figure also moves with batch size (n=30: 9.1%/93.3%;
+  n=120: 8.6%/90.8%; n=160: 4.1%/90.6%) since the anomaly categories are a roughly fixed share, not a
+  fixed count — the headline uses this platform's own default, not the most flattering size tried.
+- **Category discovery proposes a hypothesis per case, it doesn't cluster.** Eight live proposals
+  produced six distinct names, five of them singletons — a genuine taxonomy would recur across
+  cases; this doesn't yet.
 
 ## Verify it yourself
 
@@ -124,10 +152,13 @@ including exactly why `backend/data/*.db` is gitignored and what to use instead:
 
 - [Architecture & design rationale](docs/track04-settlement-reconciliation-copilot.md) — full data
   model, system design, and every build decision's "why."
-- [BUILD_LOG.md](BUILD_LOG.md) — ~30,000 words, every real bug found and how it was fixed, in order.
-  Long because it's a process record, not a pitch document.
-- [Where this fits in Razorpay's own stack](docs/positioning.md) — Recon, Settlement Insights, the
-  NPCI agentic-commerce pilot, and the regulatory correction behind the fee-leak detector's design.
+- [Where this fits in Razorpay's own stack](docs/positioning.md) — why this doesn't duplicate Recon
+  or Settlement Insights, plus the NPCI agentic-commerce pilot and the regulatory correction behind
+  the fee-leak detector's design.
+- [BUILD_LOG.md](BUILD_LOG.md) — ~39,000 words, every real bug found and how it was fixed, in
+  chronological order. Long because it's a process record, not a pitch document.
+- [PROGRESS.md](PROGRESS.md) — the current status checklist against the original build plan, not a
+  narrative; skip it unless you want a phase-by-phase build tracker.
 - [Screenshot gallery](docs/screenshots.md) · [Full setup, Docker, deployment](docs/setup.md) ·
   [Raw evidence JSONs](docs/evidence/)
 

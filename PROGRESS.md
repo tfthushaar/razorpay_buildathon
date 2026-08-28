@@ -3,7 +3,7 @@
 Tracker for the build against [docs/track04-settlement-reconciliation-copilot.md](docs/track04-settlement-reconciliation-copilot.md).
 Status legend: `[ ]` not started · `[~]` in progress · `[x]` done · `[!]` blocked/needs input
 
-## Core path (never-cut, per spec §8)
+## Core path (never-cut)
 
 - [x] Repo scaffold (backend/frontend dirs, git, .gitignore)
 - [x] Synthetic data generator + hidden ground truth + adversarial cases + 100%-adversarial stress batch (spec §6.1, §4) — 7/7 tests passing, see BUILD_LOG. **Round 14 found `main_n=6` (and only 6, brute-force-verified across the full 0-2000 accepted range) silently generated 7 transactions, not 6** — three independently-rounded category shares could overshoot the requested total by 1, and the unclamped remainder going negative meant `range(-1)` just skipped the ambiguous category rather than erroring. Fixed by absorbing any overflow into the clean-match share; committed regression test sweeps 0-150.
@@ -133,9 +133,9 @@ Round 5 found something rounds 1-4 all missed: `_final_decision()` (pipeline.py)
 - [x] **Real-data claim made independently verifiable, third follow-up (2026-08-25)** — the real payment/refund IDs previously lived only in prose (BUILD_LOG, PROGRESS, a docstring); dumped the actual raw `GET /v1/payments/pay_TU5Ve4omwaz1c5` and `GET /v1/refunds` responses, unmodified, to `docs/evidence/razorpay-sandbox-2026-08-25.json` (one deliberate redaction: a phone number never confirmed fictitious). Surfaced the 2.0%-vs-1.0% fee finding directly in the README's scoreboard row, not just the connector docstring. Confirmed the live demo isn't actually cold-starting right now (0.16s response, UptimeRobot keep-alive working) rather than adding an unverified caveat. No code changes; 145/145 tests still passing.
 - [x] **Claimed the "tax-line matcher" example direction honestly (2026-08-26)** — Track 04 names four example directions; this project's identity is multi-source reconciliation, but the fee-leak detector's GST-wrong-base pattern + the ERP journal's GST-on-fee ITC separation already, genuinely cover "tax-line matcher" too, just never explicitly named as such. Documentation-only: one clause in README's fee-audit bullet, one paragraph in the architecture doc, both stating plainly this isn't the project's primary identity. Considered and declined for now: a settlement Q&A agent (cheap to add, reuses the existing narrator tool-loop directly — a real option if there's appetite for more scope) and a forward cash forecaster (nothing to build on, would read as bolted-on this late).
 
-## Submission checklist (spec §10)
+## Submission checklist
 
-- [x] Clean local git history, clear README — **pushed to the public remote (github.com/tfthushaar/razorpay_buildathon) on 2026-08-25**. Restructured the same day per a real structural review: cut from ~7,300 to ~970 words, seven sections ordered by descending cost of being skipped, a scoreboard table mapping directly to the track's own published judging bar, moved everything else to `docs/positioning.md`/`docs/setup.md`/`docs/screenshots.md`/`docs/track04-*.md §12` rather than deleting it. See BUILD_LOG.md.
+- [x] Clean local git history, clear README — **pushed to the public remote (github.com/tfthushaar/razorpay_buildathon) on 2026-08-25**. Restructured the same day per a real structural review: cut from ~7,300 to ~970 words, seven sections ordered by descending cost of being skipped, a scoreboard table mapping directly to the track's own published judging bar, moved everything else to `docs/positioning.md`/`docs/setup.md`/`docs/screenshots.md`/`docs/track04-*.md §9` rather than deleting it. See BUILD_LOG.md.
 - [ ] 5-min pitch video — outside what code can produce; mine to record
 - [x] Architecture doc (docs/track04-*.md, kept current through the build, several mid-build revisions logged in BUILD_LOG)
 - [x] "What broke / how fixed" narrative — BUILD_LOG.md, real bugs with root causes, fixes, and verification, not invented after the fact

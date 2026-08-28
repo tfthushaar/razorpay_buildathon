@@ -212,24 +212,7 @@ Beyond the main 50-200 transaction batch (mixed distribution below), generate a 
 
 ---
 
-## 8. Build order (target: ~10–12 focused days)
-
-| Days | Task |
-|---|---|
-| 1–2 | Synthetic data generator (real-Razorpay-shaped fields) + hidden ground truth + adversarial cases + separate 100%-adversarial stress batch. Get this right first — everything depends on it. |
-| 3–4 | Causal chain builder + exact-match pass + naive baseline |
-| 5–6 | Agentic discrepancy narrator: tool-calling loop (fee schedule, SLA window, duplicate registry, similar-resolution recall) + structured classification |
-| 7 | Calibration layer: per-category accuracy + Wilson CI, live threshold dial, ₹-at-risk calculation, human-feedback loop |
-| 8 | Audit logger (incl. tool-call traces + source-row links) + baseline comparison reporting + escalation triage ranking |
-| 9–10 | React dashboard: match rate, prioritized exception queue w/ drill-down, live calibration dial, baseline delta, adversarial stress-test scorecard |
-| 11 | End-to-end test on full batch + stress batch; verify adversarial cases handled correctly, not just present; rehearse the live/judge-submitted "break it" demo path |
-| 12 | Record 5-min pitch video (the live threshold dial and a live-submitted transaction are the centerpiece), write architecture doc + README, polish repo |
-
-**Cut order if behind schedule:** Merkle-tree divergence search first (differentiator, not a requirement) → then the human-feedback loop and escalation triage ranking (nice-to-have polish). **Never cut:** the calibration layer, baseline comparison, or audit log — those map directly to what's being judged.
-
----
-
-## 9. What to measure and report (have these numbers ready, not approximate)
+## 8. What to measure and report (have these numbers ready, not approximate)
 
 - Overall match rate (%) — your system vs. naive baseline
 - ₹ amount correctly reconciled — your system vs. naive baseline
@@ -242,35 +225,7 @@ Beyond the main 50-200 transaction batch (mixed distribution below), generate a 
 
 ---
 
-## 10. Submission checklist (per Razorpay's stated requirements)
-
-This is the original pre-build plan, left unchecked as written — it's a planning checklist, not a
-status tracker, and round 12 of my audit loop correctly flagged that its all-`[ ]` state directly
-contradicts PROGRESS.md's own mirror of the same six items (five of six checked there). **For
-actual current completion status, see [PROGRESS.md](../PROGRESS.md)**, not this list.
-
-- [ ] Public GitHub repo, clean commit history, clear README
-- [ ] 5-minute pitch video — lead with a live "break it" moment (feed an ambiguous/adversarial transaction on camera, show the system correctly escalate instead of guessing)
-- [ ] Architecture explanation (this document adapted into your README/submission doc)
-- [ ] Explicit "what broke during development and how I fixed it" narrative — pull this directly from your audit log and real debugging moments, don't invent one
-- [ ] Reproducible setup instructions (someone should be able to clone and run it)
-- [ ] Honest exception list — do not hide unresolved or ambiguous cases; showing them is the point
-
----
-
-## 11. Judging criteria alignment (for your own reference while building)
-
-| Razorpay criterion | How this build answers it |
-|---|---|
-| Measured accuracy, honest exceptions | Calibration layer + Wilson CI + ground-truth scoring + prioritized, visible exception list |
-| Throughput | Batch processed end-to-end, reported as a number |
-| AI Judgment | Agentic tool-calling narrator (looks things up instead of guessing) + calibrated auto-resolve, only acting where it's proven accurate |
-| Bounded and gated | Live, judge-operable threshold dial + ₹-at-risk readout — never blind auto-resolve |
-| Failure Recovery | Adversarial cases + a dedicated 100%-adversarial stress batch + audit log + human-feedback loop that visibly re-earns trust + unscripted/live pitch-video "break it" moment |
-| Real problem, not cherry-picked | Baseline comparison + stress-batch scorecard prove the lift and the safety are real, not staged |
-| Domain fluency | Data model mirrors Razorpay's real Payments/Settlements/Refunds API field shapes, not generic finance jargon |
-
-## 12. Beyond the original spec: fee-leak detection and ERP posting (added post-build)
+## 9. Beyond the original spec: fee-leak detection and ERP posting (added post-build)
 
 Two additions past everything above, found during the build rather than planned upfront (see
 BUILD_LOG.md for the full narrative): a **fee-leak detector** (`app/feeleak/`) that checks every

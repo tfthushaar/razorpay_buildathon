@@ -16,7 +16,7 @@ output either product already produces.
 
 The regulatory correction behind the fee-leak detector's design (checking a merchant's own
 contracted rate rather than a blanket legal claim) is covered in
-[the architecture doc](track04-settlement-reconciliation-copilot.md#12-beyond-the-original-spec-fee-leak-detection-and-erp-posting-added-post-build).
+[the architecture doc](track04-settlement-reconciliation-copilot.md#9-beyond-the-original-spec-fee-leak-detection-and-erp-posting-added-post-build).
 
 ## One trajectory worth naming
 
