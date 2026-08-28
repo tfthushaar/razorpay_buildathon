@@ -26,6 +26,7 @@ export function RunControls({ onRun, loading, error }: Props) {
   const [provider, setProvider] = useState("mock");
   const [resetHistory, setResetHistory] = useState(false);
   const [enableDiscovery, setEnableDiscovery] = useState(false);
+  const [enableMultiwayNetting, setEnableMultiwayNetting] = useState(false);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -85,6 +86,13 @@ export function RunControls({ onRun, loading, error }: Props) {
           <input type="checkbox" checked={enableDiscovery} onChange={(e) => setEnableDiscovery(e.target.checked)} />
           Propose new categories (genuine_error)
         </label>
+        <label
+          className="checkbox-label"
+          title="Inject a real multi-way netting_trap case: 3+ transactions whose deltas cancel together, invisible to the pairwise rule by construction — a genuine judgment task, off by default so existing evidence/numbers stay valid"
+        >
+          <input type="checkbox" checked={enableMultiwayNetting} onChange={(e) => setEnableMultiwayNetting(e.target.checked)} />
+          Inject multi-way netting case
+        </label>
         <button
           disabled={loading}
           onClick={() =>
@@ -96,6 +104,7 @@ export function RunControls({ onRun, loading, error }: Props) {
               provider,
               reset_history: resetHistory,
               enable_discovery: enableDiscovery,
+              enable_multiway_netting: enableMultiwayNetting,
             })
           }
         >

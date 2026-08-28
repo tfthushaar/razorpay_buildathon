@@ -9,6 +9,7 @@ import collections
 
 from app.data_gen.fee_schedule import SLA_TOLERANCE_DAYS
 from app.data_gen.generate import generate
+from app.data_gen.subset_sum import find_other_subsets_that_cancel
 
 
 def _index(main):
@@ -192,3 +193,121 @@ def test_netting_trap_pairs_sum_clean_but_are_individually_wrong():
         pair_count += 1
 
     assert pair_count > 0, "test setup should have produced at least one netting_trap pair"
+
+
+# --- multiway_netting_trap: a group of 3+ transactions whose deltas cancel TOGETHER, invisible to
+# check_batch_anomalies' pairwise-only check by construction. Off by default (enable_multiway_netting)
+# so every existing committed evidence file and BUILD_LOG number stays valid until this is measured
+# on its own -- these tests exercise the flag explicitly. ---
+
+
+def test_main_batch_with_multiway_enabled_always_totals_exactly_n():
+    """Same invariant as test_main_batch_always_totals_exactly_the_requested_n_at_non_default_clean_
+    ratios, with the new flag on: a multiway call consumes group_size adversarial slots and
+    n_distractors ambiguous slots together via the remaining_ambiguous counter -- swept here rather
+    than trusted algebraically, the same discipline that test already established."""
+    for n in range(0, 151):
+        main, _ = generate(seed=1, main_n=n, stress_n=0, enable_multiway_netting=True)
+        assert len(main.orders) == n, f"main_n={n} produced {len(main.orders)} orders with multiway enabled"
+        assert len(main.ground_truth) == n
+
+
+def test_multiway_netting_trap_group_deltas_sum_to_exactly_zero():
+    found_any = False
+    for seed in range(1, 40):
+        main, _ = generate(seed=seed, main_n=150, stress_n=0, enable_multiway_netting=True)
+        orders, payments, settlements_by_payment, _, _, gt_by_id = _index(main)
+        groups: dict[frozenset, list[str]] = collections.defaultdict(list)
+        for oid, gt in gt_by_id.items():
+            if gt.true_label == "multiway_netting_trap":
+                groups[frozenset([oid, *gt.linked_transaction_ids])].append(oid)
+        for members in groups:
+            found_any = True
+            total = 0
+            for oid in members:
+                payment = payments[oid]
+                settlement = settlements_by_payment[payment.payment_id][0]
+                net_expected = payment.captured_amount - payment.fee_amount - payment.tax_amount
+                total += settlement.settled_amount - net_expected
+            assert total == 0, f"seed={seed} group {members} deltas don't sum to zero: {total}"
+    assert found_any, "fixture assumption: seeds 1-39 at n=150 should produce at least one multiway_netting_trap group"
+
+
+def test_multiway_netting_trap_no_subset_up_to_size_4_besides_the_real_group_cancels():
+    """The uniqueness property, checked directly rather than assumed -- construction itself already
+    raises if this is ever violated (see _gen_multiway_netting_trap), so this test is really
+    confirming that guard never silently swallows a real ambiguity across a real seed sweep, not
+    re-deriving the check from scratch."""
+    for seed in range(1, 60):
+        main, _ = generate(seed=seed, main_n=150, stress_n=0, enable_multiway_netting=True)
+        orders, payments, settlements_by_payment, _, _, gt_by_id = _index(main)
+        multiway_ids = {oid for oid, gt in gt_by_id.items() if gt.true_label == "multiway_netting_trap"}
+        if not multiway_ids:
+            continue
+        batch_ids = set()
+        for oid in multiway_ids:
+            payment = payments[oid]
+            settlement = settlements_by_payment[payment.payment_id][0]
+            batch_ids.add(settlement.settlement_batch_id)
+        for batch_id in batch_ids:
+            members_in_batch = [
+                oid
+                for oid in multiway_ids
+                if settlements_by_payment[payments[oid].payment_id][0].settlement_batch_id == batch_id
+            ]
+            deltas_by_id = {}
+            for oid in members_in_batch:
+                payment = payments[oid]
+                settlement = settlements_by_payment[payment.payment_id][0]
+                net_expected = payment.captured_amount - payment.fee_amount - payment.tax_amount
+                deltas_by_id[oid] = settlement.settled_amount - net_expected
+            for focal_id in members_in_batch:
+                others = {k: v for k, v in deltas_by_id.items() if k != focal_id}
+                correct = set(members_in_batch) - {focal_id}
+                stray = find_other_subsets_that_cancel(deltas_by_id[focal_id], others, correct)
+                assert stray == [], f"seed={seed} batch={batch_id}: ambiguous, other subsets also cancel {focal_id}: {stray}"
+
+
+def test_multiway_netting_trap_distractors_get_honest_genuine_error_label():
+    """Distractors sharing the batch aren't mislabeled as part of the trap -- they're honestly
+    genuine_error, a real unexplained delta that doesn't cancel with anything, same semantics as
+    _gen_genuine_error elsewhere."""
+    found_any = False
+    for seed in range(1, 30):
+        main, _ = generate(seed=seed, main_n=150, stress_n=0, enable_multiway_netting=True)
+        for gt in main.ground_truth:
+            if gt.true_label == "multiway_netting_trap" and gt.internal_note and "distractor" in gt.internal_note.lower():
+                raise AssertionError("a multiway_netting_trap member's own note should never call itself a distractor")
+        for gt in main.ground_truth:
+            if gt.true_label == "genuine_error" and gt.internal_note and "multiway_netting_trap" in gt.internal_note:
+                found_any = True
+    assert found_any, "fixture assumption: seeds 1-29 at n=150 with multiway enabled should produce at least one distractor"
+
+
+def test_multiway_netting_trap_members_share_the_same_settlement_batch():
+    found_any = False
+    for seed in range(1, 30):
+        main, _ = generate(seed=seed, main_n=150, stress_n=0, enable_multiway_netting=True)
+        orders, payments, settlements_by_payment, _, _, gt_by_id = _index(main)
+        for oid, gt in gt_by_id.items():
+            if gt.true_label != "multiway_netting_trap":
+                continue
+            found_any = True
+            own_batch = settlements_by_payment[payments[oid].payment_id][0].settlement_batch_id
+            for other_id in gt.linked_transaction_ids:
+                other_batch = settlements_by_payment[payments[other_id].payment_id][0].settlement_batch_id
+                assert other_batch == own_batch, f"seed={seed}: {oid} and linked {other_id} don't share a settlement batch"
+    assert found_any
+
+
+def test_generate_is_deterministic_with_multiway_enabled():
+    main_a, _ = generate(seed=7, main_n=150, stress_n=0, enable_multiway_netting=True)
+    main_b, _ = generate(seed=7, main_n=150, stress_n=0, enable_multiway_netting=True)
+    assert [o.order_id for o in main_a.orders] == [o.order_id for o in main_b.orders]
+    assert [g.true_label for g in main_a.ground_truth] == [g.true_label for g in main_b.ground_truth]
+
+
+def test_multiway_netting_trap_disabled_by_default():
+    main, _ = generate(seed=1, main_n=150, stress_n=0)
+    labels = {g.true_label for g in main.ground_truth}
+    assert "multiway_netting_trap" not in labels

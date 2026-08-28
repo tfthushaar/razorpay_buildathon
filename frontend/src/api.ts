@@ -48,6 +48,7 @@ export interface RunRequest {
   provider?: string;
   reset_history?: boolean;
   enable_discovery?: boolean;
+  enable_multiway_netting?: boolean;
 }
 
 export const runBatch = (req: RunRequest) =>

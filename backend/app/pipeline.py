@@ -199,11 +199,12 @@ def run_batch(
     audit_logger: AuditLogger | None = None,
     calibration_history: CalibrationHistory | None = None,
     enable_discovery: bool = False,
+    enable_multiway_netting: bool = False,
 ) -> BatchRunResult:
     run_id = str(uuid.uuid4())
     provider = provider or os.environ.get("LLM_PROVIDER", "mock")
     started_at = time.monotonic()
-    main_batch, stress_batch = generate(seed=seed, main_n=main_n, stress_n=stress_n)
+    main_batch, stress_batch = generate(seed=seed, main_n=main_n, stress_n=stress_n, enable_multiway_netting=enable_multiway_netting)
 
     chains, match_results, narrator_outputs, context = _process_batch(main_batch, provider, audit_logger=audit_logger)
     elapsed_seconds = time.monotonic() - started_at

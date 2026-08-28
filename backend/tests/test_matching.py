@@ -15,11 +15,11 @@ from app.matching.baseline import run_naive_baseline
 from app.matching.engine import run_matching_engine
 
 DETERMINISTIC_CATEGORIES = {"clean_match", "fee_deduction", "partial_refund", "timing_lag", "currency_rounding"}
-NARRATION_REQUIRED_LABELS = {"duplicate_refund", "netting_trap", "genuine_error"}
+NARRATION_REQUIRED_LABELS = {"duplicate_refund", "netting_trap", "genuine_error", "multiway_netting_trap"}
 
 
-def _setup(seed=42, main_n=150, stress_n=0):
-    main, _ = generate(seed=seed, main_n=main_n, stress_n=stress_n)
+def _setup(seed=42, main_n=150, stress_n=0, enable_multiway_netting=False):
+    main, _ = generate(seed=seed, main_n=main_n, stress_n=stress_n, enable_multiway_netting=enable_multiway_netting)
     chains = build_all_chains(main)
     results = run_matching_engine(chains)
     gt_by_id = {g.transaction_id: g.true_label for g in main.ground_truth}
@@ -108,3 +108,21 @@ def test_match_rate_lift_over_naive_baseline():
     engine_rate = engine_correct_or_appropriately_escalated / total
 
     assert engine_rate > baseline_rate, f"engine {engine_rate:.2%} should beat naive baseline {baseline_rate:.2%}"
+
+
+def test_multiway_netting_trap_reaches_needs_narration_with_no_matching_engine_changes():
+    """Confirms the design premise directly: Pass 1/2 have no netting logic at all, so a nonzero,
+    non-epsilon delta from a multiway_netting_trap case already falls to needs_narration today --
+    this category needed zero changes to app/matching/engine.py to become reachable."""
+    found_any = False
+    for seed in range(1, 20):
+        _, _, results, gt_by_id = _setup(seed=seed, enable_multiway_netting=True)
+        for txn_id, label in gt_by_id.items():
+            if label != "multiway_netting_trap":
+                continue
+            found_any = True
+            assert results[txn_id].resolution == "needs_narration", (
+                f"seed={seed} {txn_id} (multiway_netting_trap) was resolved as {results[txn_id].category} "
+                "without narration -- should be structurally impossible"
+            )
+    assert found_any, "fixture assumption: seeds 1-19 at n=150 with multiway enabled should produce at least one case"

@@ -14,12 +14,12 @@ from unittest.mock import MagicMock, patch
 from app.chain.builder import build_all_chains
 from app.data_gen.generate import generate
 from app.matching.engine import run_matching_engine
-from app.narrator.agent import narrate, narrate_groq, narrate_mock, narrate_ollama
+from app.narrator.agent import NARRATOR_CATEGORIES, _execute_tool, narrate, narrate_groq, narrate_mock, narrate_ollama
 from app.narrator.tools import build_tool_context, check_batch_anomalies, recall_similar_resolutions
 
 
-def _narration_queue(seed=42, main_n=150, stress_n=0):
-    main, _ = generate(seed=seed, main_n=main_n, stress_n=stress_n)
+def _narration_queue(seed=42, main_n=150, stress_n=0, enable_multiway_netting=False):
+    main, _ = generate(seed=seed, main_n=main_n, stress_n=stress_n, enable_multiway_netting=enable_multiway_netting)
     chains = build_all_chains(main)
     results = run_matching_engine(chains)
     gt_by_id = {g.transaction_id: g.true_label for g in main.ground_truth}
@@ -402,3 +402,72 @@ def test_build_tool_context_seeds_audit_log_from_a_persisted_audit_logger():
     recalled = recall_similar_resolutions("genuine_error", context_with_logger)
     assert recalled["prior_count"] == 1
     assert recalled["avg_confidence"] == 0.4
+
+
+# --- multiway_netting_trap: brought in from app/narrator/multiway_netting_experiment.py as a real,
+# measured product category. mock structurally can never solve this (narrate_mock never calls the
+# two new tools below) -- these tests check the plumbing that makes the real providers able to,
+# and that mock's own fallback is honest about why it can't. ---
+
+
+def _first_multiway_case(seed_range=range(1, 20), main_n=150):
+    for seed in seed_range:
+        chains, context, queue, gt_by_id = _narration_queue(seed=seed, main_n=main_n, enable_multiway_netting=True)
+        for txn_id in queue:
+            if gt_by_id.get(txn_id) == "multiway_netting_trap":
+                return chains, context, txn_id, gt_by_id
+    raise AssertionError("fixture assumption: no multiway_netting_trap case found in the swept seed range")
+
+
+def test_multiway_netting_trap_is_a_narrator_category():
+    assert "multiway_netting_trap" in NARRATOR_CATEGORIES
+
+
+def test_execute_tool_dispatches_list_batch_deltas():
+    chains, context, txn_id, _ = _first_multiway_case()
+    result = _execute_tool("list_batch_deltas", {}, chains[txn_id], context)
+    assert result["transaction_id"] == txn_id
+    assert "other_transactions_in_same_batch" in result
+    assert result["other_transactions_in_same_batch"], "a real multiway case must have other transactions in its batch"
+
+
+def test_execute_tool_dispatches_verify_group_sum_with_a_real_candidate_group():
+    chains, context, txn_id, gt_by_id = _first_multiway_case()
+    chain = chains[txn_id]
+    result = _execute_tool(
+        "verify_group_sum",
+        {"candidate_transaction_ids": [tid for tid in context.transaction_ids_by_settlement_batch[chain.settlement_batch_id] if tid != txn_id]},
+        chain,
+        context,
+    )
+    assert "cancels_exactly" in result
+    assert result["transaction_id"] == txn_id
+
+
+def test_execute_tool_verify_group_sum_degrades_gracefully_on_a_hallucinated_candidate_id():
+    chains, context, txn_id, _ = _first_multiway_case()
+    result = _execute_tool(
+        "verify_group_sum",
+        {"candidate_transaction_ids": ["order_this_id_does_not_exist"]},
+        chains[txn_id],
+        context,
+    )
+    assert "error" in result  # graceful error dict, not an exception raised through _execute_tool
+
+
+def test_execute_tool_verify_group_sum_coerces_a_bare_string_candidate():
+    chains, context, txn_id, _ = _first_multiway_case()
+    chain = chains[txn_id]
+    other_id = next(iter(context.transaction_ids_by_settlement_batch[chain.settlement_batch_id]))
+    result = _execute_tool("verify_group_sum", {"candidate_transaction_ids": other_id}, chain, context)
+    assert "cancels_exactly" in result  # didn't crash on a bare string instead of a list
+
+
+def test_narrate_mock_discloses_the_structural_limitation_on_a_real_multiway_case():
+    """mock must keep failing here by construction -- it never calls list_batch_deltas/
+    verify_group_sum -- but its genuine_error fallback reasoning should be honest that a pattern
+    could exist and this check structurally can't find it, not imply none does."""
+    chains, context, txn_id, _ = _first_multiway_case()
+    output = narrate_mock(chains[txn_id], context)
+    assert output.category == "genuine_error"  # still wrong here, exactly as expected and measured
+    assert "three or more" in output.reasoning or "combination" in output.reasoning.lower()

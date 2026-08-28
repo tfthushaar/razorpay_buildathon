@@ -27,6 +27,7 @@ from app.data_gen.schemas import (
     Settlement,
     SyntheticBatch,
 )
+from app.data_gen.subset_sum import find_other_subsets_that_cancel
 
 GATEWAYS = ["HDFC", "ICICI", "AXIS", "YESBANK", "KOTAK"]
 AMOUNTS_INR = [500, 1000, 1500, 2500, 4200, 7500, 12000, 25000, 50000]  # rupees; stored as paise
@@ -308,6 +309,110 @@ class SyntheticDataGenerator:
             [gt_a, gt_b],
         )
 
+    def _gen_multiway_netting_trap(self, group_size: int = 3, n_distractors: int = 3):
+        """`group_size` (>=3 -- 2 is just the existing pairwise `_gen_netting_trap`) transactions in
+        the same settlement batch whose deltas sum to exactly zero together. Individually, each
+        looks like an unexplained genuine_error; jointly they net out. Invisible to
+        `check_batch_anomalies`'s pairwise-only check by construction -- it only ever looks for ONE
+        other transaction with the exact opposite delta, never a combination.
+
+        `n_distractors` additional, unrelated transactions share the same batch so the real group
+        isn't the only non-trivial candidate -- a real search, not a forced move (the same design
+        lesson app/narrator/multiway_netting_experiment.py's own docstring documents learning the
+        hard way). Verified by brute force (app/data_gen/subset_sum.py) from every group member's own
+        perspective that no OTHER subset up to size 4 also cancels its delta -- raises if
+        construction is ever ambiguous rather than silently shipping a bad case."""
+        if group_size < 3:
+            raise ValueError("group_size must be >= 3 -- 2 is just the existing pairwise netting_trap")
+        rail = self._pick_rail()
+        created_at = self._rand_created_at()
+        shared_sla = self._sla_days_for(rail)
+        # A dedicated batch id, not the ambient batch_{rail}_{date} scheme _gen_netting_trap reuses --
+        # keeps the uniqueness proof below bounded to a fully-known set of transactions, rather than
+        # having to reason about whatever else coincidentally lands on the same rail+date.
+        batch_id = f"batch_{rail}_multiway_{self._new_id('grp', 8)}"
+
+        # group_size deltas summing to exactly zero, drawn from a wide, fine-grained (paise-level,
+        # not round-hundred) range -- the side experiment this pattern is based on drew from round
+        # values once and hit a real accidental subset-sum collision, caught by the uniqueness check
+        # below, not shipped unnoticed.
+        def _draw_group() -> list[int]:
+            deltas: list[int] = []
+            seen_local: set[int] = set()
+            while len(deltas) < group_size - 1:
+                d = self.rng.randint(-999_931, 999_931)
+                if d != 0 and d not in seen_local:
+                    deltas.append(d)
+                    seen_local.add(d)
+            last = -sum(deltas)
+            if last == 0 or last in seen_local:
+                return _draw_group()  # vanishingly rare exact collision -- redraw the whole group
+            deltas.append(last)
+            return deltas
+
+        group_deltas = _draw_group()
+        seen = set(group_deltas)
+
+        distractor_deltas: list[int] = []
+        while len(distractor_deltas) < n_distractors:
+            d = self.rng.randint(-999_931, 999_931)
+            if d != 0 and d not in seen:
+                distractor_deltas.append(d)
+                seen.add(d)
+
+        orders, payments, settlements, ledgers, gts = [], [], [], [], []
+
+        def _build_one(delta: int) -> str:
+            amount = self._rand_amount()
+            order, payment, fee, tax = self._build_order_and_payment(amount, rail, "INR", created_at)
+            net = amount - fee - tax
+            settlement = self._build_settlement(
+                payment.payment_id, rail, net + delta, payment.captured_at, sla_days=shared_sla, batch_id_override=batch_id
+            )
+            ledger = self._build_ledger(order.order_id, net, created_at + timedelta(minutes=5))
+            orders.append(order)
+            payments.append(payment)
+            settlements.append(settlement)
+            ledgers.append(ledger)
+            return order.order_id
+
+        group_order_ids = [_build_one(d) for d in group_deltas]
+        distractor_order_ids = [_build_one(d) for d in distractor_deltas]
+
+        # Verify uniqueness for real, from every group member's own perspective -- not assumed. A
+        # failure here means this seed's construction is ambiguous and must not ship.
+        all_deltas_by_id = dict(zip(group_order_ids, group_deltas))
+        all_deltas_by_id.update(dict(zip(distractor_order_ids, distractor_deltas)))
+        for i, focal_id in enumerate(group_order_ids):
+            others = {k: v for k, v in all_deltas_by_id.items() if k != focal_id}
+            correct = set(group_order_ids) - {focal_id}
+            stray = find_other_subsets_that_cancel(group_deltas[i], others, correct)
+            if stray:
+                raise AssertionError(f"multiway_netting_trap construction is ambiguous for {focal_id}: other subsets also cancel: {stray}")
+
+        for i, order_id in enumerate(group_order_ids):
+            others = [oid for oid in group_order_ids if oid != order_id]
+            gts.append(
+                GroundTruthEntry(
+                    transaction_id=order_id,
+                    true_label="multiway_netting_trap",
+                    injected_by_you=True,
+                    linked_transaction_ids=others,
+                    internal_note=f"delta={group_deltas[i]}, nets against {others} in batch {batch_id}",
+                )
+            )
+        for i, order_id in enumerate(distractor_order_ids):
+            gts.append(
+                GroundTruthEntry(
+                    transaction_id=order_id,
+                    true_label="genuine_error",
+                    injected_by_you=True,
+                    internal_note=f"unexplained delta={distractor_deltas[i]}, a same-batch distractor for a multiway_netting_trap case -- doesn't cancel with anything",
+                )
+            )
+
+        return orders, payments, [], settlements, ledgers, gts
+
     def _gen_genuine_error(self):
         rail = self._pick_rail()
         amount = self._rand_amount()
@@ -341,7 +446,14 @@ class SyntheticDataGenerator:
             orders=orders, payments=payments, refunds=refunds, settlements=settlements, ledger_entries=ledgers, ground_truth=gts
         )
 
-    def generate_main_batch(self, n: int = 120, clean_ratio: float = 0.60) -> SyntheticBatch:
+    def generate_main_batch(
+        self,
+        n: int = 120,
+        clean_ratio: float = 0.60,
+        enable_multiway_netting: bool = False,
+        multiway_group_size: int = 3,
+        multiway_n_distractors: int = 3,
+    ) -> SyntheticBatch:
         """Main batch: `clean_ratio` clean (default 60%), remaining share split
         25:10:5 (explainable:adversarial:ambiguous -- the spec's original relative proportions
         among non-clean records) as `clean_ratio` moves away from the default. netting_trap
@@ -351,7 +463,16 @@ class SyntheticDataGenerator:
         `clean_ratio` exists for a realistically-sparse large-scale benchmark (see BUILD_LOG.md's
         Merkle pre-filter integration): a real settlement batch is overwhelmingly clean, unlike
         this project's own default demo density (deliberately denser than reality so every
-        category class is reliably exercised even at small N)."""
+        category class is reliably exercised even at small N).
+
+        `enable_multiway_netting` defaults False -- every already-committed evidence file and
+        BUILD_LOG number was measured against the generator without it; flipping the default is a
+        separate, deliberate decision made only after this category is measured on its own. When on,
+        `_gen_multiway_netting_trap` consumes `multiway_group_size` adversarial slots and
+        `multiway_n_distractors` ambiguous slots per call (its group members are adversarial-labeled,
+        its distractors are honestly genuine_error-labeled) -- both shares are tracked independently
+        below so the batch always totals exactly `n`, the same invariant the pairwise trap already
+        preserves."""
         if clean_ratio == 0.60:
             # the exact original literal expressions, kept byte-for-byte instead of derived from
             # clean_ratio -- checked directly (not assumed) that the mathematically-equivalent
@@ -392,15 +513,25 @@ class SyntheticDataGenerator:
             batches.append(explainable_gens[i % len(explainable_gens)]())
 
         remaining_adversarial = n_adversarial
+        remaining_ambiguous = n_ambiguous
         while remaining_adversarial > 0:
-            if remaining_adversarial >= 2 and self.rng.random() < 0.5:
+            if (
+                enable_multiway_netting
+                and remaining_adversarial >= multiway_group_size
+                and remaining_ambiguous >= multiway_n_distractors
+                and self.rng.random() < 0.34
+            ):
+                batches.append(self._gen_multiway_netting_trap(multiway_group_size, multiway_n_distractors))
+                remaining_adversarial -= multiway_group_size
+                remaining_ambiguous -= multiway_n_distractors
+            elif remaining_adversarial >= 2 and self.rng.random() < 0.5:
                 batches.append(self._gen_netting_trap())
                 remaining_adversarial -= 2
             else:
                 batches.append(self._gen_duplicate_refund())
                 remaining_adversarial -= 1
 
-        batches += [self._gen_genuine_error() for _ in range(n_ambiguous)]
+        batches += [self._gen_genuine_error() for _ in range(remaining_ambiguous)]
 
         self.rng.shuffle(batches)
         return self._merge(batches)
@@ -605,10 +736,10 @@ class SyntheticDataGenerator:
 
 
 def generate(
-    seed: int = 42, main_n: int = 120, stress_n: int = 40, clean_ratio: float = 0.60
+    seed: int = 42, main_n: int = 120, stress_n: int = 40, clean_ratio: float = 0.60, enable_multiway_netting: bool = False
 ) -> tuple[SyntheticBatch, SyntheticBatch]:
     gen = SyntheticDataGenerator(seed=seed)
-    main_batch = gen.generate_main_batch(main_n, clean_ratio=clean_ratio)
+    main_batch = gen.generate_main_batch(main_n, clean_ratio=clean_ratio, enable_multiway_netting=enable_multiway_netting)
     stress_gen = SyntheticDataGenerator(seed=seed + 1)  # distinct stream so the stress batch isn't a replay of the main one
     stress_batch = stress_gen.generate_stress_batch(stress_n)
     return main_batch, stress_batch

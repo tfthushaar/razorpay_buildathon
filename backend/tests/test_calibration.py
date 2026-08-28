@@ -5,7 +5,7 @@ label doesn't matter, only that it isn't "mock". See test_mock_decisions_never_c
 for the property this whole module exists to protect after an external audit caught it missing.
 """
 
-from app.calibration.calibrator import ScoredDecision, calibrate
+from app.calibration.calibrator import NEVER_AUTO_RESOLVE, ScoredDecision, calibrate
 from app.calibration.wilson import wilson_score_interval
 
 
@@ -237,3 +237,32 @@ def test_mock_decisions_never_count_toward_the_gate():
     assert mixed_netting.n == 3
     assert mixed_netting.mock_n == 200
     assert mixed_netting.decision == "escalate"  # n=3 real decisions still isn't enough to clear 90% CI lower bound
+
+
+def test_multiway_netting_trap_is_not_in_never_auto_resolve():
+    """Unlike genuine_error, multiway_netting_trap is a genuine-judgment category, not an
+    intentionally-never-resolved one -- it must be allowed to earn autonomy through real evidence
+    exactly like duplicate_refund/netting_trap, even though it may never clear the bar given the
+    experiment's own measured ceiling on the recommended local model. That's an expected, disclosed
+    outcome, not something this gate should special-case away."""
+    assert "multiway_netting_trap" not in NEVER_AUTO_RESOLVE
+
+
+def test_calibration_accumulates_multiway_netting_trap_as_its_own_category():
+    """No hardcoded category list anywhere in app/calibration/ (confirmed directly) -- a new
+    category flows through calibrate() with zero code changes needed there, escalating by default
+    at cold start (below MIN_DISTINCT_TRANSACTIONS_FOR_AUTO_RESOLVE) exactly like any other."""
+    decisions = [
+        ScoredDecision(
+            transaction_id=f"mw{i}",
+            predicted_category="multiway_netting_trap",
+            true_label="multiway_netting_trap",
+            amount=100_00,
+            provider="groq",
+        )
+        for i in range(5)
+    ]
+    report = calibrate(decisions, threshold=0.90)
+    multiway = next(c for c in report.categories if c.category == "multiway_netting_trap")
+    assert multiway.accuracy == 1.0
+    assert multiway.decision == "escalate"  # cold start -- below the distinct-transaction floor

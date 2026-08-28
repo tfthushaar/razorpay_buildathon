@@ -41,6 +41,38 @@ def test_enable_discovery_proposes_once_per_genuine_error_case():
         assert proposal.provider == "mock"
 
 
+def test_multiway_netting_trap_disabled_by_default_in_run_batch():
+    """enable_multiway_netting defaults to False -- every existing caller stays unaffected until
+    this is explicitly measured, the same posture as enable_discovery."""
+    result = run_batch(seed=1, main_n=150, stress_n=0, provider="mock")
+    categories = {e.category for e in result.escalations}
+    assert "multiway_netting_trap" not in categories
+
+
+def test_multiway_netting_trap_always_escalates_end_to_end_under_mock():
+    """Full run_batch(..., provider="mock") on a flag-enabled batch: mock structurally can never
+    solve this (it never calls list_batch_deltas/verify_group_sum) -- it always misclassifies a
+    real multiway_netting_trap case as genuine_error, which is the honest, expected outcome, NOT a
+    bug. What this actually checks: every ground-truth multiway_netting_trap transaction ends up
+    escalated (never silently auto-resolved under some other category's calibration), per the
+    existing narrator_provider != "mock" gate that already applies to every category with no
+    special-casing needed for this one."""
+    found_any = False
+    for seed in range(1, 15):
+        main, _ = generate(seed=seed, main_n=150, stress_n=0, enable_multiway_netting=True)
+        multiway_ids = {g.transaction_id for g in main.ground_truth if g.true_label == "multiway_netting_trap"}
+        if not multiway_ids:
+            continue
+        found_any = True
+        result = run_batch(seed=seed, main_n=150, stress_n=0, provider="mock", enable_multiway_netting=True)
+        escalated_ids = {e.transaction_id for e in result.escalations}
+        assert multiway_ids <= escalated_ids, f"seed={seed}: {multiway_ids - escalated_ids} multiway cases were not escalated"
+        for e in result.escalations:
+            if e.transaction_id in multiway_ids:
+                assert e.category == "genuine_error"  # mock's honest, expected misclassification
+    assert found_any, "fixture assumption: seeds 1-14 at n=150 with multiway enabled should produce at least one case"
+
+
 def test_run_batch_includes_a_real_fee_leak_report():
     """Fee leak detection (Pillar 2) is a genuinely separate axis from reconciliation -- runs
     against its own dedicated batch (generate_fee_leak_batch), never mixed into

@@ -43,7 +43,15 @@ from pydantic import BaseModel, Field
 
 from app.chain.builder import CausalChain
 from app.narrator.circuit_breaker import CircuitBreaker, CircuitBreakerOpenError
-from app.narrator.tools import ToolContext, check_batch_anomalies, check_sla_window, lookup_fee_schedule, recall_similar_resolutions
+from app.narrator.tools import (
+    ToolContext,
+    check_batch_anomalies,
+    check_sla_window,
+    list_batch_deltas,
+    lookup_fee_schedule,
+    recall_similar_resolutions,
+    verify_group_sum,
+)
 
 # One breaker per real provider, module-level so it tracks availability across the whole process
 # (every batch, every concurrent request) -- not scoped to a single narration queue, since "is this
@@ -52,7 +60,13 @@ from app.narrator.tools import ToolContext, check_batch_anomalies, check_sla_win
 _groq_breaker = CircuitBreaker()
 _ollama_breaker = CircuitBreaker()
 
-NARRATOR_CATEGORIES = ("duplicate_refund", "netting_trap", "genuine_error")
+NARRATOR_CATEGORIES = ("duplicate_refund", "netting_trap", "genuine_error", "multiway_netting_trap")
+# multiway_netting_trap (added 2026-08-29): a group of 3+ transactions in the same settlement batch
+# whose deltas cancel TOGETHER, invisible to check_batch_anomalies by construction (it only ever
+# checks ONE other transaction for an exact opposite delta, never a combination). Brought in from
+# app/narrator/multiway_netting_experiment.py, where it was first measured as a task the shipped rule
+# provably cannot do (mock never calls list_batch_deltas/verify_group_sum below, so it structurally
+# can't solve this either) -- see docs/evidence/ for the real, measured accuracy per provider.
 # Deliberately excludes currency_rounding: matching/engine.py's Pass 2 catches ANY transaction with
 # abs(settlement_delta) <= ROUNDING_EPSILON before it ever reaches "needs_narration" (see
 # ROUNDING_EPSILON in chain/builder.py), and every category that does reach the narrator injects a
@@ -68,6 +82,16 @@ SYSTEM_PROMPT = f"""You are a settlement reconciliation discrepancy narrator for
 You are given one transaction's causal chain (order -> payment -> fee -> refund -> settlement).
 Your job: explain exactly which hop broke and by how much, using the tools provided to check your
 reasoning before answering. Do not guess a category without calling at least one relevant tool.
+
+Two additional tools, list_batch_deltas and verify_group_sum, let you look beyond a single other
+transaction when check_batch_anomalies finds neither a duplicate-refund match nor a netting partner:
+occasionally a discrepancy is only explained collectively by more than one other transaction in the
+same batch, not by any single one (multiway_netting_trap, distinct from netting_trap's single
+pairwise partner). Use verify_group_sum to confirm any such hypothesis arithmetically before
+committing to an answer — do not assert an explanation you haven't verified. If verify_group_sum
+confirms cancellation against a candidate group of TWO OR MORE other transactions, the category is
+multiway_netting_trap, never netting_trap — netting_trap is reserved specifically for a single
+pairwise partner found via check_batch_anomalies alone.
 
 Categories you may output: {", ".join(NARRATOR_CATEGORIES)}.
 (clean_match, fee_deduction, partial_refund, timing_lag, and currency_rounding are already resolved deterministically
@@ -139,6 +163,29 @@ TOOL_SCHEMAS = [
             },
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "list_batch_deltas",
+            "description": "List every other transaction in the same settlement batch as the given transaction id, with each one's own settlement delta.",
+            "parameters": {"type": "object", "properties": {"transaction_id": {"type": "string"}}, "required": ["transaction_id"]},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "verify_group_sum",
+            "description": "Check whether a candidate group of other transaction ids, added to this transaction's own delta, actually sums to zero. Use this to confirm a hypothesis before answering.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "transaction_id": {"type": "string"},
+                    "candidate_transaction_ids": {"type": "array", "items": {"type": "string"}},
+                },
+                "required": ["transaction_id", "candidate_transaction_ids"],
+            },
+        },
+    },
 ]
 
 
@@ -173,6 +220,17 @@ def _execute_tool(name: str, arguments: dict, chain: CausalChain, context: ToolC
         return check_batch_anomalies(chain.transaction_id, context)
     if name == "recall_similar_resolutions":
         return recall_similar_resolutions(str(arguments.get("category_guess", "genuine_error")), context)
+    if name == "list_batch_deltas":
+        return list_batch_deltas(chain.transaction_id, context)
+    if name == "verify_group_sum":
+        # candidate_transaction_ids IS genuinely model-supplied -- letting the model nominate its own
+        # hypothesis is the entire mechanism here, unlike transaction_id above (still always the
+        # chain's own id, never taken from the model). A hallucinated candidate id degrades
+        # gracefully into an {"error": ...} result inside verify_group_sum itself rather than raising.
+        candidates = arguments.get("candidate_transaction_ids") or []
+        if isinstance(candidates, str):
+            candidates = [candidates]
+        return verify_group_sum(chain.transaction_id, [str(c) for c in candidates], context)
     raise ValueError(f"unknown tool: {name}")
 
 
@@ -237,9 +295,12 @@ def narrate_mock(chain: CausalChain, context: ToolContext) -> NarratorOutput:
         category, confidence = "genuine_error", 0.3
         reasoning = (
             f"Settlement differs from the computed post-fee/refund amount by {chain.settlement_delta}. "
-            f"Neither the duplicate-refund registry nor the batch-netting check explains it, and timing "
-            f"is {'within' if sla_check['within_tolerance'] else 'outside'} normal variance either way. "
-            f"No known pattern fits — flagging for review rather than guessing."
+            f"Neither the duplicate-refund registry nor the pairwise batch-netting check explains it, and "
+            f"timing is {'within' if sla_check['within_tolerance'] else 'outside'} normal variance either "
+            f"way. This check only ever compares one other transaction at a time — it cannot search for a "
+            f"discrepancy that only cancels across three or more transactions together, so a genuine "
+            f"multiway netting pattern would also land here, misclassified. Flagging for review rather "
+            f"than guessing."
         )
 
     recall_args = {"category_guess": category}
@@ -309,7 +370,13 @@ def narrate_groq(
     chain: CausalChain,
     context: ToolContext,
     model: str = DEFAULT_GROQ_MODEL,
-    max_rounds: int = 4,
+    # 6, not 4 (raised 2026-08-29 when multiway_netting_trap was wired in): a live Ollama run on a
+    # real multiway case used check_batch_anomalies + list_batch_deltas + two verify_group_sum
+    # hypotheses before running out of budget at 4 -- every existing category still converges well
+    # under this in practice (1-2 tool calls, then a final answer), so raising the cap doesn't
+    # change their behavior, only gives a genuinely harder task the room its own tool-call depth
+    # needs before concluding it can't converge.
+    max_rounds: int = 6,
     breaker: CircuitBreaker | None = None,
 ) -> NarratorOutput:
     from groq import Groq, GroqError
@@ -453,7 +520,7 @@ def narrate_ollama(
     chain: CausalChain,
     context: ToolContext,
     model: str = DEFAULT_OLLAMA_MODEL,
-    max_rounds: int = 4,
+    max_rounds: int = 6,
     breaker: CircuitBreaker | None = None,
 ) -> NarratorOutput:
     """Fully local tool-calling loop via Ollama — same protocol shape as narrate_groq, with two

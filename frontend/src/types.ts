@@ -10,7 +10,8 @@ export type Category =
   | "duplicate_refund"
   | "netting_trap"
   | "currency_rounding"
-  | "genuine_error";
+  | "genuine_error"
+  | "multiway_netting_trap";
 
 export interface CategoryCalibration {
   category: string;

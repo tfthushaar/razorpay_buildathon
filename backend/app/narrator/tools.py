@@ -108,13 +108,11 @@ def check_batch_anomalies(transaction_id: str, context: ToolContext) -> dict:
 def list_batch_deltas(transaction_id: str, context: ToolContext) -> dict:
     """Every OTHER transaction in the same settlement batch as `transaction_id`, with its own
     settlement_delta -- the raw material `check_batch_anomalies` itself only searches over
-    (pairwise, exact-offset-only), never exposed to a caller directly. Not part of the narrator's
-    own TOOL_SCHEMAS/production tool-calling loop: `check_batch_anomalies` covers the pairwise case
-    deterministically and cheaply, which is the common real case, and this project's narrator is
-    deliberately kept to bounded, cheap checks. This tool exists for
-    app/narrator/multiway_netting_experiment.py, which tests whether an LLM given raw access to
-    the same-batch deltas can find a netting pattern spanning MORE than two transactions -- a
-    pattern check_batch_anomalies structurally cannot find, since it never checks combinations."""
+    (pairwise, exact-offset-only), never exposed to a caller directly otherwise. Originally built
+    only for app/narrator/multiway_netting_experiment.py; wired into the real narrator's own
+    TOOL_SCHEMAS (app/narrator/agent.py) once the multiway_netting_trap category was brought in as a
+    genuine, measured product capability -- a pattern check_batch_anomalies structurally cannot find,
+    since it never checks combinations, only single-transaction offsets."""
     chain = context.chains.get(transaction_id)
     if chain is None:
         return {"error": f"no transaction {transaction_id!r} in this batch"}
@@ -135,7 +133,9 @@ def verify_group_sum(transaction_id: str, candidate_transaction_ids: list[str], 
     actually summing to anything -- confident prose over arithmetic that doesn't check out. This
     tool doesn't suggest which transactions to check (that's still the caller's own hypothesis); it
     only confirms or refutes one, the same way a human analyst would re-add the numbers before
-    signing off rather than trusting that a plausible story must be correct."""
+    signing off rather than trusting that a plausible story must be correct. Also wired into the
+    real narrator's own TOOL_SCHEMAS (app/narrator/agent.py) alongside `list_batch_deltas`, for the
+    same multiway_netting_trap category."""
     chain = context.chains.get(transaction_id)
     if chain is None:
         return {"error": f"no transaction {transaction_id!r} in this batch"}

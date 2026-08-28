@@ -1,0 +1,313 @@
+{
+  "mock": [
+    {
+      "seed": 1,
+      "transaction_id": "order_f1d36f07153b",
+      "n_other_transactions_in_batch": 5,
+      "correct": false,
+      "predicted_category": "genuine_error",
+      "confidence": 0.3,
+      "reasoning": "Settlement differs from the computed post-fee/refund amount by -524778. Neither the duplicate-refund registry nor the pairwise batch-netting check explains it, and timing is within normal variance either way. This check only ever compares one other transaction at a time \u2014 it cannot search for a discrepancy that only cancels across three or more transactions together, so a genuine multiway netting pattern would also land here, misclassified. Flagging for review rather than guessing.",
+      "tool_calls": [
+        "check_batch_anomalies",
+        "check_sla_window",
+        "recall_similar_resolutions"
+      ]
+    },
+    {
+      "seed": 2,
+      "transaction_id": "order_76428713be6e",
+      "n_other_transactions_in_batch": 5,
+      "correct": false,
+      "predicted_category": "genuine_error",
+      "confidence": 0.3,
+      "reasoning": "Settlement differs from the computed post-fee/refund amount by 19328. Neither the duplicate-refund registry nor the pairwise batch-netting check explains it, and timing is within normal variance either way. This check only ever compares one other transaction at a time \u2014 it cannot search for a discrepancy that only cancels across three or more transactions together, so a genuine multiway netting pattern would also land here, misclassified. Flagging for review rather than guessing.",
+      "tool_calls": [
+        "check_batch_anomalies",
+        "check_sla_window",
+        "recall_similar_resolutions"
+      ]
+    },
+    {
+      "seed": 3,
+      "transaction_id": "order_94dc269cee41",
+      "n_other_transactions_in_batch": 5,
+      "correct": false,
+      "predicted_category": "genuine_error",
+      "confidence": 0.3,
+      "reasoning": "Settlement differs from the computed post-fee/refund amount by 614198. Neither the duplicate-refund registry nor the pairwise batch-netting check explains it, and timing is within normal variance either way. This check only ever compares one other transaction at a time \u2014 it cannot search for a discrepancy that only cancels across three or more transactions together, so a genuine multiway netting pattern would also land here, misclassified. Flagging for review rather than guessing.",
+      "tool_calls": [
+        "check_batch_anomalies",
+        "check_sla_window",
+        "recall_similar_resolutions"
+      ]
+    },
+    {
+      "seed": 4,
+      "transaction_id": "order_69050e379bc5",
+      "n_other_transactions_in_batch": 5,
+      "correct": false,
+      "predicted_category": "genuine_error",
+      "confidence": 0.3,
+      "reasoning": "Settlement differs from the computed post-fee/refund amount by 872436. Neither the duplicate-refund registry nor the pairwise batch-netting check explains it, and timing is within normal variance either way. This check only ever compares one other transaction at a time \u2014 it cannot search for a discrepancy that only cancels across three or more transactions together, so a genuine multiway netting pattern would also land here, misclassified. Flagging for review rather than guessing.",
+      "tool_calls": [
+        "check_batch_anomalies",
+        "check_sla_window",
+        "recall_similar_resolutions"
+      ]
+    },
+    {
+      "seed": 5,
+      "transaction_id": "order_c9bff5482253",
+      "n_other_transactions_in_batch": 5,
+      "correct": false,
+      "predicted_category": "genuine_error",
+      "confidence": 0.3,
+      "reasoning": "Settlement differs from the computed post-fee/refund amount by -728407. Neither the duplicate-refund registry nor the pairwise batch-netting check explains it, and timing is within normal variance either way. This check only ever compares one other transaction at a time \u2014 it cannot search for a discrepancy that only cancels across three or more transactions together, so a genuine multiway netting pattern would also land here, misclassified. Flagging for review rather than guessing.",
+      "tool_calls": [
+        "check_batch_anomalies",
+        "check_sla_window",
+        "recall_similar_resolutions"
+      ]
+    },
+    {
+      "seed": 7,
+      "transaction_id": "order_7703b7ec8f06",
+      "n_other_transactions_in_batch": 5,
+      "correct": false,
+      "predicted_category": "genuine_error",
+      "confidence": 0.3,
+      "reasoning": "Settlement differs from the computed post-fee/refund amount by -280526. Neither the duplicate-refund registry nor the pairwise batch-netting check explains it, and timing is within normal variance either way. This check only ever compares one other transaction at a time \u2014 it cannot search for a discrepancy that only cancels across three or more transactions together, so a genuine multiway netting pattern would also land here, misclassified. Flagging for review rather than guessing.",
+      "tool_calls": [
+        "check_batch_anomalies",
+        "check_sla_window",
+        "recall_similar_resolutions"
+      ]
+    },
+    {
+      "seed": 8,
+      "transaction_id": "order_99c3ec56dc67",
+      "n_other_transactions_in_batch": 5,
+      "correct": false,
+      "predicted_category": "genuine_error",
+      "confidence": 0.3,
+      "reasoning": "Settlement differs from the computed post-fee/refund amount by 342384. Neither the duplicate-refund registry nor the pairwise batch-netting check explains it, and timing is within normal variance either way. This check only ever compares one other transaction at a time \u2014 it cannot search for a discrepancy that only cancels across three or more transactions together, so a genuine multiway netting pattern would also land here, misclassified. Flagging for review rather than guessing.",
+      "tool_calls": [
+        "check_batch_anomalies",
+        "check_sla_window",
+        "recall_similar_resolutions"
+      ]
+    }
+  ],
+  "ollama": [
+    {
+      "seed": 1,
+      "transaction_id": "order_f1d36f07153b",
+      "n_other_transactions_in_batch": 5,
+      "correct": false,
+      "predicted_category": "genuine_error",
+      "confidence": 0.0,
+      "reasoning": "Narrator did not converge within the tool-call budget; escalating rather than guessing.",
+      "tool_calls": [
+        "check_batch_anomalies",
+        "list_batch_deltas",
+        "verify_group_sum",
+        "verify_group_sum",
+        "verify_group_sum",
+        "verify_group_sum"
+      ]
+    },
+    {
+      "seed": 2,
+      "transaction_id": "order_76428713be6e",
+      "n_other_transactions_in_batch": 5,
+      "correct": true,
+      "predicted_category": "multiway_netting_trap",
+      "confidence": 1.0,
+      "reasoning": "The settlement delta of 19328 is exactly canceled by the combined deltas of order_aff4d8aaaaed (-850806) and order_71317d04b13e (-215054) in the same batch.",
+      "tool_calls": [
+        "check_batch_anomalies",
+        "list_batch_deltas",
+        "verify_group_sum",
+        "verify_group_sum",
+        "verify_group_sum"
+      ]
+    },
+    {
+      "seed": 3,
+      "transaction_id": "order_94dc269cee41",
+      "n_other_transactions_in_batch": 5,
+      "correct": true,
+      "predicted_category": "multiway_netting_trap",
+      "confidence": 1.0,
+      "reasoning": "The transaction's delta of 614198 is exactly explained by the sum of three other transactions in the same batch (order_c592edd26476, order_6bb84a70313b, and order_0ad9ab605a65), which individually do not cancel the delta but collectively sum to the correct offset.",
+      "tool_calls": [
+        "check_batch_anomalies",
+        "list_batch_deltas",
+        "verify_group_sum",
+        "verify_group_sum"
+      ]
+    },
+    {
+      "seed": 4,
+      "transaction_id": "order_69050e379bc5",
+      "n_other_transactions_in_batch": 5,
+      "correct": true,
+      "predicted_category": "multiway_netting_trap",
+      "confidence": 0.8,
+      "reasoning": "The settlement delta is explained by the combined effect of four other transactions in the same batch, which individually do not explain the delta but together sum to -848241, nearly cancelling the 872436 delta.",
+      "tool_calls": [
+        "check_batch_anomalies",
+        "list_batch_deltas",
+        "verify_group_sum",
+        "verify_group_sum",
+        "verify_group_sum"
+      ]
+    },
+    {
+      "seed": 5,
+      "transaction_id": "order_c9bff5482253",
+      "n_other_transactions_in_batch": 5,
+      "correct": false,
+      "predicted_category": "genuine_error",
+      "confidence": 0.0,
+      "reasoning": "Narrator did not converge within the tool-call budget; escalating rather than guessing.",
+      "tool_calls": [
+        "check_batch_anomalies",
+        "list_batch_deltas",
+        "verify_group_sum",
+        "verify_group_sum",
+        "verify_group_sum",
+        "verify_group_sum"
+      ]
+    },
+    {
+      "seed": 7,
+      "transaction_id": "order_7703b7ec8f06",
+      "n_other_transactions_in_batch": 5,
+      "correct": true,
+      "predicted_category": "multiway_netting_trap",
+      "confidence": 1.0,
+      "reasoning": "The settlement delta of -280526 is exactly canceled by the combined deltas of order_75d5a284e5f9 (+695965), order_08b436fb63da (-415439), order_219373bba209 (-630836), order_616c528ea163 (-462255), and order_8baec3ad48c0 (+405122) in the same batch.",
+      "tool_calls": [
+        "check_batch_anomalies",
+        "list_batch_deltas",
+        "verify_group_sum"
+      ]
+    },
+    {
+      "seed": 8,
+      "transaction_id": "order_99c3ec56dc67",
+      "n_other_transactions_in_batch": 5,
+      "correct": true,
+      "predicted_category": "multiway_netting_trap",
+      "confidence": 0.9,
+      "reasoning": "The transaction's settlement delta is exactly canceled out by the sum of three other transactions in the same batch: order_3b2d941900a0, order_8270b2f1278e, and order_7d57ab5f0757.",
+      "tool_calls": [
+        "check_batch_anomalies",
+        "list_batch_deltas",
+        "verify_group_sum",
+        "verify_group_sum"
+      ]
+    }
+  ],
+  "groq": [
+    {
+      "seed": 1,
+      "transaction_id": "order_f1d36f07153b",
+      "n_other_transactions_in_batch": 5,
+      "correct": true,
+      "predicted_category": "multiway_netting_trap",
+      "confidence": 0.99,
+      "reasoning": "Settlement hop broke: delta -524778 is exactly cancelled by +582496 (order_c599db37353c) and -57718 (order_316da4f24ee0) in the same batch, confirming a multiway netting trap.",
+      "tool_calls": [
+        "check_batch_anomalies",
+        "list_batch_deltas",
+        "verify_group_sum"
+      ]
+    },
+    {
+      "seed": 2,
+      "transaction_id": "order_76428713be6e",
+      "n_other_transactions_in_batch": 5,
+      "correct": true,
+      "predicted_category": "multiway_netting_trap",
+      "confidence": 0.95,
+      "reasoning": "post_refunds_to_settlement hop shows +19328, which is exactly cancelled by the sum of deltas from order_fc191a34dc43 (-99179) and order_9abf10a3c8f2 (+79851) in the same batch.",
+      "tool_calls": [
+        "check_batch_anomalies",
+        "list_batch_deltas",
+        "verify_group_sum"
+      ]
+    },
+    {
+      "seed": 3,
+      "transaction_id": "order_94dc269cee41",
+      "n_other_transactions_in_batch": 5,
+      "correct": true,
+      "predicted_category": "multiway_netting_trap",
+      "confidence": 1.0,
+      "reasoning": "Settlement delta (+614198) is exactly cancelled by the sum of two other batch transactions (+268074 and \u2013882272), indicating a multi\u2011way netting trap at the settlement hop.",
+      "tool_calls": [
+        "check_batch_anomalies",
+        "list_batch_deltas",
+        "verify_group_sum"
+      ]
+    },
+    {
+      "seed": 4,
+      "transaction_id": "order_69050e379bc5",
+      "n_other_transactions_in_batch": 5,
+      "correct": true,
+      "predicted_category": "multiway_netting_trap",
+      "confidence": 1.0,
+      "reasoning": "post_refunds_to_settlement delta 872436 is offset by netting with order_7b96228c318f (+328903) and order_8a97ba88855d (-1201339), canceling exactly",
+      "tool_calls": [
+        "check_batch_anomalies",
+        "list_batch_deltas",
+        "verify_group_sum"
+      ]
+    },
+    {
+      "seed": 5,
+      "transaction_id": "order_c9bff5482253",
+      "n_other_transactions_in_batch": 5,
+      "correct": true,
+      "predicted_category": "multiway_netting_trap",
+      "confidence": 0.99,
+      "reasoning": "Settlement delta of -728407 is exactly offset by the sum of two other batch transactions (order_b964de47bdc9 +323043 and order_018966f3d095 +405364), indicating a multiway netting trap at the settlement hop.",
+      "tool_calls": [
+        "check_batch_anomalies",
+        "list_batch_deltas",
+        "verify_group_sum"
+      ]
+    },
+    {
+      "seed": 7,
+      "transaction_id": "order_7703b7ec8f06",
+      "n_other_transactions_in_batch": 5,
+      "correct": true,
+      "predicted_category": "multiway_netting_trap",
+      "confidence": 0.99,
+      "reasoning": "Settlement delta -280526 is exactly cancelled by +695965 (order_75d5a284e5f9) and -415439 (order_08b436fb63da) in the same batch, confirming a multiway netting trap.",
+      "tool_calls": [
+        "check_batch_anomalies",
+        "list_batch_deltas",
+        "verify_group_sum"
+      ]
+    },
+    {
+      "seed": 8,
+      "transaction_id": "order_99c3ec56dc67",
+      "n_other_transactions_in_batch": 5,
+      "correct": false,
+      "predicted_category": "genuine_error",
+      "confidence": 0.0,
+      "reasoning": "Narrator's final response could not be parsed as valid JSON: ''",
+      "tool_calls": [
+        "check_batch_anomalies",
+        "list_batch_deltas"
+      ]
+    }
+  ]
+}

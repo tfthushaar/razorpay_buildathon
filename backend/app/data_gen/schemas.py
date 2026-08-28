@@ -22,6 +22,7 @@ TrueLabel = Literal[
     "netting_trap",
     "currency_rounding",
     "genuine_error",
+    "multiway_netting_trap",
 ]
 
 
@@ -82,6 +83,7 @@ class GroundTruthEntry(BaseModel):
     true_label: TrueLabel
     injected_by_you: bool
     linked_transaction_id: Optional[str] = None  # set for netting_trap pairs
+    linked_transaction_ids: list[str] = []  # set for multiway_netting_trap groups (2+ other members)
     internal_note: Optional[str] = None  # debugging aid only, never read by scoring code paths
 
 

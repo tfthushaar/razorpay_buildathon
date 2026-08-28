@@ -127,6 +127,7 @@ class RunRequest(BaseModel):
     provider: Literal["mock", "groq", "ollama"] | None = None  # None -> LLM_PROVIDER env var, default "mock"
     reset_history: bool = False
     enable_discovery: bool = False  # opt-in: propose a candidate category for each genuine_error case (never auto-adopted)
+    enable_multiway_netting: bool = False  # opt-in: inject multiway_netting_trap cases (default off -- see app/data_gen/generate.py)
 
 
 class ResolveRequest(BaseModel):
@@ -163,6 +164,7 @@ def api_run(req: RunRequest) -> BatchRunResult:
             audit_logger=audit_logger,
             calibration_history=calibration_history,
             enable_discovery=req.enable_discovery,
+            enable_multiway_netting=req.enable_multiway_netting,
         )
         escalations_by_id = {e.transaction_id: e.model_dump() for e in result.escalations}
 
