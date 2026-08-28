@@ -84,7 +84,7 @@ Full list: [LIMITATIONS.md](docs/LIMITATIONS.md).
 - An external review caught a headline rupee figure inflated by re-scoring the same transactions
   across runs.
 
-Seven incidents, fixed format: [WHAT_BROKE.md](docs/WHAT_BROKE.md).
+Eleven incidents, fixed format: [WHAT_BROKE.md](docs/WHAT_BROKE.md).
 
 ## Get it running
 
