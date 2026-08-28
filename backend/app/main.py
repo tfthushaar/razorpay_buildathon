@@ -34,6 +34,7 @@ from app.erp.exporters import to_generic_csv, to_tally_xml, to_zoho_books_csv
 from app.erp.gstr2b import Gstr2bMatchReport, generate_simulated_gstr2b, match_against_gstr2b, to_gstr2b_format
 from app.erp.journal import generate_journal_entries
 from app.forecast.backtest import BacktestReport, run_backtest
+from app.forecast.blind_backtest import run_blind_backtest
 from app.forecast.cash_position import PayrollCoverageResult, WorkingCapitalReport, check_payroll_coverage, compute_working_capital
 from app.forecast.predictor import SettlementPrediction, predict_pending_batch
 from app.matching.engine import run_matching_engine
@@ -401,6 +402,22 @@ def api_forecast_backtest() -> BacktestReport:
         return run_backtest(main_batch)
     except Exception as e:
         raise HTTPException(422, f"Could not run the settlement forecast backtest ({type(e).__name__}: {e}).")
+
+
+@app.get("/api/forecast/blind-backtest")
+def api_forecast_blind_backtest(seed: int = Query(42, ge=1), n: int = Query(120, ge=1, le=2000)) -> BacktestReport:
+    """The same predictor, backtested against a SEPARATE, self-contained batch whose real
+    fee/tax/settlement-date were computed against a per-rail schedule drift the predictor never
+    sees (app/forecast/blind_backtest.py) — unlike /api/forecast/backtest, which reuses this
+    project's own generated batches, whose settlements are computed with the exact schedule the
+    predictor itself reads. Reports MAPE and interval coverage honestly; both are real numbers
+    that can look very different from the non-blind endpoint's, since they measure a genuinely
+    different question (robustness to stale reference data, not correct application of known
+    reference data)."""
+    try:
+        return run_blind_backtest(seed=seed, n=n)
+    except Exception as e:
+        raise HTTPException(422, f"Could not run the blind settlement forecast backtest ({type(e).__name__}: {e}).")
 
 
 class PayrollCheckRequest(BaseModel):

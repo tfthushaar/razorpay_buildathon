@@ -85,6 +85,8 @@ export const getPendingForecast = (n: number = 10) =>
 
 export const getForecastBacktest = () => request<BacktestReport>("/api/forecast/backtest");
 
+export const getForecastBlindBacktest = () => request<BacktestReport>("/api/forecast/blind-backtest");
+
 export const checkPayrollCoverage = (outflow_amount: number, outflow_date: string, n: number = 10) =>
   request<PayrollCoverageResult>("/api/forecast/payroll-check", {
     method: "POST",

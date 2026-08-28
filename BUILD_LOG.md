@@ -3915,6 +3915,70 @@ still passing.
 
 ---
 
+## 2026-08-29 — Category discovery clusters within a run, and a live prompt-sensitivity regression found while verifying it
+
+Two of the four disclosed limitations picked for a fix pass this round: category discovery's
+"6 distinct names from 8 proposals" finding, and the forecaster's backtest sharing one schedule with
+the predictor it scores.
+
+**Category discovery.** `propose_category` now threads `existing_proposals` -- every proposal already
+made so far in the same batch -- through to all three providers and the pipeline call site
+(`app/narrator/discovery.py`, `app/pipeline.py`), instructed to reuse an exact prior name when the
+evidence genuinely matches instead of minting a fresh label per case.
+
+The first version of this looked done -- unit tests passed, the mock provider clustered
+deterministically -- but the standing rule on this project is to verify any real-provider claim live,
+not just by mocked test. A live Ollama run over 5 seeds' worth of real `genuine_error` cases (35 total)
+came back **0 named proposals out of 35** -- a silent, complete regression, not the improvement the
+fix was supposed to be.
+
+Bisected by hand: the regression wasn't the instruction to reuse names, it was the mere presence of a
+"proposals already made" section in the prompt at all. Feeding `qwen2.5:7b-instruct` the exact same
+evidence with only that section removed restored normal naming (4-5/7 named, matching the original
+finding this fix was meant to address). Even an empty `"(none yet -- this is the first case)"`
+placeholder was enough to trigger the collapse -- the model reads the mere mention of a reuse
+mechanism as a cue to be more conservative in general, not just about reuse specifically.
+
+**Fix:** `_describe_prior_proposals` now returns `None`, not a placeholder string, when nothing named
+exists yet, and `_describe_evidence` omits the entire section from the prompt in that case -- the
+block must be genuinely absent for a run's first proposal, not merely empty. Re-verified live after
+the fix: naming rate restored, and clustering is grounded, not indiscriminate -- across three fresh
+seeds, cases sharing a real underlying hop converged on one name (5 of 7 in one run reusing
+`post_refunds_to_settlement_mismatch`) while genuinely different or uncertain cases still returned
+`null`.
+
+**Prevented:** `test_describe_evidence_omits_the_prior_proposals_block_entirely_when_nothing_named_exists`,
+`test_describe_prior_proposals_is_none_with_no_prior_proposals`.
+
+**Forecaster's blind backtest.** `run_backtest` scores the predictor against this project's own
+generated batches, whose settlements are computed with the exact `fee_and_tax`/`BASE_SLA_DAYS`
+constants the predictor itself reads -- an honest check that the predictor correctly applies known
+reference data, but not a test of what happens when that data is stale, which is the realistic way a
+forward forecast actually fails (a merchant's real contracted rate or settlement timing drifting from
+what the platform's schedule still assumes).
+
+New module `app/forecast/blind_backtest.py`: a self-contained batch whose real settlements are
+computed against a per-rail fee-rate/SLA-day drift (`DriftedSchedule`, up to 15%/2 days, drawn once
+per seed from a stream `predict_settlement` never touches), scored by reusing `run_backtest`'s own
+MAPE/coverage logic unchanged. New endpoint `GET /api/forecast/blind-backtest`; wired into
+`ForecastPanel.tsx` alongside the existing (non-blind) numbers, verified live in a real browser after
+running a batch.
+
+Measured over seeds 1-20 at n=120: mean MAPE 0.11% (0.02%-0.17%), mean interval coverage 56.5% (3%-
+100%). The amount forecast barely moves under schedule drift -- a fee is a small fraction of settled
+value even at 15% relative drift -- but interval coverage is highly sensitive to SLA-day drift
+specifically, since a few days' shift can push the real settlement date entirely outside the
+predictor's own narrow tolerance window. Published as-is, including the wide range, not a single
+rounded-up number.
+
+**Prevented:** `test_blind_backtest_mape_stays_small_but_coverage_is_highly_sensitive_to_drift`,
+`test_zero_drift_is_a_perfect_backtest` (a sanity check confirming the scoring path itself is correct
+before trusting any nonzero number it reports).
+
+219/219 tests passing (208 before this entry, +6 discovery clustering, +5 blind backtest).
+
+---
+
 ## On the audit rounds and the scores
 
 Roughly every few hours during the build, a deliberate adversarial pass ran over the project's own

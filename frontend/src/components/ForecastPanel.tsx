@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { checkPayrollCoverage, getForecastBacktest, getPendingForecast } from "../api";
+import { checkPayrollCoverage, getForecastBacktest, getForecastBlindBacktest, getPendingForecast } from "../api";
 import type { BacktestReport, PayrollCoverageResult, PendingForecastResponse } from "../types";
 import { pct, rupees } from "../formatters";
 
@@ -14,6 +14,7 @@ function formatDateShort(iso: string): string {
 export function ForecastPanel({ refreshKey }: Props) {
   const [forecast, setForecast] = useState<PendingForecastResponse | null>(null);
   const [backtest, setBacktest] = useState<BacktestReport | null>(null);
+  const [blindBacktest, setBlindBacktest] = useState<BacktestReport | null>(null);
   const [fetchError, setFetchError] = useState<string | null>(null);
 
   const [outflowRupees, setOutflowRupees] = useState(2000);
@@ -31,6 +32,10 @@ export function ForecastPanel({ refreshKey }: Props) {
     getForecastBacktest()
       .then(setBacktest)
       .catch(() => setBacktest(null));
+    // Self-contained -- doesn't need a prior run, so it loads once on mount, not per refreshKey.
+    getForecastBlindBacktest()
+      .then(setBlindBacktest)
+      .catch(() => setBlindBacktest(null));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [refreshKey]);
 
@@ -52,8 +57,10 @@ export function ForecastPanel({ refreshKey }: Props) {
       <h2>Forward settlement forecast</h2>
       <p className="panel-sub">
         Predicted from the order + payment + fee/SLA schedule alone, before a settlement exists — genuinely in-flight
-        money, not a lookup. The backtest below scores this same predictor honestly against the latest run's own real
-        settlements.
+        money, not a lookup. The first backtest below scores this same predictor against the latest run's own real
+        settlements, computed with the exact schedule the predictor reads. The second is scored against a separate
+        batch whose real settlements were computed with a hidden schedule drift the predictor never sees — a genuine
+        test of forecast robustness, not the same reference data compared to itself.
       </p>
 
       {fetchError && (
@@ -71,6 +78,23 @@ export function ForecastPanel({ refreshKey }: Props) {
           <div className="fee-leak-summary-stat">
             <span className="fee-leak-summary-value">{pct(backtest.interval_coverage)}</span>
             <span className="fee-leak-summary-label">of {backtest.n} real settlements landed inside the predicted window</span>
+          </div>
+        </div>
+      )}
+
+      {blindBacktest && (
+        <div className="fee-leak-summary">
+          <div className="fee-leak-summary-stat">
+            <span className="fee-leak-summary-value">{pct(blindBacktest.mape)}</span>
+            <span className="fee-leak-summary-label">
+              MAPE, genuinely-blind backtest — real fee/SLA schedule hidden from the predictor (n={blindBacktest.n})
+            </span>
+          </div>
+          <div className="fee-leak-summary-stat">
+            <span className="fee-leak-summary-value">{pct(blindBacktest.interval_coverage)}</span>
+            <span className="fee-leak-summary-label">
+              interval coverage under the same hidden schedule drift — swings 3%–100% seed to seed; see LIMITATIONS.md
+            </span>
           </div>
         </div>
       )}

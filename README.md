@@ -54,7 +54,7 @@ smaller local model solved 1/8. Full numbers and raw evidence: [RESULTS.md](docs
 ## Verify it yourself
 
 ```bash
-cd backend && python -m pytest tests/ -v                 # 207 tests
+cd backend && python -m pytest tests/ -v                 # 219 tests
 python scripts/audit_calibration.py --db ../docs/evidence/verified_calibration_history.db
 python scripts/measure_mock_narrator_accuracy.py
 ```
@@ -67,8 +67,10 @@ All three work on a genuinely fresh clone. Full reproduction notes: [RESULTS.md]
 - Settlement is structurally unavailable in Razorpay's test mode, on any account — 4 of 5
   causal-chain hops are real API objects; the fifth is synthetic for exactly this reason.
 - The forecaster is exact by construction on ~73% of transactions (the merchant's own known fee/SLA
-  schedule, not a learned model); its reported MAPE/coverage moves with batch size.
-- Category discovery proposes a hypothesis per case — it doesn't cluster into a taxonomy.
+  schedule, not a learned model). A separate, genuinely-blind backtest against a hidden schedule
+  drift shows why that matters: amount error stays under 0.2%, but date-window coverage swings
+  3%–100% seed to seed.
+- Category discovery clusters proposals within one run, not across separate runs.
 - No real settlement-ledger webhook — `POST /api/transactions/evaluate` is the integration point one
   would call.
 

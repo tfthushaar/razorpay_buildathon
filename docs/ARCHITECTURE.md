@@ -151,8 +151,10 @@ correctly-sized number for anything that isn't. A transaction still in the escal
 **Forward cash forecaster.** `app/forecast/predictor.py` predicts settlement date and net amount for
 a payment that hasn't settled yet, using only the order, the payment, and the merchant's own known
 fee/SLA schedule — never a Settlement record, which doesn't exist yet for this to be a genuine
-prediction rather than a lookup. Backtested against a batch's own real settlements, honestly: see
-[RESULTS.md](RESULTS.md) and [LIMITATIONS.md](LIMITATIONS.md) for exactly what the reported accuracy
+prediction rather than a lookup. Backtested two ways: against a batch's own real settlements (which
+share the predictor's own schedule), and, separately, genuinely blind (`app/forecast/blind_backtest.py`)
+against a batch whose real settlements were computed with a hidden schedule drift the predictor never
+sees — see [RESULTS.md](RESULTS.md) and [LIMITATIONS.md](LIMITATIONS.md) for exactly what each one
 does and doesn't measure.
 
 **Settlement Q&A agent.** `app/qa/agent.py` is a second, separate agentic loop — free-text questions

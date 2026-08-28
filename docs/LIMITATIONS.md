@@ -36,14 +36,25 @@ real test data would eventually unlock. The synthetic generator covers the settl
 exactly this reason. Full trail of what was actually tried against the real sandbox (a real payment,
 a real partial refund, real non-null fee/tax fields): [`BUILD_LOG.md`](../BUILD_LOG.md).
 
-**The forecaster is exact by construction on roughly 73% of transactions.** It reuses the merchant's
-own known fee/SLA schedule — real reference data, not a learned model — so its MAPE and interval
-coverage come entirely from the ~27% of transactions with a refund, dispute, or timing anomaly it
-structurally can't see in advance (verified: 88/120 exact matches to the paise at the API's default
-batch size). The reported figure also moves with batch size — n=30 (the dashboard's own default):
-9.1% MAPE / 93.3% coverage; n=120 (the API's own default): 8.6%/90.8%; n=160: 4.1%/90.6% — and no
-single size flatters both metrics at once (n=30 has the best coverage of the three and the worst
-MAPE). The headline figure uses the dashboard's actual default, not whichever size looked best.
+**The forecaster is exact by construction on roughly 73% of transactions, against its OWN schedule.**
+It reuses the merchant's own known fee/SLA schedule — real reference data, not a learned model — so
+its MAPE and interval coverage come entirely from the ~27% of transactions with a refund, dispute, or
+timing anomaly it structurally can't see in advance (verified: 88/120 exact matches to the paise at
+the API's default batch size). The reported figure also moves with batch size — n=30 (the dashboard's
+own default): 9.1% MAPE / 93.3% coverage; n=120 (the API's own default): 8.6%/90.8%; n=160: 4.1%/90.6%
+— and no single size flatters both metrics at once (n=30 has the best coverage of the three and the
+worst MAPE). The headline figure uses the dashboard's actual default, not whichever size looked best.
+
+That number alone can't say what happens when the schedule itself is stale, since the predictor and
+the batch that scores it share the exact same reference constants — a real gap, not a hypothetical
+one: a merchant's actual contracted rate or real settlement timing can drift from what a platform's
+schedule still assumes. A separate, genuinely-blind backtest ([RESULTS.md](RESULTS.md),
+`app/forecast/blind_backtest.py`) scores the same predictor against a self-contained batch whose real
+settlements were computed with a hidden, per-rail fee-rate/SLA-day drift the predictor never sees.
+Measured over seeds 1–20: mean MAPE stays under 0.2% (fee-rate drift alone is a small fraction of
+settled value), but interval coverage swings from 3% to 100% seed to seed, since a few days of SLA
+drift can push the real settlement date entirely outside the predictor's own narrow tolerance window.
+The amount forecast is robust to schedule staleness; the declared date-window confidence is not.
 
 **Category discovery clusters within a run now, but only within a run.** Every proposal made so far
 in the same batch is threaded into the next one, and a live Ollama run confirms it actually reuses a

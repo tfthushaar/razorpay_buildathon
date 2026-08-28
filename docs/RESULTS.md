@@ -51,6 +51,23 @@ so it's exact to the paise on ~73% of transactions by construction (verified: 88
 n=120). The reported MAPE/coverage come entirely from the ~27% with a refund, dispute, or timing
 anomaly it structurally can't see in advance. Reproduce: `GET /api/forecast/backtest`.
 
+**A genuinely-blind backtest, separately.** The numbers above share one schedule between the
+predictor and the batch that scores it — a real gap, since a merchant's actual contracted rate or
+real settlement timing can drift from what a platform's own schedule still assumes.
+`GET /api/forecast/blind-backtest` scores the same predictor against a self-contained batch whose
+real settlements are computed with a hidden, per-rail fee-rate/SLA-day drift (up to 15% / 2 days,
+`app/forecast/blind_backtest.py`) the predictor never sees. Measured over seeds 1–20 at n=120:
+
+| Metric | Mean | Range across seeds |
+|---|---|---|
+| MAPE | 0.11% | 0.02%–0.17% |
+| Interval coverage | 56.5% | 3%–100% |
+
+The amount forecast barely moves (a fee is a small fraction of settled value even with real-rate
+drift), but interval coverage is highly sensitive to SLA drift specifically — a few days of real
+timing drift can push the actual settlement date entirely outside the predictor's own narrow
+tolerance window. Reproduce a single seed: `GET /api/forecast/blind-backtest?seed=1&n=120`.
+
 ## Where the rule beats the LLM, measured directly
 
 `narrate_mock` — a 20-line rule with zero LLM calls — scores **100.0% across 519 real
@@ -109,7 +126,7 @@ Reproduce: `python scripts/generate_multiway_netting_evidence.py`.
 ## Verify it yourself
 
 ```bash
-cd backend && python -m pytest tests/ -v                                          # 207 tests
+cd backend && python -m pytest tests/ -v                                          # 219 tests
 python scripts/audit_calibration.py --db ../docs/evidence/verified_calibration_history.db
 python scripts/measure_mock_narrator_accuracy.py
 python scripts/generate_multiway_netting_evidence.py
