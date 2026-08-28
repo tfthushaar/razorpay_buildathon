@@ -116,6 +116,35 @@ def list_batch_deltas(transaction_id: str, context: ToolContext) -> dict:
     return {"transaction_id": transaction_id, "own_delta": chain.settlement_delta, "other_transactions_in_same_batch": others}
 
 
+def verify_group_sum(transaction_id: str, candidate_transaction_ids: list[str], context: ToolContext) -> dict:
+    """Checks whether a CANDIDATE group of other transactions' deltas, added to `transaction_id`'s
+    own delta, actually sum to zero -- lets a caller verify its own hypothesis arithmetically instead
+    of asserting a plausible-sounding one. Built for app/narrator/multiway_netting_experiment.py
+    after measuring that both providers' wrong answers shared one shape: citing a transaction with a
+    large, plausible-looking delta and asserting it "explains" the target without the cited numbers
+    actually summing to anything -- confident prose over arithmetic that doesn't check out. This
+    tool doesn't suggest which transactions to check (that's still the caller's own hypothesis); it
+    only confirms or refutes one, the same way a human analyst would re-add the numbers before
+    signing off rather than trusting that a plausible story must be correct."""
+    chain = context.chains.get(transaction_id)
+    if chain is None:
+        return {"error": f"no transaction {transaction_id!r} in this batch"}
+    candidate_deltas = {}
+    for cid in candidate_transaction_ids:
+        other = context.chains.get(cid)
+        if other is None:
+            return {"error": f"no transaction {cid!r} in this batch"}
+        candidate_deltas[cid] = other.settlement_delta
+    total = chain.settlement_delta + sum(candidate_deltas.values())
+    return {
+        "transaction_id": transaction_id,
+        "own_delta": chain.settlement_delta,
+        "candidate_deltas": candidate_deltas,
+        "sum_including_own_delta": total,
+        "cancels_exactly": total == 0,
+    }
+
+
 def recall_similar_resolutions(category_guess: str, context: ToolContext) -> dict:
     matches = [entry for entry in context.audit_log if entry["category"] == category_guess]
     if not matches:

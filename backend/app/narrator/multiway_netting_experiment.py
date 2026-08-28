@@ -52,7 +52,7 @@ from pydantic import BaseModel
 
 from app.chain.builder import CausalChain, build_chain
 from app.data_gen.generate import SyntheticDataGenerator
-from app.narrator.tools import ToolContext, check_batch_anomalies, list_batch_deltas
+from app.narrator.tools import ToolContext, check_batch_anomalies, list_batch_deltas, verify_group_sum
 
 N_DISTRACTORS = 8  # unrelated transactions sharing the same settlement batch
 MAX_SUBSET_SIZE_CHECKED_FOR_UNIQUENESS = 4  # brute-force cap; N_DISTRACTORS+2 choose this is cheap
@@ -79,6 +79,35 @@ TOOL_SCHEMAS = [
             "parameters": {"type": "object", "properties": {"transaction_id": {"type": "string"}}, "required": ["transaction_id"]},
         },
     }
+]
+
+# Added to test whether a verification step improves accuracy -- see BUILD_LOG.md. Doesn't suggest
+# which transactions to check (still the model's own hypothesis to form); it only confirms or
+# refutes one, directly targeting the specific failure mode observed without it: citing a
+# plausible-looking distractor whose delta doesn't actually sum to anything.
+SYSTEM_PROMPT_WITH_VERIFICATION = SYSTEM_PROMPT.replace(
+    "Call the tool, then use the results to explain the transaction's own delta.",
+    "Call list_batch_deltas, form a hypothesis about which other transaction(s) explain the delta, "
+    "then call verify_group_sum on your hypothesis before answering -- do not answer without "
+    "verifying first. If verification says it doesn't cancel, revise your hypothesis and verify again.",
+)
+
+TOOL_SCHEMAS_WITH_VERIFICATION = TOOL_SCHEMAS + [
+    {
+        "type": "function",
+        "function": {
+            "name": "verify_group_sum",
+            "description": "Check whether a candidate group of other transaction ids, added to this transaction's own delta, actually sums to zero. Use this to confirm a hypothesis before answering.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "transaction_id": {"type": "string"},
+                    "candidate_transaction_ids": {"type": "array", "items": {"type": "string"}},
+                },
+                "required": ["transaction_id", "candidate_transaction_ids"],
+            },
+        },
+    },
 ]
 
 
@@ -189,7 +218,20 @@ def _parse_json_response(content: str) -> dict:
     return json.loads(text.strip())
 
 
-def run_experiment(seed: int = 777, provider: str = "ollama", model: str | None = None) -> ExperimentResult:
+def _dispatch_tool(name: str, args: dict, target_id: str, context: ToolContext) -> dict:
+    if name == "list_batch_deltas":
+        return list_batch_deltas(str(args.get("transaction_id", target_id)), context)
+    if name == "verify_group_sum":
+        candidates = args.get("candidate_transaction_ids") or []
+        if isinstance(candidates, str):
+            candidates = [candidates]
+        return verify_group_sum(str(args.get("transaction_id", target_id)), [str(c) for c in candidates], context)
+    return {"error": f"unknown tool: {name!r}"}
+
+
+def run_experiment(
+    seed: int = 777, provider: str = "ollama", model: str | None = None, with_verification_tool: bool = False
+) -> ExperimentResult:
     chains, context, target_id, group_ids = build_experiment_case(seed)
     target = chains[target_id]
     n_other = len(context.transaction_ids_by_settlement_batch[target.settlement_batch_id]) - 1
@@ -199,16 +241,37 @@ def run_experiment(seed: int = 777, provider: str = "ollama", model: str | None 
     rule_found_net = rule_result["netting_partner"] is not None
     rule_verdict = "duplicate_refund" if rule_found_dup else "netting_trap" if rule_found_net else "genuine_error"
 
+    system_prompt = SYSTEM_PROMPT_WITH_VERIFICATION if with_verification_tool else SYSTEM_PROMPT
+    tool_schemas = TOOL_SCHEMAS_WITH_VERIFICATION if with_verification_tool else TOOL_SCHEMAS
+
     user_content = (
         f"Transaction {target_id} (rail {target.rail}): settlement delta is {target.settlement_delta}. "
         f"Investigate using list_batch_deltas."
     )
-    messages = [{"role": "system", "content": SYSTEM_PROMPT}, {"role": "user", "content": user_content}]
+    messages = [{"role": "system", "content": system_prompt}, {"role": "user", "content": user_content}]
 
     llm_raw_response = ""
     cited: list[str] = []
-    converged = False  # distinguishes "never gave a final answer within budget" from "gave one"
-    max_rounds = 4  # matches app/narrator/agent.py's own default -- not extended further to chase a result
+    reached_a_final_turn = False  # a turn with no tool_calls -- distinct from ever producing a PARSEABLE one
+    max_rounds = 6 if with_verification_tool else 4  # one extra round-trip needed to call + read verify_group_sum
+
+    def _handle_final_turn(content: str | None) -> None:
+        # Called the moment a turn has no tool_calls -- i.e. the model is (or should be) giving its
+        # answer. Parses immediately, right here, rather than after the loop: a first version only
+        # set llm_raw_response/broke out on a non-tool-call turn and parsed afterward, which silently
+        # mislabeled "the model answered with empty/malformed content" as "did not converge" or as a
+        # bare, confusing JSONDecodeError -- found by re-reading a shipped evidence file where every
+        # actual failure was a malformed final answer, and none were genuine non-convergence, despite
+        # the code appearing to distinguish them. Matches app/narrator/agent.py's own control flow:
+        # parse (or fail safe on a parse error) the instant a non-tool-call turn appears, don't wait.
+        nonlocal llm_raw_response, cited, reached_a_final_turn
+        reached_a_final_turn = True
+        llm_raw_response = content or ""
+        try:
+            parsed = _parse_json_response(llm_raw_response)
+            cited = [str(c) for c in parsed.get("cited_transaction_ids", [])] if isinstance(parsed, dict) else []
+        except (json.JSONDecodeError, KeyError):
+            llm_raw_response = f"final response could not be parsed as valid JSON: {llm_raw_response[:200]!r}"
 
     try:
         if provider == "ollama":
@@ -217,7 +280,7 @@ def run_experiment(seed: int = 777, provider: str = "ollama", model: str | None 
             client = Client(timeout=60.0)
             model = model or "qwen2.5:7b-instruct"
             for _ in range(max_rounds):
-                response = client.chat(model=model, messages=messages, tools=TOOL_SCHEMAS)
+                response = client.chat(model=model, messages=messages, tools=tool_schemas)
                 msg = response["message"]
                 tool_calls = msg.get("tool_calls")
                 if tool_calls:
@@ -226,11 +289,10 @@ def run_experiment(seed: int = 777, provider: str = "ollama", model: str | None 
                         args = tc["function"].get("arguments") or {}
                         if isinstance(args, str):
                             args = json.loads(args or "{}")
-                        result = list_batch_deltas(str(args.get("transaction_id", target_id)), context)
+                        result = _dispatch_tool(tc["function"]["name"], args, target_id, context)
                         messages.append({"role": "tool", "content": json.dumps(result)})
                     continue
-                llm_raw_response = msg.get("content") or ""
-                converged = True
+                _handle_final_turn(msg.get("content"))
                 break
         elif provider == "groq":
             from groq import Groq
@@ -238,30 +300,25 @@ def run_experiment(seed: int = 777, provider: str = "ollama", model: str | None 
             client = Groq(api_key=os.environ["GROQ_API_KEY"], timeout=60.0)
             model = model or "openai/gpt-oss-20b"
             for _ in range(max_rounds):
-                response = client.chat.completions.create(model=model, messages=messages, tools=TOOL_SCHEMAS, tool_choice="auto", temperature=0.1)
+                response = client.chat.completions.create(model=model, messages=messages, tools=tool_schemas, tool_choice="auto", temperature=0.1)
                 msg = response.choices[0].message
                 if msg.tool_calls:
                     messages.append({"role": "assistant", "content": msg.content or "", "tool_calls": [tc.model_dump() for tc in msg.tool_calls]})
                     for tc in msg.tool_calls:
                         args = json.loads(tc.function.arguments or "{}")
-                        result = list_batch_deltas(str(args.get("transaction_id", target_id)), context)
+                        result = _dispatch_tool(tc.function.name, args, target_id, context)
                         messages.append({"role": "tool", "tool_call_id": tc.id, "content": json.dumps(result)})
                     continue
-                llm_raw_response = msg.content or ""
-                converged = True
+                _handle_final_turn(msg.content)
                 break
         else:
             raise ValueError(f"unsupported provider for this experiment: {provider!r}")
 
-        if not converged:
-            # Exhausted the tool-call budget without ever producing a final answer -- a real,
-            # distinct failure mode from "gave a malformed final answer", and the production
-            # narrator (app/narrator/agent.py) reports it as its own distinct fail-safe message
-            # rather than attempting to parse empty content as JSON. Same posture here.
+        if not reached_a_final_turn:
+            # Exhausted the tool-call budget with EVERY round making a tool call -- the model never
+            # even attempted a final answer. Genuinely distinct from _handle_final_turn's malformed-
+            # JSON case, and now only reached when that's actually what happened.
             llm_raw_response = f"did not converge within the {max_rounds}-round tool-call budget"
-        else:
-            parsed = _parse_json_response(llm_raw_response)
-            cited = [str(c) for c in parsed.get("cited_transaction_ids", [])] if isinstance(parsed, dict) else []
     except Exception as e:
         llm_raw_response = f"experiment call failed ({type(e).__name__}: {e})"
 
