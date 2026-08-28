@@ -52,7 +52,11 @@ the same direction, toward a better-looking number than the model's real capabil
 transactions (verified by brute force that no other subset accidentally cancels), a prompt that
 states only what the tool returns, and exact-match grading. Re-measured on the harder, honest version:
 Groq dropped to 4/8, Ollama to 0/8 — a less impressive number, kept anyway, because the first
-attempt's numbers were exactly as easy to get as the flaws made them.
+attempt's numbers were exactly as easy to get as the flaws made them. Groq's number later moved again,
+legitimately: adding a `verify_group_sum` tool (a separate change, not a methodology rollback) took it
+to 8/8, matching the original pre-fix fraction on paper but for the opposite reason — earned by
+letting the model check its own hypothesis against real distractors, not by a leaked strategy and a
+trivial grader. Current numbers, both conditions: [RESULTS.md](RESULTS.md).
 
 **Prevented:** `test_different_seeds_produce_genuinely_different_arithmetic`,
 `test_construction_raises_if_ever_ambiguous_rather_than_silently_shipping_a_bad_case`.
