@@ -1,0 +1,787 @@
+{
+  "magnitude_prefilter_multiple": 10.0,
+  "rule_and_solver_sweep": [
+    {
+      "n_total": 50,
+      "seed": 1,
+      "rule_solved": false,
+      "rule_elapsed_seconds": 5.3000112529844046e-06,
+      "solver_found_correct_group": true,
+      "solver_combinations_checked": 1095,
+      "solver_elapsed_seconds": 0.0002820999943651259
+    },
+    {
+      "n_total": 50,
+      "seed": 2,
+      "rule_solved": false,
+      "rule_elapsed_seconds": 4.9000082071870565e-06,
+      "solver_found_correct_group": true,
+      "solver_combinations_checked": 280,
+      "solver_elapsed_seconds": 6.86999992467463e-05
+    },
+    {
+      "n_total": 50,
+      "seed": 3,
+      "rule_solved": false,
+      "rule_elapsed_seconds": 4.5000051613897085e-06,
+      "solver_found_correct_group": true,
+      "solver_combinations_checked": 279,
+      "solver_elapsed_seconds": 6.820000999141484e-05
+    },
+    {
+      "n_total": 100,
+      "seed": 1,
+      "rule_solved": false,
+      "rule_elapsed_seconds": 9.69998654909432e-06,
+      "solver_found_correct_group": true,
+      "solver_combinations_checked": 1743,
+      "solver_elapsed_seconds": 0.00044019999040756375
+    },
+    {
+      "n_total": 100,
+      "seed": 2,
+      "rule_solved": false,
+      "rule_elapsed_seconds": 9.499999578110874e-06,
+      "solver_found_correct_group": true,
+      "solver_combinations_checked": 1512,
+      "solver_elapsed_seconds": 0.00037000000884290785
+    },
+    {
+      "n_total": 100,
+      "seed": 3,
+      "rule_solved": false,
+      "rule_elapsed_seconds": 8.899995009414852e-06,
+      "solver_found_correct_group": true,
+      "solver_combinations_checked": 4086,
+      "solver_elapsed_seconds": 0.0009965000062948093
+    },
+    {
+      "n_total": 200,
+      "seed": 1,
+      "rule_solved": false,
+      "rule_elapsed_seconds": 2.4600012693554163e-05,
+      "solver_found_correct_group": true,
+      "solver_combinations_checked": 10906,
+      "solver_elapsed_seconds": 0.0027505000034580007
+    },
+    {
+      "n_total": 200,
+      "seed": 2,
+      "rule_solved": false,
+      "rule_elapsed_seconds": 2.7399990358389914e-05,
+      "solver_found_correct_group": true,
+      "solver_combinations_checked": 10482,
+      "solver_elapsed_seconds": 0.0026184000016655773
+    },
+    {
+      "n_total": 200,
+      "seed": 3,
+      "rule_solved": false,
+      "rule_elapsed_seconds": 2.3299988242797554e-05,
+      "solver_found_correct_group": true,
+      "solver_combinations_checked": 9034,
+      "solver_elapsed_seconds": 0.002259599990793504
+    },
+    {
+      "n_total": 300,
+      "seed": 1,
+      "rule_solved": false,
+      "rule_elapsed_seconds": 3.290000313427299e-05,
+      "solver_found_correct_group": true,
+      "solver_combinations_checked": 35267,
+      "solver_elapsed_seconds": 0.00859640000271611
+    },
+    {
+      "n_total": 300,
+      "seed": 2,
+      "rule_solved": false,
+      "rule_elapsed_seconds": 3.369999467395246e-05,
+      "solver_found_correct_group": true,
+      "solver_combinations_checked": 3151,
+      "solver_elapsed_seconds": 0.0007750000077066943
+    },
+    {
+      "n_total": 300,
+      "seed": 3,
+      "rule_solved": false,
+      "rule_elapsed_seconds": 3.360000846441835e-05,
+      "solver_found_correct_group": true,
+      "solver_combinations_checked": 38041,
+      "solver_elapsed_seconds": 0.009430100006284192
+    },
+    {
+      "n_total": 500,
+      "seed": 1,
+      "rule_solved": false,
+      "rule_elapsed_seconds": 7.500000356230885e-05,
+      "solver_found_correct_group": true,
+      "solver_combinations_checked": 84215,
+      "solver_elapsed_seconds": 0.02082959999097511
+    },
+    {
+      "n_total": 500,
+      "seed": 2,
+      "rule_solved": false,
+      "rule_elapsed_seconds": 5.0300004659220576e-05,
+      "solver_found_correct_group": true,
+      "solver_combinations_checked": 56670,
+      "solver_elapsed_seconds": 0.014025799988303334
+    },
+    {
+      "n_total": 500,
+      "seed": 3,
+      "rule_solved": false,
+      "rule_elapsed_seconds": 5.029999010730535e-05,
+      "solver_found_correct_group": true,
+      "solver_combinations_checked": 37643,
+      "solver_elapsed_seconds": 0.009194300000672229
+    },
+    {
+      "n_total": 800,
+      "seed": 1,
+      "rule_solved": false,
+      "rule_elapsed_seconds": 7.769999501761049e-05,
+      "solver_found_correct_group": true,
+      "solver_combinations_checked": 186687,
+      "solver_elapsed_seconds": 0.045436500004143454
+    },
+    {
+      "n_total": 800,
+      "seed": 2,
+      "rule_solved": false,
+      "rule_elapsed_seconds": 9.289999434258789e-05,
+      "solver_found_correct_group": true,
+      "solver_combinations_checked": 133514,
+      "solver_elapsed_seconds": 0.03235599999607075
+    },
+    {
+      "n_total": 800,
+      "seed": 3,
+      "rule_solved": false,
+      "rule_elapsed_seconds": 7.989999721758068e-05,
+      "solver_found_correct_group": true,
+      "solver_combinations_checked": 17964,
+      "solver_elapsed_seconds": 0.004421499994350597
+    }
+  ],
+  "ollama_sweep": [
+    {
+      "n_total": 20,
+      "use_prefilter": false,
+      "seed": 1,
+      "other_transactions_shown_to_model": 19,
+      "correct": false,
+      "errored": false,
+      "error_message": "",
+      "elapsed_seconds": 10.424270199990133,
+      "raw_response": "did not converge within the 6-round tool-call budget"
+    },
+    {
+      "n_total": 20,
+      "use_prefilter": false,
+      "seed": 2,
+      "other_transactions_shown_to_model": 19,
+      "correct": false,
+      "errored": false,
+      "error_message": "",
+      "elapsed_seconds": 23.46184910000011,
+      "raw_response": "{\n  \"explanation\": \"The transactions order_10d556bec879, order_50101c536022, order_e9c74cd8896b, order_8e72163963f6, order_76b267e791e8, order_8a1474e71e56, order_8bb1b9128cec, order_692f1ad0cf8c, order_b4455f4a8e83, order_ee9ea70f15be, order_66f676338d1f, order_2180f765a4e2, order_905fac7fe991, order_541148746281, order_fbd18966c209, order_836dd47c152e, order_f397ab490510, order_775743737942, when added to the transaction order_52cd430afacd's own delta of 551638, sum up to -1486790. This negati"
+    },
+    {
+      "n_total": 20,
+      "use_prefilter": false,
+      "seed": 3,
+      "other_transactions_shown_to_model": 19,
+      "correct": false,
+      "errored": false,
+      "error_message": "",
+      "elapsed_seconds": 8.644974599999841,
+      "raw_response": "final response could not be parsed as valid JSON: 'The sum of the deltas from the other transactions in the batch, along with the transaction\\'s own delta, does not exactly cancel out. However, the close proximity suggests that the combination of \"orde'"
+    },
+    {
+      "n_total": 20,
+      "use_prefilter": true,
+      "seed": 1,
+      "other_transactions_shown_to_model": 19,
+      "correct": false,
+      "errored": false,
+      "error_message": "",
+      "elapsed_seconds": 28.04472530000203,
+      "raw_response": "final response could not be parsed as valid JSON: 'Based on the results, the transactions that sum to the delta of the order_c11c7637e69c are:\\n\\n-855294 (order_5cf91a7fbdb8) + -715989 (order_ec1973af633f) + -692461 (order_885ff186a144) + -523115 (order'"
+    },
+    {
+      "n_total": 20,
+      "use_prefilter": true,
+      "seed": 2,
+      "other_transactions_shown_to_model": 19,
+      "correct": false,
+      "errored": false,
+      "error_message": "",
+      "elapsed_seconds": 13.694460300001083,
+      "raw_response": "{\n\"explanation\": \"The transaction order_52cd430afacd (rail upi) has a delta of 551638, and the sum of the deltas of the other transactions in the same batch, including the own delta, does not cancel exactly to zero. However, the sum of the deltas of the other transactions, excluding the own delta, sums to -1827553, which, when combined with the own delta of 551638, results in -1275915. This discrepancy suggests that the error is likely due to an incorrect prediction in one of the other transacti"
+    },
+    {
+      "n_total": 20,
+      "use_prefilter": true,
+      "seed": 3,
+      "other_transactions_shown_to_model": 19,
+      "correct": false,
+      "errored": false,
+      "error_message": "",
+      "elapsed_seconds": 14.282208899996476,
+      "raw_response": "final response could not be parsed as valid JSON: 'Based on the provided data, the transactions `order_f2586dde9098` and `order_51af9001200a` collectively explain the delta for `order_2e799e783b88`. The sum of their deltas, combined with the own delta'"
+    },
+    {
+      "n_total": 50,
+      "use_prefilter": false,
+      "seed": 1,
+      "other_transactions_shown_to_model": 49,
+      "correct": false,
+      "errored": false,
+      "error_message": "",
+      "elapsed_seconds": 13.745644399998127,
+      "raw_response": "did not converge within the 6-round tool-call budget"
+    },
+    {
+      "n_total": 50,
+      "use_prefilter": false,
+      "seed": 2,
+      "other_transactions_shown_to_model": 49,
+      "correct": false,
+      "errored": false,
+      "error_message": "",
+      "elapsed_seconds": 28.60236530000111,
+      "raw_response": "{\n\"explanation\": \"The transactions 'order_692f1ad0cf8c', 'order_c897abf5cd25', 'order_fbd18966c209', 'order_3adce31082e9', 'order_6a15f98a1265', 'order_846b711d26bf', 'order_ee9ea70f15be' and 'order_e9c74cd8896b' collectively with the own delta of 'order_52cd430afacd' sum up to 0, explaining the delta discrepancy.\",\n\"cited_transaction_ids\": [\"order_692f1ad0cf8c\", \"order_c897abf5cd25\", \"order_fbd18966c209\", \"order_3adce31082e9\", \"order_6a15f98a1265\", \"order_846b711d26bf\", \"order_ee9ea70f15be\", \"o"
+    },
+    {
+      "n_total": 50,
+      "use_prefilter": false,
+      "seed": 3,
+      "other_transactions_shown_to_model": 49,
+      "correct": false,
+      "errored": false,
+      "error_message": "",
+      "elapsed_seconds": 16.097410499991383,
+      "raw_response": "did not converge within the 6-round tool-call budget"
+    },
+    {
+      "n_total": 50,
+      "use_prefilter": true,
+      "seed": 1,
+      "other_transactions_shown_to_model": 49,
+      "correct": false,
+      "errored": false,
+      "error_message": "",
+      "elapsed_seconds": 20.63691229998949,
+      "raw_response": "{\"explanation\": \"The transactions order_19c13c64db00, order_5cf91a7fbdb8, order_b7495f6fbf86, order_671209e30bdf, order_687d13f99a36, order_885ff186a144, order_92f4921725ee, order_b5d3fe55c59b, order_22abb76f4401, order_4c2424faa4b7, order_9fa1d3dfe6e7, order_44f5d655f854, order_0dc0f628bba8, order_348433e38756, order_f6a44898f2af, and order_9e26b018414a, when added to the own delta of -209552, do not sum to zero. However, the transactions order_19c13c64db00, order_5cf91a7fbdb8, order_b7495f6fbf"
+    },
+    {
+      "n_total": 50,
+      "use_prefilter": true,
+      "seed": 2,
+      "other_transactions_shown_to_model": 49,
+      "correct": false,
+      "errored": false,
+      "error_message": "",
+      "elapsed_seconds": 17.687389200000325,
+      "raw_response": "{\n  \"explanation\": \"The sum of the deltas of the listed transactions, including the own delta, is 2,199,383, which does not cancel exactly to zero. However, if we exclude 'order_8bb1b9128cec' with a delta of 929,805 and 'order_66f676338d1f' with a delta of -880,825, the sum will be exactly zero.\",\n  \"cited_transaction_ids\": [\"order_8bb1b9128cec\", \"order_66f676338d1f\"]\n}"
+    },
+    {
+      "n_total": 50,
+      "use_prefilter": true,
+      "seed": 3,
+      "other_transactions_shown_to_model": 49,
+      "correct": false,
+      "errored": false,
+      "error_message": "",
+      "elapsed_seconds": 49.2254804999975,
+      "raw_response": "final response could not be parsed as valid JSON: 'Based on the results, the transactions that sum up to the delta are:\\n\\n- order_6b589c7687b1 (887470)\\n- order_8e3bb9cb038f (-866445)\\n- order_f2586dde9098 (-445256)\\n- order_3af6f9f8ca38 (-569592)\\n- order'"
+    },
+    {
+      "n_total": 100,
+      "use_prefilter": false,
+      "seed": 1,
+      "other_transactions_shown_to_model": 99,
+      "correct": false,
+      "errored": true,
+      "error_message": "ReadTimeout: timed out",
+      "elapsed_seconds": 149.0879549000092,
+      "raw_response": "call failed (ReadTimeout: timed out)"
+    },
+    {
+      "n_total": 100,
+      "use_prefilter": false,
+      "seed": 2,
+      "other_transactions_shown_to_model": 99,
+      "correct": false,
+      "errored": false,
+      "error_message": "",
+      "elapsed_seconds": 26.506919700012077,
+      "raw_response": "{\"explanation\": \"The transactions order_599292e55edd, order_905fac7fe991, and order_6c5a06d6e0e7, when added to order_52cd430afacd's own delta, sum to zero. This indicates these transactions are responsible for the delta discrepancy.\", \"cited_transaction_ids\": [\"order_599292e55edd\", \"order_905fac7fe991\", \"order_6c5a06d6e0e7\"]}"
+    },
+    {
+      "n_total": 100,
+      "use_prefilter": false,
+      "seed": 3,
+      "other_transactions_shown_to_model": 99,
+      "correct": false,
+      "errored": false,
+      "error_message": "",
+      "elapsed_seconds": 22.73263679999218,
+      "raw_response": "final response could not be parsed as valid JSON: 'The verify_group_sum result indicates that the combination of transaction order_2e799e783b88, order_51af9001200a, order_3d43b3d82bf4, and order_1f3a5dba4c30 does not exactly sum to zero. However, if w'"
+    },
+    {
+      "n_total": 100,
+      "use_prefilter": true,
+      "seed": 1,
+      "other_transactions_shown_to_model": 99,
+      "correct": false,
+      "errored": true,
+      "error_message": "ReadTimeout: timed out",
+      "elapsed_seconds": 120.86477220000234,
+      "raw_response": "call failed (ReadTimeout: timed out)"
+    },
+    {
+      "n_total": 100,
+      "use_prefilter": true,
+      "seed": 2,
+      "other_transactions_shown_to_model": 99,
+      "correct": false,
+      "errored": false,
+      "error_message": "",
+      "elapsed_seconds": 40.75545950001106,
+      "raw_response": "{\"explanation\": \"The sum of the deltas of the following transactions, when added to the own delta, does not cancel exactly to zero. This means there might be an error in the records of these transactions.\", \"cited_transaction_ids\": [\"1c033c0a1269\", \"4262ae10f25e\", \"692f1ad0cf8c\", \"846b711d26bf\", \"8b33dbe9eea5\", \"10d556bec879\", \"1f32f440a8e9\", \"4438673ed967\", \"889444330fd0\", \"541148746281\", \"66f676338d1f\", \"b8f57c4c5288\", \"431a38f9c118\", \"6a15f98a1265\", \"e7cfba7422a4\", \"03a38449bea6\", \"8e72163963"
+    },
+    {
+      "n_total": 100,
+      "use_prefilter": true,
+      "seed": 3,
+      "other_transactions_shown_to_model": 99,
+      "correct": false,
+      "errored": false,
+      "error_message": "",
+      "elapsed_seconds": 31.55193909999798,
+      "raw_response": "{\"explanation\": \"The transactions 'order_03f931002523', 'order_96d56dbf12a7' and 'order_c75ee4c507e8' explain the delta. Their combined delta with the own delta of 'order_2e799e783b88' equals -5223336.\", \"cited_transaction_ids\": [\"order_03f931002523\", \"order_96d56dbf12a7\", \"order_c75ee4c507e8\"]}"
+    },
+    {
+      "n_total": 200,
+      "use_prefilter": false,
+      "seed": 1,
+      "other_transactions_shown_to_model": 199,
+      "correct": false,
+      "errored": true,
+      "error_message": "ReadTimeout: timed out",
+      "elapsed_seconds": 120.86390579999716,
+      "raw_response": "call failed (ReadTimeout: timed out)"
+    },
+    {
+      "n_total": 200,
+      "use_prefilter": false,
+      "seed": 2,
+      "other_transactions_shown_to_model": 199,
+      "correct": false,
+      "errored": false,
+      "error_message": "",
+      "elapsed_seconds": 1.808430999997654,
+      "raw_response": "final response could not be parsed as valid JSON: '\u597d\u7684\uff0c\u73b0\u5728\u6211\u4eec\u5df2\u7ecf\u6709\u4e86\u4e00\u4e2a\u5305\u542b\u8ba2\u5355\u53f7\u53ca\u5176\u5bf9\u5e94\u503c\u7684\u5b57\u5178\u3002\u4e0b\u4e00\u6b65\u6211\u4eec\u53ef\u4ee5\u6839\u636e\u8fd9\u4e9b\u503c\u6765\u8ba1\u7b97\u603b\u548c\u3002\u4f60\u5e0c\u671b\u8ba1\u7b97\u6240\u6709\u6b63\u6570\u7684\u603b\u548c\uff0c\u8fd8\u662f\u5305\u62ec\u8d1f\u6570\u5728\u5185\u7684\u6240\u6709\u503c\u7684\u603b\u548c\uff1f\u8bf7\u6307\u793a\u4e00\u4e0b\u3002'"
+    },
+    {
+      "n_total": 200,
+      "use_prefilter": false,
+      "seed": 3,
+      "other_transactions_shown_to_model": 199,
+      "correct": false,
+      "errored": false,
+      "error_message": "",
+      "elapsed_seconds": 5.07647580000048,
+      "raw_response": "final response could not be parsed as valid JSON: '\u8ba9\u6211\u4eec\u5206\u6790\u4e00\u4e0b\u7ed9\u51fa\u7684\u6570\u636e\uff0c\u627e\u51fa\u8ba2\u5355\u91d1\u989d\u6700\u9ad8\u548c\u6700\u4f4e\u7684\u8ba2\u5355\u3002\\n\\n\u9996\u5148\uff0c\u6211\u4eec\u9700\u8981\u8bc6\u522b\u51fa\u54ea\u4e9b\u8ba2\u5355\u91d1\u989d\u662f\u6b63\u6570\uff08\u4ee3\u8868\u76c8\u5229\uff09\uff0c\u54ea\u4e9b\u662f\u8d1f\u6570\uff08\u4ee3\u8868\u4e8f\u635f\uff09\u3002\\n\\n\u4ece\u7ed9\u51fa\u7684\u6570\u636e\u4e2d\uff0c\u6211\u4eec\u53ef\u4ee5\u770b\u5230\uff1a\\n\\n- \u6700\u9ad8\u91d1\u989d\u7684\u8ba2\u5355\u662f \"order_c7b3fa805072\"\uff0c\u91d1\u989d\u4e3a 358544\u3002\\n- \u6700\u4f4e\u91d1\u989d\u7684\u8ba2\u5355\u662f \"order_2c6c4fd453cc\"\uff0c\u91d1\u989d\u4e3a -954155\u3002\\n\\n\u6240\u4ee5\uff0c\u8ba2\u5355\u91d1\u989d\u6700\u9ad8\u7684\u662f \"order_c7b3'"
+    },
+    {
+      "n_total": 200,
+      "use_prefilter": true,
+      "seed": 1,
+      "other_transactions_shown_to_model": 199,
+      "correct": false,
+      "errored": false,
+      "error_message": "",
+      "elapsed_seconds": 14.772315499998513,
+      "raw_response": "final response could not be parsed as valid JSON: '\u6839\u636e\u63d0\u4f9b\u7684\u5b57\u5178\u6570\u636e\uff0c\u6240\u6709\u8ba2\u5355\u7684\u603b\u548c\u4e3a\uff1a\\n\\n```\\n-937300 - 903807 - 48377 + 973559 - 347601 + 654314 - 953440 - 523115 + 527133 + 358357 - 132447 - 625182 - 632910 + 587824 + 911148 - 164662 + 290918 + 645837 + 565083 - 8870'"
+    },
+    {
+      "n_total": 200,
+      "use_prefilter": true,
+      "seed": 2,
+      "other_transactions_shown_to_model": 199,
+      "correct": false,
+      "errored": true,
+      "error_message": "ReadTimeout: timed out",
+      "elapsed_seconds": 120.81065880000824,
+      "raw_response": "call failed (ReadTimeout: timed out)"
+    },
+    {
+      "n_total": 200,
+      "use_prefilter": true,
+      "seed": 3,
+      "other_transactions_shown_to_model": 199,
+      "correct": false,
+      "errored": false,
+      "error_message": "",
+      "elapsed_seconds": 7.032022100000177,
+      "raw_response": "final response could not be parsed as valid JSON: '\u611f\u8c22\u63d0\u4f9b\u7684\u6570\u636e\u3002\u6839\u636e\u60a8\u7ed9\u51fa\u7684\u8ba2\u5355\u53f7\u548c\u5bf9\u5e94\u7684\u8bc4\u5206\uff0c\u6211\u4eec\u53ef\u4ee5\u770b\u5230\u4e00\u4e9b\u8ba2\u5355\u7684\u8bc4\u5206\u662f\u6b63\u6570\uff0c\u8868\u793a\u5ba2\u6237\u5bf9\u670d\u52a1\u6216\u4ea7\u54c1\u7684\u6ee1\u610f\u5ea6\u8f83\u9ad8\uff1b\u800c\u53e6\u4e00\u4e9b\u8ba2\u5355\u7684\u8bc4\u5206\u662f\u8d1f\u6570\uff0c\u8868\u793a\u5ba2\u6237\u5bf9\u670d\u52a1\u6216\u4ea7\u54c1\u7684\u6ee1\u610f\u5ea6\u8f83\u4f4e\u3002\\n\\n\u4ece\u6570\u636e\u4e2d\uff0c\u6211\u4eec\u53ef\u4ee5\u89c2\u5bdf\u5230\u51e0\u4e2a\u6700\u9ad8\u5206\u548c\u6700\u4f4e\u5206\u7684\u8ba2\u5355\uff0c\u4f8b\u5982\uff1a\\n\\n- \u6700\u9ad8\u7684\u8ba2\u5355\u8bc4\u5206\u4e3a966930\uff0c\u5bf9\u5e94\u7684\u8ba2\u5355\u53f7\u4e3a\"order_9e86c75da089\"\u3002\\n- \u6700\u4f4e\u7684\u8ba2\u5355\u8bc4\u5206\u4e3a-981488\uff0c\u5bf9\u5e94\u7684\u8ba2\u5355\u53f7\u4e3a\"order_68'"
+    },
+    {
+      "n_total": 400,
+      "use_prefilter": false,
+      "seed": 1,
+      "other_transactions_shown_to_model": 399,
+      "correct": false,
+      "errored": false,
+      "error_message": "",
+      "elapsed_seconds": 10.623041999991983,
+      "raw_response": "final response could not be parsed as valid JSON: '\u6839\u636e\u60a8\u63d0\u4f9b\u7684\u5b57\u5178\u6570\u636e\uff0c\u6211\u4eec\u53ef\u4ee5\u770b\u5230\u6bcf\u4e2a\u8ba2\u5355\u7684\u7f16\u53f7\u53ca\u5176\u5bf9\u5e94\u7684\u8ba2\u5355\u91d1\u989d\u3002\u5176\u4e2d\u6709\u6b63\u6570\u8868\u793a\u6536\u5165\uff0c\u8d1f\u6570\u8868\u793a\u652f\u51fa\u3002\u4e3a\u4e86\u7b80\u5316\u95ee\u9898\uff0c\u6211\u4eec\u53ef\u4ee5\u5047\u8bbe\u8fd9\u4e9b\u8ba2\u5355\u4ee3\u8868\u4e00\u4e2a\u6708\u5185\u7684\u6240\u6709\u4ea4\u6613\u3002\\n\\n\u4e3a\u4e86\u8ba1\u7b97\u8fd9\u4e2a\u6708\u7684\u603b\u6536\u5165\uff0c\u6211\u4eec\u9700\u8981\u628a\u6240\u6709\u6b63\u6570\u76f8\u52a0\uff0c\u628a\u6240\u6709\u8d1f\u6570\u76f8\u52a0\uff0c\u7136\u540e\u7528\u603b\u6536\u5165\u51cf\u53bb\u603b\u652f\u51fa\u3002\\n\\n\u9996\u5148\uff0c\u6211\u4eec\u8ba1\u7b97\u603b\u6536\u5165\uff1a\\n\\\\[ 547315 + 162198 + 784232 + 779636 + 526728 + 732667 + 886'"
+    },
+    {
+      "n_total": 400,
+      "use_prefilter": false,
+      "seed": 2,
+      "other_transactions_shown_to_model": 399,
+      "correct": false,
+      "errored": false,
+      "error_message": "",
+      "elapsed_seconds": 10.96438649999618,
+      "raw_response": "final response could not be parsed as valid JSON: '\u6839\u636e\u4f60\u63d0\u4f9b\u7684\u8ba2\u5355\u91d1\u989d\u6570\u636e\uff0c\u6211\u4eec\u9700\u8981\u8ba1\u7b97\u51fa\u6240\u6709\u6b63\u6570\u8ba2\u5355\u548c\u6240\u6709\u8d1f\u6570\u8ba2\u5355\u7684\u603b\u548c\uff0c\u7136\u540e\u5206\u522b\u7ed9\u51fa\u6b63\u6570\u8ba2\u5355\u548c\u8d1f\u6570\u8ba2\u5355\u7684\u603b\u91d1\u989d\u3002\\n\\n\u6b63\u6570\u8ba2\u5355\u603b\u91d1\u989d\uff1a\\n905693 + 951750 + 992318 + 982779 + 28183 + 622295 + 619614 + 471901 + 705877 + 368779 + 665111 + 505988 + 602224 + 870248 + 714404 '"
+    },
+    {
+      "n_total": 400,
+      "use_prefilter": false,
+      "seed": 3,
+      "other_transactions_shown_to_model": 399,
+      "correct": false,
+      "errored": false,
+      "error_message": "",
+      "elapsed_seconds": 5.380546600004891,
+      "raw_response": "final response could not be parsed as valid JSON: 'Based on the provided response from the tool, it seems that the tool has calculated some kind of ordering or ranking for various items or entities, which are referenced by unique identifiers (e.g., \"o'"
+    },
+    {
+      "n_total": 400,
+      "use_prefilter": true,
+      "seed": 1,
+      "other_transactions_shown_to_model": 399,
+      "correct": false,
+      "errored": false,
+      "error_message": "",
+      "elapsed_seconds": 3.200611200009007,
+      "raw_response": "final response could not be parsed as valid JSON: \"Based on the tool's response, it appears that the tool has provided a mapping of order IDs to numerical values. Here is a summary of the data:\\n\\n- The tool returned a dictionary where the keys are orde\""
+    },
+    {
+      "n_total": 400,
+      "use_prefilter": true,
+      "seed": 2,
+      "other_transactions_shown_to_model": 399,
+      "correct": false,
+      "errored": false,
+      "error_message": "",
+      "elapsed_seconds": 40.561748699998134,
+      "raw_response": "final response could not be parsed as valid JSON: '\u6839\u636e\u63d0\u4f9b\u7684\u5b57\u5178\uff0c\u5404\u8ba2\u5355\u7684\u91d1\u989d\u5982\u4e0b\uff1a\\n\\n- order_76b267e791e8: 905693\\n- order_ffc66b1f28e4: -434236\\n- order_0efcfd13ffd2: 951750\\n- order_63b41bd86c28: -146196\\n- order_547972fc2305: 992318\\n- order_3adce31082e9: 982779\\n- ord'"
+    },
+    {
+      "n_total": 400,
+      "use_prefilter": true,
+      "seed": 3,
+      "other_transactions_shown_to_model": 399,
+      "correct": false,
+      "errored": false,
+      "error_message": "",
+      "elapsed_seconds": 19.232983599998988,
+      "raw_response": "final response could not be parsed as valid JSON: '\u597d\u7684\uff0c\u6211\u4eec\u6765\u5206\u6790\u4e00\u4e0b\u8fd9\u4e9b\u8ba2\u5355\u6570\u636e\u3002\u6839\u636e\u7ed9\u5b9a\u7684\u8ba2\u5355\u91d1\u989d\uff0c\u6211\u4eec\u53ef\u4ee5\u8ba1\u7b97\u51fa\u6b63\u6570\u8ba2\u5355\u7684\u603b\u548c\u548c\u8d1f\u6570\u8ba2\u5355\u7684\u603b\u548c\uff0c\u4ee5\u6b64\u6765\u4e86\u89e3\u6574\u4f53\u7684\u76c8\u4e8f\u60c5\u51b5\u3002\\n\\n### \u6b63\u6570\u8ba2\u5355\u91d1\u989d\\n\u6b63\u6570\u8ba2\u5355\u7684\u91d1\u989d\u5982\u4e0b\uff1a\\n- 736698, 349172, 930400, 688857, 601652, 645011, 199816, 193305, 219174, 571059, 907890, 556871, 886096, 474304,'"
+    },
+    {
+      "n_total": 760,
+      "use_prefilter": false,
+      "seed": 1,
+      "other_transactions_shown_to_model": 759,
+      "correct": false,
+      "errored": false,
+      "error_message": "",
+      "elapsed_seconds": 3.716028800001368,
+      "raw_response": "final response could not be parsed as valid JSON: \"Based on the tool's response, it seems like it returned a dictionary with order IDs as keys and corresponding values. These values could be representing different metrics like revenue, cost, etc. with\""
+    },
+    {
+      "n_total": 760,
+      "use_prefilter": false,
+      "seed": 2,
+      "other_transactions_shown_to_model": 759,
+      "correct": false,
+      "errored": false,
+      "error_message": "",
+      "elapsed_seconds": 2.45145209999464,
+      "raw_response": "final response could not be parsed as valid JSON: 'Based on the provided information, the order with the highest value is \"order_39aff1a59075\" with a value of -892560. However, if we are looking for the order with the highest positive value, it would '"
+    },
+    {
+      "n_total": 760,
+      "use_prefilter": false,
+      "seed": 3,
+      "other_transactions_shown_to_model": 759,
+      "correct": false,
+      "errored": false,
+      "error_message": "",
+      "elapsed_seconds": 5.372765399995842,
+      "raw_response": "final response could not be parsed as valid JSON: '\u4ece\u7ed9\u51fa\u7684\u5de5\u5177\u8f93\u51fa\u7ed3\u679c\u4e2d\uff0c\u6211\u4eec\u53ef\u4ee5\u770b\u5230\u4e00\u4e2a\u5b57\u5178\uff0c\u5176\u4e2d\u952e\u662f\u8ba2\u5355\u53f7\uff0c\u503c\u662f\u6bcf\u4e2a\u8ba2\u5355\u5bf9\u5e94\u7684\u7528\u6237\u6ee1\u610f\u5ea6\u8bc4\u5206\u3002\u4e3a\u4e86\u627e\u5230\u6ee1\u610f\u5ea6\u8bc4\u5206\u6700\u9ad8\u7684\u8ba2\u5355\uff0c\u6211\u4eec\u9700\u8981\u627e\u5230\u8fd9\u4e2a\u5b57\u5178\u4e2d\u7684\u6700\u5927\u503c\u3002\\n\\n\u6839\u636e\u5de5\u5177\u7684\u8f93\u51fa\uff0c\u6211\u4eec\u53ef\u4ee5\u770b\u5230\u6700\u9ad8\u6ee1\u610f\u5ea6\u7684\u8ba2\u5355\u53f7\u548c\u5bf9\u5e94\u7684\u8bc4\u5206\u662f\uff1a\\n\\n- order_6c310407a50a: 979737\\n- order_02d942e0e07e: 963238\\n- order_6d917404d3af: 999180'"
+    },
+    {
+      "n_total": 760,
+      "use_prefilter": true,
+      "seed": 1,
+      "other_transactions_shown_to_model": 759,
+      "correct": false,
+      "errored": false,
+      "error_message": "",
+      "elapsed_seconds": 2.381130599998869,
+      "raw_response": "final response could not be parsed as valid JSON: '\u6839\u636e\u60a8\u63d0\u4f9b\u7684\u4fe1\u606f\uff0c\u8ba2\u5355`order_8d2892abab24`\u7684\u91d1\u989d\u4e3a-895446\u3002\u8fd9\u4e2a\u503c\u53ef\u80fd\u662f\u8d1f\u6570\u7684\u539f\u56e0\u6709\u591a\u79cd\u53ef\u80fd\u6027\uff0c\u6bd4\u5982\u53ef\u80fd\u662f\u9000\u6b3e\u8ba2\u5355\u3001\u652f\u4ed8\u9519\u8bef\u3001\u7cfb\u7edf\u8bb0\u5f55\u9519\u8bef\u7b49\u3002\u9700\u8981\u6839\u636e\u5177\u4f53\u60c5\u51b5\u6765\u5224\u65ad\u3002\u5982\u679c\u60a8\u9700\u8981\u8fdb\u4e00\u6b65\u7684\u5e2e\u52a9\uff0c\u4f8b\u5982\u5982\u4f55\u5904\u7406\u8fd9\u4e2a\u8ba2\u5355\uff0c\u6216\u8005\u662f\u5426\u9700\u8981\u68c0\u67e5\u5176\u4ed6\u76f8\u5173\u8ba2\u5355\uff0c\u8bf7\u544a\u8bc9\u6211\u3002'"
+    },
+    {
+      "n_total": 760,
+      "use_prefilter": true,
+      "seed": 2,
+      "other_transactions_shown_to_model": 759,
+      "correct": false,
+      "errored": false,
+      "error_message": "",
+      "elapsed_seconds": 29.949773500004085,
+      "raw_response": "final response could not be parsed as valid JSON: '\u597d\u7684\uff0c\u73b0\u5728\u6211\u4eec\u6709\u4e86\u6bcf\u4e2a\u8ba2\u5355\u53f7\u7684\u5bf9\u5e94\u91d1\u989d\u3002\u63a5\u4e0b\u6765\uff0c\u6211\u4eec\u9700\u8981\u8ba1\u7b97\u8fd9\u4e9b\u91d1\u989d\u7684\u603b\u548c\u3002\\n\\n\u6211\u5c06\u5bf9\u7ed9\u51fa\u7684\u6bcf\u4e2a\u91d1\u989d\u8fdb\u884c\u6c42\u548c\uff1a\\n\\n-250788 + (-862222) + (-701442) + (-14011) + (-434236) + 217263 + 888282 + 63227 + (-232817) + 723348 + 655026 + 951750 + (-511884) + 380632 + '"
+    },
+    {
+      "n_total": 760,
+      "use_prefilter": true,
+      "seed": 3,
+      "other_transactions_shown_to_model": 759,
+      "correct": false,
+      "errored": false,
+      "error_message": "",
+      "elapsed_seconds": 2.500582900000154,
+      "raw_response": "final response could not be parsed as valid JSON: 'Based on the provided order IDs and their corresponding values, the order with the highest value is:\\n\\n**order_6c310407a50a** with a value of **979737**.\\n\\nThe order with the lowest value is:\\n\\n**order_b'"
+    }
+  ],
+  "groq_sweep": [
+    {
+      "n_total": 20,
+      "use_prefilter": false,
+      "seed": 1,
+      "other_transactions_shown_to_model": 19,
+      "correct": true,
+      "errored": false,
+      "error_message": "",
+      "elapsed_seconds": 2.726792599991313,
+      "raw_response": "{\"explanation\":\"The settlement delta of -209,552 for order_c11c7637e69c is exactly offset by the deltas of order_4c2424faa4b7 (+732,667) and order_1a12d5b74d99 (-523,115), which together sum to zero.\",\"cited_transaction_ids\":[\"order_4c2424faa4b7\",\"order_1a12d5b74d99\"]}"
+    },
+    {
+      "n_total": 20,
+      "use_prefilter": false,
+      "seed": 2,
+      "other_transactions_shown_to_model": 19,
+      "correct": true,
+      "errored": false,
+      "error_message": "",
+      "elapsed_seconds": 2.011386300000595,
+      "raw_response": "{\"explanation\":\"The 551,638 settlement delta for order_52cd430afacd is offset by the negative deltas of order_e9c74cd8896b (-207,660) and order_692f1ad0cf8c (-343,978), which together cancel it out.\",\"cited_transaction_ids\":[\"order_e9c74cd8896b\",\"order_692f1ad0cf8c\"]}"
+    },
+    {
+      "n_total": 20,
+      "use_prefilter": true,
+      "seed": 1,
+      "other_transactions_shown_to_model": 19,
+      "correct": true,
+      "errored": false,
+      "error_message": "",
+      "elapsed_seconds": 9.265423999997438,
+      "raw_response": "{\"explanation\":\"The settlement delta of -209,552 for order_c11c7637e69c is offset by the positive delta of order_4c2424faa4b7 (+732,667) and the negative delta of order_1a12d5b74d99 (-523,115), which together sum to zero.\",\"cited_transaction_ids\":[\"order_4c2424faa4b7\",\"order_1a12d5b74d99\"]}"
+    },
+    {
+      "n_total": 20,
+      "use_prefilter": true,
+      "seed": 2,
+      "other_transactions_shown_to_model": 19,
+      "correct": false,
+      "errored": false,
+      "error_message": "",
+      "elapsed_seconds": 19.933785900007933,
+      "raw_response": "final response could not be parsed as valid JSON: ''"
+    },
+    {
+      "n_total": 100,
+      "use_prefilter": false,
+      "seed": 1,
+      "other_transactions_shown_to_model": 99,
+      "correct": false,
+      "errored": false,
+      "error_message": "",
+      "elapsed_seconds": 18.544329900003504,
+      "raw_response": "final response could not be parsed as valid JSON: ''"
+    },
+    {
+      "n_total": 100,
+      "use_prefilter": false,
+      "seed": 2,
+      "other_transactions_shown_to_model": 99,
+      "correct": true,
+      "errored": false,
+      "error_message": "",
+      "elapsed_seconds": 55.08173720000195,
+      "raw_response": "{\"explanation\":\"The 551,638 settlement delta for order_52cd430afacd is offset by the deltas of order_692f1ad0cf8c (-343,978) and order_e9c74cd8896b (-207,660), which together cancel it out.\",\"cited_transaction_ids\":[\"order_692f1ad0cf8c\",\"order_e9c74cd8896b\"]}"
+    },
+    {
+      "n_total": 100,
+      "use_prefilter": true,
+      "seed": 1,
+      "other_transactions_shown_to_model": 99,
+      "correct": false,
+      "errored": false,
+      "error_message": "",
+      "elapsed_seconds": 21.991291199999978,
+      "raw_response": "final response could not be parsed as valid JSON: ''"
+    },
+    {
+      "n_total": 100,
+      "use_prefilter": true,
+      "seed": 2,
+      "other_transactions_shown_to_model": 99,
+      "correct": true,
+      "errored": false,
+      "error_message": "",
+      "elapsed_seconds": 51.471094100008486,
+      "raw_response": "{\"explanation\":\"The 551,638 settlement delta for order_52cd430afacd is offset by the deltas of order_692f1ad0cf8c (-343,978) and order_e9c74cd8896b (-207,660), which together cancel it out.\",\"cited_transaction_ids\":[\"order_692f1ad0cf8c\",\"order_e9c74cd8896b\"]}"
+    },
+    {
+      "n_total": 200,
+      "use_prefilter": false,
+      "seed": 1,
+      "other_transactions_shown_to_model": 199,
+      "correct": false,
+      "errored": false,
+      "error_message": "",
+      "elapsed_seconds": 33.70661980001023,
+      "raw_response": "final response could not be parsed as valid JSON: ''"
+    },
+    {
+      "n_total": 200,
+      "use_prefilter": false,
+      "seed": 2,
+      "other_transactions_shown_to_model": 199,
+      "correct": false,
+      "errored": true,
+      "error_message": "RateLimitError: Error code: 429 - {'error': {'message': 'Rate limit reached for model `openai/gpt-oss-20b` in organization `org_01m0qxtqebetw8kxf56kr9vk38` service tier `on_demand` on tokens per day (TPD): Limit 200000, Used 199594, Requested 2489. Please try again in 14m59.856s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing', 'type': 'tokens', 'code': 'rate_limit_exceeded'}}",
+      "elapsed_seconds": 0.19943149999016896,
+      "raw_response": "call failed (RateLimitError: Error code: 429 - {'error': {'message': 'Rate limit reached for model `openai/gpt-oss-20b` in organization `org_01m0qxtqebetw8kxf56kr9vk38` service tier `on_demand` on tokens per day (TPD): Limit 200000, Used 199594, Requested 2489. Please try again in 14m59.856s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing', 'type': 'tokens', 'code': 'rate_limit_exceeded'}})"
+    },
+    {
+      "n_total": 200,
+      "use_prefilter": true,
+      "seed": 1,
+      "other_transactions_shown_to_model": 199,
+      "correct": false,
+      "errored": true,
+      "error_message": "RateLimitError: Error code: 429 - {'error': {'message': 'Rate limit reached for model `openai/gpt-oss-20b` in organization `org_01m0qxtqebetw8kxf56kr9vk38` service tier `on_demand` on tokens per day (TPD): Limit 200000, Used 199594, Requested 2491. Please try again in 15m0.72s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing', 'type': 'tokens', 'code': 'rate_limit_exceeded'}}",
+      "elapsed_seconds": 0.20535950000339653,
+      "raw_response": "call failed (RateLimitError: Error code: 429 - {'error': {'message': 'Rate limit reached for model `openai/gpt-oss-20b` in organization `org_01m0qxtqebetw8kxf56kr9vk38` service tier `on_demand` on tokens per day (TPD): Limit 200000, Used 199594, Requested 2491. Please try again in 15m0.72s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing', 'type': 'tokens', 'code': 'rate_limit_exceeded'}})"
+    },
+    {
+      "n_total": 200,
+      "use_prefilter": true,
+      "seed": 2,
+      "other_transactions_shown_to_model": 199,
+      "correct": false,
+      "errored": true,
+      "error_message": "RateLimitError: Error code: 429 - {'error': {'message': 'Rate limit reached for model `openai/gpt-oss-20b` in organization `org_01m0qxtqebetw8kxf56kr9vk38` service tier `on_demand` on tokens per day (TPD): Limit 200000, Used 199593, Requested 2489. Please try again in 14m59.424s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing', 'type': 'tokens', 'code': 'rate_limit_exceeded'}}",
+      "elapsed_seconds": 0.21350949999759905,
+      "raw_response": "call failed (RateLimitError: Error code: 429 - {'error': {'message': 'Rate limit reached for model `openai/gpt-oss-20b` in organization `org_01m0qxtqebetw8kxf56kr9vk38` service tier `on_demand` on tokens per day (TPD): Limit 200000, Used 199593, Requested 2489. Please try again in 14m59.424s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing', 'type': 'tokens', 'code': 'rate_limit_exceeded'}})"
+    },
+    {
+      "n_total": 300,
+      "use_prefilter": false,
+      "seed": 1,
+      "other_transactions_shown_to_model": 299,
+      "correct": false,
+      "errored": true,
+      "error_message": "RateLimitError: Error code: 429 - {'error': {'message': 'Rate limit reached for model `openai/gpt-oss-20b` in organization `org_01m0qxtqebetw8kxf56kr9vk38` service tier `on_demand` on tokens per day (TPD): Limit 200000, Used 199593, Requested 2491. Please try again in 15m0.288s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing', 'type': 'tokens', 'code': 'rate_limit_exceeded'}}",
+      "elapsed_seconds": 0.2104931000067154,
+      "raw_response": "call failed (RateLimitError: Error code: 429 - {'error': {'message': 'Rate limit reached for model `openai/gpt-oss-20b` in organization `org_01m0qxtqebetw8kxf56kr9vk38` service tier `on_demand` on tokens per day (TPD): Limit 200000, Used 199593, Requested 2491. Please try again in 15m0.288s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing', 'type': 'tokens', 'code': 'rate_limit_exceeded'}})"
+    },
+    {
+      "n_total": 300,
+      "use_prefilter": false,
+      "seed": 2,
+      "other_transactions_shown_to_model": 299,
+      "correct": false,
+      "errored": true,
+      "error_message": "RateLimitError: Error code: 429 - {'error': {'message': 'Rate limit reached for model `openai/gpt-oss-20b` in organization `org_01m0qxtqebetw8kxf56kr9vk38` service tier `on_demand` on tokens per day (TPD): Limit 200000, Used 199592, Requested 2489. Please try again in 14m58.992s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing', 'type': 'tokens', 'code': 'rate_limit_exceeded'}}",
+      "elapsed_seconds": 0.20056060000206344,
+      "raw_response": "call failed (RateLimitError: Error code: 429 - {'error': {'message': 'Rate limit reached for model `openai/gpt-oss-20b` in organization `org_01m0qxtqebetw8kxf56kr9vk38` service tier `on_demand` on tokens per day (TPD): Limit 200000, Used 199592, Requested 2489. Please try again in 14m58.992s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing', 'type': 'tokens', 'code': 'rate_limit_exceeded'}})"
+    },
+    {
+      "n_total": 300,
+      "use_prefilter": true,
+      "seed": 1,
+      "other_transactions_shown_to_model": 299,
+      "correct": false,
+      "errored": true,
+      "error_message": "RateLimitError: Error code: 429 - {'error': {'message': 'Rate limit reached for model `openai/gpt-oss-20b` in organization `org_01m0qxtqebetw8kxf56kr9vk38` service tier `on_demand` on tokens per day (TPD): Limit 200000, Used 199592, Requested 2491. Please try again in 14m59.856s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing', 'type': 'tokens', 'code': 'rate_limit_exceeded'}}",
+      "elapsed_seconds": 0.21430120000150055,
+      "raw_response": "call failed (RateLimitError: Error code: 429 - {'error': {'message': 'Rate limit reached for model `openai/gpt-oss-20b` in organization `org_01m0qxtqebetw8kxf56kr9vk38` service tier `on_demand` on tokens per day (TPD): Limit 200000, Used 199592, Requested 2491. Please try again in 14m59.856s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing', 'type': 'tokens', 'code': 'rate_limit_exceeded'}})"
+    },
+    {
+      "n_total": 300,
+      "use_prefilter": true,
+      "seed": 2,
+      "other_transactions_shown_to_model": 299,
+      "correct": false,
+      "errored": true,
+      "error_message": "RateLimitError: Error code: 429 - {'error': {'message': 'Rate limit reached for model `openai/gpt-oss-20b` in organization `org_01m0qxtqebetw8kxf56kr9vk38` service tier `on_demand` on tokens per day (TPD): Limit 200000, Used 199591, Requested 2489. Please try again in 14m58.56s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing', 'type': 'tokens', 'code': 'rate_limit_exceeded'}}",
+      "elapsed_seconds": 0.21589459999813698,
+      "raw_response": "call failed (RateLimitError: Error code: 429 - {'error': {'message': 'Rate limit reached for model `openai/gpt-oss-20b` in organization `org_01m0qxtqebetw8kxf56kr9vk38` service tier `on_demand` on tokens per day (TPD): Limit 200000, Used 199591, Requested 2489. Please try again in 14m58.56s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing', 'type': 'tokens', 'code': 'rate_limit_exceeded'}})"
+    },
+    {
+      "n_total": 400,
+      "use_prefilter": false,
+      "seed": 1,
+      "other_transactions_shown_to_model": 399,
+      "correct": false,
+      "errored": true,
+      "error_message": "RateLimitError: Error code: 429 - {'error': {'message': 'Rate limit reached for model `openai/gpt-oss-20b` in organization `org_01m0qxtqebetw8kxf56kr9vk38` service tier `on_demand` on tokens per day (TPD): Limit 200000, Used 199591, Requested 2491. Please try again in 14m59.424s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing', 'type': 'tokens', 'code': 'rate_limit_exceeded'}}",
+      "elapsed_seconds": 0.2080615000013495,
+      "raw_response": "call failed (RateLimitError: Error code: 429 - {'error': {'message': 'Rate limit reached for model `openai/gpt-oss-20b` in organization `org_01m0qxtqebetw8kxf56kr9vk38` service tier `on_demand` on tokens per day (TPD): Limit 200000, Used 199591, Requested 2491. Please try again in 14m59.424s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing', 'type': 'tokens', 'code': 'rate_limit_exceeded'}})"
+    },
+    {
+      "n_total": 400,
+      "use_prefilter": false,
+      "seed": 2,
+      "other_transactions_shown_to_model": 399,
+      "correct": false,
+      "errored": true,
+      "error_message": "RateLimitError: Error code: 429 - {'error': {'message': 'Rate limit reached for model `openai/gpt-oss-20b` in organization `org_01m0qxtqebetw8kxf56kr9vk38` service tier `on_demand` on tokens per day (TPD): Limit 200000, Used 199590, Requested 2489. Please try again in 14m58.127999999s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing', 'type': 'tokens', 'code': 'rate_limit_exceeded'}}",
+      "elapsed_seconds": 0.21245310000085738,
+      "raw_response": "call failed (RateLimitError: Error code: 429 - {'error': {'message': 'Rate limit reached for model `openai/gpt-oss-20b` in organization `org_01m0qxtqebetw8kxf56kr9vk38` service tier `on_demand` on tokens per day (TPD): Limit 200000, Used 199590, Requested 2489. Please try again in 14m58.127999999s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing', 'type': 'tokens', 'code': 'rate_limit_exceeded'}})"
+    },
+    {
+      "n_total": 400,
+      "use_prefilter": true,
+      "seed": 1,
+      "other_transactions_shown_to_model": 399,
+      "correct": false,
+      "errored": true,
+      "error_message": "RateLimitError: Error code: 429 - {'error': {'message': 'Rate limit reached for model `openai/gpt-oss-20b` in organization `org_01m0qxtqebetw8kxf56kr9vk38` service tier `on_demand` on tokens per day (TPD): Limit 200000, Used 199590, Requested 977. Please try again in 4m4.944s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing', 'type': 'tokens', 'code': 'rate_limit_exceeded'}}",
+      "elapsed_seconds": 0.20130109999445267,
+      "raw_response": "call failed (RateLimitError: Error code: 429 - {'error': {'message': 'Rate limit reached for model `openai/gpt-oss-20b` in organization `org_01m0qxtqebetw8kxf56kr9vk38` service tier `on_demand` on tokens per day (TPD): Limit 200000, Used 199590, Requested 977. Please try again in 4m4.944s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing', 'type': 'tokens', 'code': 'rate_limit_exceeded'}})"
+    },
+    {
+      "n_total": 400,
+      "use_prefilter": true,
+      "seed": 2,
+      "other_transactions_shown_to_model": 399,
+      "correct": false,
+      "errored": true,
+      "error_message": "RateLimitError: Error code: 429 - {'error': {'message': 'Rate limit reached for model `openai/gpt-oss-20b` in organization `org_01m0qxtqebetw8kxf56kr9vk38` service tier `on_demand` on tokens per day (TPD): Limit 200000, Used 199589, Requested 2489. Please try again in 14m57.696s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing', 'type': 'tokens', 'code': 'rate_limit_exceeded'}}",
+      "elapsed_seconds": 0.1924048000073526,
+      "raw_response": "call failed (RateLimitError: Error code: 429 - {'error': {'message': 'Rate limit reached for model `openai/gpt-oss-20b` in organization `org_01m0qxtqebetw8kxf56kr9vk38` service tier `on_demand` on tokens per day (TPD): Limit 200000, Used 199589, Requested 2489. Please try again in 14m57.696s. Need more tokens? Upgrade to Dev Tier today at https://console.groq.com/settings/billing', 'type': 'tokens', 'code': 'rate_limit_exceeded'}})"
+    }
+  ]
+}

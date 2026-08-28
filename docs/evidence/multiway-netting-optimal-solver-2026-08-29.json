@@ -1,0 +1,105 @@
+{
+  "timing_comparison": [
+    {
+      "n_total": 100,
+      "optimal_seconds": 1.720000000204891e-05,
+      "optimal_algorithm": "2-sum-hash",
+      "optimal_found_true_group": true,
+      "brute_force_seconds": 0.0004585999995470047,
+      "brute_force_found_true_group": true,
+      "brute_force_skipped_above_cutoff": false
+    },
+    {
+      "n_total": 500,
+      "optimal_seconds": 6.78000069456175e-05,
+      "optimal_algorithm": "2-sum-hash",
+      "optimal_found_true_group": true,
+      "brute_force_seconds": 0.02132010000059381,
+      "brute_force_found_true_group": true,
+      "brute_force_skipped_above_cutoff": false
+    },
+    {
+      "n_total": 1000,
+      "optimal_seconds": 5.7900004321709275e-05,
+      "optimal_algorithm": "2-sum-hash",
+      "optimal_found_true_group": true,
+      "brute_force_seconds": null,
+      "brute_force_found_true_group": null,
+      "brute_force_skipped_above_cutoff": true
+    },
+    {
+      "n_total": 2000,
+      "optimal_seconds": 0.0001598999951966107,
+      "optimal_algorithm": "2-sum-hash",
+      "optimal_found_true_group": true,
+      "brute_force_seconds": null,
+      "brute_force_found_true_group": null,
+      "brute_force_skipped_above_cutoff": true
+    },
+    {
+      "n_total": 5000,
+      "optimal_seconds": 0.00039239999023266137,
+      "optimal_algorithm": "2-sum-hash",
+      "optimal_found_true_group": false,
+      "brute_force_seconds": null,
+      "brute_force_found_true_group": null,
+      "brute_force_skipped_above_cutoff": true
+    }
+  ],
+  "ambiguity_frontier": [
+    {
+      "n_total": 50,
+      "true_group_found": 30,
+      "seeds": 30,
+      "true_match_rate": 1.0
+    },
+    {
+      "n_total": 100,
+      "true_group_found": 30,
+      "seeds": 30,
+      "true_match_rate": 1.0
+    },
+    {
+      "n_total": 200,
+      "true_group_found": 30,
+      "seeds": 30,
+      "true_match_rate": 1.0
+    },
+    {
+      "n_total": 500,
+      "true_group_found": 29,
+      "seeds": 30,
+      "true_match_rate": 0.9666666666666667
+    },
+    {
+      "n_total": 1000,
+      "true_group_found": 30,
+      "seeds": 30,
+      "true_match_rate": 1.0
+    },
+    {
+      "n_total": 1500,
+      "true_group_found": 24,
+      "seeds": 30,
+      "true_match_rate": 0.8
+    },
+    {
+      "n_total": 2000,
+      "true_group_found": 23,
+      "seeds": 30,
+      "true_match_rate": 0.7666666666666667
+    },
+    {
+      "n_total": 3000,
+      "true_group_found": 16,
+      "seeds": 30,
+      "true_match_rate": 0.5333333333333333
+    },
+    {
+      "n_total": 5000,
+      "true_group_found": 8,
+      "seeds": 30,
+      "true_match_rate": 0.26666666666666666
+    }
+  ]
+}
