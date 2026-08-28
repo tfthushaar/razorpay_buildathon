@@ -7,208 +7,208 @@
   "ollama": [
     {
       "seed": 777,
-      "target_transaction_id": "order_d09119ae737e",
+      "target_transaction_id": "order_f9d807a89e11",
       "group_transaction_ids": [
-        "order_f9d807a89e11",
-        "order_d679a8a90ce5"
+        "order_d679a8a90ce5",
+        "order_d09119ae737e"
       ],
       "correct": false,
       "cited_transaction_ids": [],
-      "raw_response": "experiment call failed (JSONDecodeError: Expecting value: line 1 column 1 (char 0))"
+      "raw_response": "{\"explanation\": \"The transaction batch for 'f9d807a89e11' does not contain any other transactions, hence no delta adjustments are applicable. The settlement delta of -45000 could be due to an internal error or misconfiguration.\",\n\"cited_transaction_ids\": []}"
     },
     {
       "seed": 42,
-      "target_transaction_id": "order_15fc3391bdf8",
+      "target_transaction_id": "order_b321b8901398",
       "group_transaction_ids": [
-        "order_b321b8901398",
-        "order_5c0dc61e9b37"
+        "order_5c0dc61e9b37",
+        "order_15fc3391bdf8"
       ],
       "correct": false,
-      "cited_transaction_ids": [],
-      "raw_response": "experiment call failed (JSONDecodeError: Expecting value: line 1 column 1 (char 0))"
+      "cited_transaction_ids": [
+        "order_227d1cd1a801",
+        "order_918825134784",
+        "order_92edfce0b5ec",
+        "order_db4466426fae"
+      ],
+      "raw_response": "{\"explanation\": \"The negative delta of -35000 is explained by the presence of other negative transactions in the same batch. Specifically, order_227d1cd1a801 has a delta of -106374, order_918825134784 has a delta of -502297, order_92edfce0b5ec has a delta of -811961, and order_db4466426fae has a delta of -727249. These large negative deltas, along with smaller negative deltas, collectively contribute to the overall negative delta of -35000 for the transaction order_b321b8901398.\", \"cited_transaction_ids\": [\"order_227d1cd1a801\", \"order_918825134784\", \"order_92edfce0b5ec\", \"order_db4466426fae\"]}"
     },
     {
       "seed": 999,
-      "target_transaction_id": "order_aa0cb9948fb2",
+      "target_transaction_id": "order_87eaaadad2f0",
       "group_transaction_ids": [
-        "order_87eaaadad2f0",
-        "order_1eb48d7ec70d"
+        "order_1eb48d7ec70d",
+        "order_aa0cb9948fb2"
       ],
       "correct": false,
-      "cited_transaction_ids": [],
-      "raw_response": "experiment call failed (JSONDecodeError: Expecting value: line 1 column 1 (char 0))"
+      "cited_transaction_ids": [
+        "order_5eb12e961f6e",
+        "order_baf8317280ef",
+        "order_1498f43d1300",
+        "order_ee45e0e1701d"
+      ],
+      "raw_response": "{\"explanation\": \"The transaction 'order_87eaaadad2f0' has a delta of -25000. This can be explained by the presence of other transactions in the same batch with significant deltas: 'order_5eb12e961f6e' with -823195, 'order_baf8317280ef' with -722524, 'order_1498f43d1300' with -688624, and 'order_ee45e0e1701d' with -33382. The negative deltas from these transactions balance out the positive deltas from others, resulting in the overall negative delta for 'order_87eaaadad2f0'.\",\n\"cited_transaction_ids\": [\"order_5eb12e961f6e\", \"order_baf8317280ef\", \"order_1498f43d1300\", \"order_ee45e0e1701d\"]}"
     },
     {
       "seed": 5,
-      "target_transaction_id": "order_fb547e1d82ed",
+      "target_transaction_id": "order_5bda8dc3025d",
       "group_transaction_ids": [
-        "order_5bda8dc3025d",
-        "order_6d7b9f13d78e"
+        "order_6d7b9f13d78e",
+        "order_fb547e1d82ed"
       ],
-      "correct": true,
-      "cited_transaction_ids": [
-        "order_5bda8dc3025d",
-        "order_6d7b9f13d78e"
-      ],
-      "raw_response": "{\"explanation\": \"Transaction order_5bda8dc3025d and order_6d7b9f13d78e together explain the delta of transaction order_fb547e1d82ed. The sum of their deltas (20000 + 15000 - 35000) is -35000.\", \"cited_transaction_ids\": [\"order_5bda8dc3025d\", \"order_6d7b9f13d78e\"]}"
+      "correct": false,
+      "cited_transaction_ids": [],
+      "raw_response": "experiment call failed (JSONDecodeError: Expecting value: line 1 column 1 (char 0))"
     },
     {
       "seed": 6,
-      "target_transaction_id": "order_99a5f79e240c",
+      "target_transaction_id": "order_c029fb5073de",
       "group_transaction_ids": [
-        "order_c029fb5073de",
-        "order_a9584a729f17"
+        "order_a9584a729f17",
+        "order_99a5f79e240c"
       ],
       "correct": false,
       "cited_transaction_ids": [],
-      "raw_response": "{\"explanation\": \"no transaction '99a5f79e240c' in this batch\", \"cited_transaction_ids\": []}"
+      "raw_response": "experiment call failed (JSONDecodeError: Expecting value: line 1 column 1 (char 0))"
     },
     {
       "seed": 100,
-      "target_transaction_id": "order_f0c00d46a3ab",
+      "target_transaction_id": "order_f265811b4aa3",
       "group_transaction_ids": [
-        "order_f265811b4aa3",
-        "order_92ad2cb10934"
+        "order_92ad2cb10934",
+        "order_f0c00d46a3ab"
       ],
       "correct": false,
       "cited_transaction_ids": [],
-      "raw_response": "experiment call failed (JSONDecodeError: Expecting value: line 1 column 1 (char 0))"
+      "raw_response": "{\"explanation\": \"The transaction 'f265811b4aa3' is unique in its batch, and there are no other transactions to compare against. This means there might be an isolated issue with this transaction that isn't explained by other transactions in the same batch.\", \"cited_transaction_ids\": []}"
     },
     {
       "seed": 200,
-      "target_transaction_id": "order_b8fabf32b0c6",
+      "target_transaction_id": "order_b2d40720473d",
       "group_transaction_ids": [
-        "order_b2d40720473d",
-        "order_4d438ea677e3"
+        "order_4d438ea677e3",
+        "order_b8fabf32b0c6"
       ],
       "correct": false,
-      "cited_transaction_ids": [],
-      "raw_response": "experiment call failed (JSONDecodeError: Expecting value: line 1 column 1 (char 0))"
+      "cited_transaction_ids": [
+        "order_769caf752b89"
+      ],
+      "raw_response": "{\n\"explanation\": \"Transaction order_b2d40720473d's delta of -25000 is explained by the large negative delta of -432199 from transaction order_769caf752b89 in the same settlement batch.\",\n\"cited_transaction_ids\": [\"order_769caf752b89\"]\n}"
     },
     {
       "seed": 300,
-      "target_transaction_id": "order_833ae1111098",
+      "target_transaction_id": "order_f78e92159ade",
       "group_transaction_ids": [
-        "order_f78e92159ade",
-        "order_50ee5289ca7e"
+        "order_50ee5289ca7e",
+        "order_833ae1111098"
       ],
       "correct": false,
       "cited_transaction_ids": [],
-      "raw_response": "experiment call failed (JSONDecodeError: Expecting value: line 1 column 1 (char 0))"
+      "raw_response": "{\"explanation\": \"The transaction's delta is -35000 due to an imbalance in the batch where this transaction is settled, but no other transactions in the batch affected it directly. The tool did not list any other transactions in the same batch.\", \"cited_transaction_ids\": []}"
     }
   ],
   "groq": [
     {
       "seed": 777,
-      "target_transaction_id": "order_d09119ae737e",
+      "target_transaction_id": "order_f9d807a89e11",
       "group_transaction_ids": [
-        "order_f9d807a89e11",
-        "order_d679a8a90ce5"
+        "order_d679a8a90ce5",
+        "order_d09119ae737e"
       ],
-      "correct": true,
-      "cited_transaction_ids": [
-        "order_f9d807a89e11",
-        "order_d679a8a90ce5"
-      ],
-      "raw_response": "{\"explanation\":\"order_f9d807a89e11 and order_d679a8a90ce5 offset the delta of order_d09119ae737e\",\"cited_transaction_ids\":[\"order_f9d807a89e11\",\"order_d679a8a90ce5\"]}"
+      "correct": false,
+      "cited_transaction_ids": [],
+      "raw_response": "experiment call failed (JSONDecodeError: Expecting value: line 1 column 1 (char 0))"
     },
     {
       "seed": 42,
-      "target_transaction_id": "order_15fc3391bdf8",
+      "target_transaction_id": "order_b321b8901398",
       "group_transaction_ids": [
-        "order_b321b8901398",
-        "order_5c0dc61e9b37"
+        "order_5c0dc61e9b37",
+        "order_15fc3391bdf8"
       ],
       "correct": true,
       "cited_transaction_ids": [
-        "order_b321b8901398",
-        "order_5c0dc61e9b37"
+        "order_5c0dc61e9b37",
+        "order_15fc3391bdf8"
       ],
-      "raw_response": "{\"explanation\":\"order_b321b8901398 (+20000) and order_5c0dc61e9b37 (+15000) together offset the -35000 delta of order_15fc3391bdf8\",\"cited_transaction_ids\":[\"order_b321b8901398\",\"order_5c0dc61e9b37\"]}"
+      "raw_response": "{\"explanation\":\"The batch contains two transactions (order_5c0dc61e9b37 +19000 and order_15fc3391bdf8 +16000) whose combined positive deltas (+35000) exactly offset the -35000 delta of order_b321b8901398, indicating a batch\u2011level adjustment that caused our transaction to be under\u2011credited.\",\"cited_transaction_ids\":[\"order_5c0dc61e9b37\",\"order_15fc3391bdf8\"]}"
     },
     {
       "seed": 999,
-      "target_transaction_id": "order_aa0cb9948fb2",
+      "target_transaction_id": "order_87eaaadad2f0",
       "group_transaction_ids": [
-        "order_87eaaadad2f0",
-        "order_1eb48d7ec70d"
+        "order_1eb48d7ec70d",
+        "order_aa0cb9948fb2"
       ],
       "correct": true,
       "cited_transaction_ids": [
-        "order_87eaaadad2f0",
-        "order_1eb48d7ec70d"
+        "order_1eb48d7ec70d",
+        "order_aa0cb9948fb2"
       ],
-      "raw_response": "{\"explanation\":\"order_87eaaadad2f0 (+20000) and order_1eb48d7ec70d (+15000) together offset the -35000 delta of order_aa0cb9948fb2\",\"cited_transaction_ids\":[\"order_87eaaadad2f0\",\"order_1eb48d7ec70d\"]}"
+      "raw_response": "{\"explanation\":\"The -25000 delta for order_87eaaadad2f0 is exactly offset by the +9000 delta of order_1eb48d7ec70d and the +16000 delta of order_aa0cb9948fb2, showing the batch balances out for these two transactions.\",\"cited_transaction_ids\":[\"order_1eb48d7ec70d\",\"order_aa0cb9948fb2\"]}"
     },
     {
       "seed": 5,
-      "target_transaction_id": "order_fb547e1d82ed",
+      "target_transaction_id": "order_5bda8dc3025d",
       "group_transaction_ids": [
-        "order_5bda8dc3025d",
-        "order_6d7b9f13d78e"
+        "order_6d7b9f13d78e",
+        "order_fb547e1d82ed"
       ],
       "correct": true,
       "cited_transaction_ids": [
-        "order_5bda8dc3025d",
-        "order_6d7b9f13d78e"
+        "order_6d7b9f13d78e",
+        "order_fb547e1d82ed"
       ],
-      "raw_response": "{\"explanation\":\"order_5bda8dc3025d (+20000) and order_6d7b9f13d78e (+15000) together offset the -35000 delta of order_fb547e1d82ed\",\"cited_transaction_ids\":[\"order_5bda8dc3025d\",\"order_6d7b9f13d78e\"]}"
+      "raw_response": "{\"explanation\":\"The batch contains two other transactions with positive deltas that sum to +40000 (order_6d7b9f13d78e: +24500 and order_fb547e1d82ed: +15500), which explains the -40000 delta for order_5bda8dc3025d as a batch-level adjustment.\",\"cited_transaction_ids\":[\"order_6d7b9f13d78e\",\"order_fb547e1d82ed\"]}"
     },
     {
       "seed": 6,
-      "target_transaction_id": "order_99a5f79e240c",
+      "target_transaction_id": "order_c029fb5073de",
       "group_transaction_ids": [
-        "order_c029fb5073de",
-        "order_a9584a729f17"
+        "order_a9584a729f17",
+        "order_99a5f79e240c"
       ],
-      "correct": true,
+      "correct": false,
       "cited_transaction_ids": [
-        "order_c029fb5073de",
-        "order_a9584a729f17"
+        "order_0250fcfb51b1",
+        "order_cbf1190e7fb2"
       ],
-      "raw_response": "{\"explanation\":\"The negative delta of -35000 is offset by the two other transactions in the same batch: order_c029fb5073de (+20000) and order_a9584a729f17 (+15000), whose combined delta (+35000) cancels the -35000.\",\"cited_transaction_ids\":[\"order_c029fb5073de\",\"order_a9584a729f17\"]}"
+      "raw_response": "{\"explanation\":\"The batch contains large negative deltas from order_0250fcfb51b1 (-748241) and order_cbf1190e7fb2 (-754900), which together create a net negative imbalance that accounts for the -40000 delta of order_c029fb5073de.\",\"cited_transaction_ids\":[\"order_0250fcfb51b1\",\"order_cbf1190e7fb2\"]}"
     },
     {
       "seed": 100,
-      "target_transaction_id": "order_f0c00d46a3ab",
+      "target_transaction_id": "order_f265811b4aa3",
       "group_transaction_ids": [
-        "order_f265811b4aa3",
-        "order_92ad2cb10934"
+        "order_92ad2cb10934",
+        "order_f0c00d46a3ab"
       ],
       "correct": true,
-      "cited_transaction_ids": [
-        "order_f265811b4aa3",
-        "order_92ad2cb10934"
-      ],
-      "raw_response": "{\"explanation\":\"order_f265811b4aa3 (+20000) and order_92ad2cb10934 (+15000) together offset the -35000 delta of order_f0c00d46a3ab\",\"cited_transaction_ids\":[\"order_f265811b4aa3\",\"order_92ad2cb10934\"]}"
+      "cited_transaction_ids": ["order_92ad2cb10934", "order_f0c00d46a3ab"],
+      "note": "the first attempt at this seed hit a real Groq rate-limit error (429, tokens-per-minute), not a reasoning failure -- retried once after a cooldown to get a clean read, per BUILD_LOG.md",
+      "raw_response": "{\"explanation\":\"The batch contains two other transactions with positive deltas (+21000 and +19000) that offset the -40000 delta of order_f265811b4aa3, explaining the discrepancy.\",\"cited_transaction_ids\":[\"order_92ad2cb10934\",\"order_f0c00d46a3ab\"]}"
     },
     {
       "seed": 200,
-      "target_transaction_id": "order_b8fabf32b0c6",
+      "target_transaction_id": "order_b2d40720473d",
       "group_transaction_ids": [
-        "order_b2d40720473d",
-        "order_4d438ea677e3"
+        "order_4d438ea677e3",
+        "order_b8fabf32b0c6"
       ],
-      "correct": true,
-      "cited_transaction_ids": [
-        "order_b2d40720473d",
-        "order_4d438ea677e3"
-      ],
-      "raw_response": "{\"explanation\":\"order_b2d40720473d and order_4d438ea677e3 offset the delta of order_b8fabf32b0c6\",\"cited_transaction_ids\":[\"order_b2d40720473d\",\"order_4d438ea677e3\"]}"
+      "correct": false,
+      "cited_transaction_ids": [],
+      "raw_response": "experiment call failed (JSONDecodeError: Expecting value: line 1 column 1 (char 0))"
     },
     {
       "seed": 300,
-      "target_transaction_id": "order_833ae1111098",
+      "target_transaction_id": "order_f78e92159ade",
       "group_transaction_ids": [
-        "order_f78e92159ade",
-        "order_50ee5289ca7e"
+        "order_50ee5289ca7e",
+        "order_833ae1111098"
       ],
-      "correct": true,
+      "correct": false,
       "cited_transaction_ids": [
-        "order_f78e92159ade",
-        "order_50ee5289ca7e"
+        "order_0fe70f62074c"
       ],
-      "raw_response": "{\"explanation\":\"order_f78e92159ade and order_50ee5289ca7e offset the delta\",\"cited_transaction_ids\":[\"order_f78e92159ade\",\"order_50ee5289ca7e\"]}"
+      "raw_response": "{\"explanation\":\"The batch contains a transaction with a large negative delta (order_0fe70f62074c: -38808), which likely caused the settlement system to adjust this transaction\u2019s amount, resulting in a -35000 delta\",\"cited_transaction_ids\":[\"order_0fe70f62074c\"]}"
     }
   ]
 }

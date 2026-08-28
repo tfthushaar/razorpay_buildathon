@@ -120,21 +120,33 @@ real, available fix; rather than quietly writing it, this project measured wheth
 same raw data (`list_batch_deltas`, a tool exposing every other transaction's delta in the batch)
 could close the gap through its own reasoning instead.
 
-Hand-constructed case: three transactions in one settlement batch, deltas +₹200, +₹150, −₹350 —
-cancel as a group, no pair does. `check_batch_anomalies` finds nothing on any of the three, every
-time, by construction, not by sampling ([tested directly](backend/tests/test_multiway_netting_experiment.py)).
-Then, across 8 seeds, a real model was asked to explain the −₹350 transaction with only that same
-tool available:
+Hand-constructed case: a target transaction plus 10 others in the same settlement batch — one real
+2-member group whose deltas cancel it exactly, and 8 unrelated distractor transactions, so the
+correct answer has to be found among real wrong ones, not assumed by elimination. Deltas vary per
+seed (a genuinely different arithmetic puzzle each time, not the same one relabeled), and
+`check_batch_anomalies` finds nothing on the target, every time, by construction, not by sampling
+([tested directly](backend/tests/test_multiway_netting_experiment.py), including a brute-force check
+that no *other* subset of the batch coincidentally explains the delta too). Across 8 seeds, a real
+model was asked to explain the target's delta with only `list_batch_deltas` available — the prompt
+names the tool, not the strategy, and only an exact match on the real group counts as correct:
 
 | Provider | Correct | Evidence |
 |---|---|---|
-| Groq (`openai/gpt-oss-20b`) | **8/8** | [raw evidence](docs/evidence/multiway-netting-experiment-2026-08-28.json) |
-| Ollama (`qwen2.5:7b-instruct`, local) | 1/8 | same file |
+| Groq (`openai/gpt-oss-20b`) | 4/8 | [raw evidence](docs/evidence/multiway-netting-experiment-2026-08-28.json) |
+| Ollama (`qwen2.5:7b-instruct`, local) | 0/8 | same file |
 
 Two honest findings, not one convenient one: the rule really can't do this, structurally and
-provably — and a capable model reliably can, through genuine compositional reasoning over raw data,
-not by forwarding an oracle's answer. The smaller local model mostly can't either, which is itself
-the point: "an LLM helps" isn't a blanket claim here — it depends on which one.
+provably — and even a capable model only gets it right half the time, through genuine compositional
+reasoning when it works (Groq's correct answers all show the real arithmetic in the explanation, not
+a lucky citation). Neither model's failures are flattering: both sometimes cite a wrong distractor
+transaction with a large, plausible-*sounding* delta and hand-wave a conclusion the numbers don't
+actually support; Ollama twice claimed no other transactions existed in a batch of 11. This is a
+harder, less dramatic result than an earlier version of this same experiment reported (8/8 and 1/8)
+— that version had five real methodology holes (no distractors, hardcoded arithmetic, a prompt that
+named the answer shape, a grader that passed on over-citation, and an inaccurate account of the
+local model's failure mode), found and fixed the next day; see BUILD_LOG.md for the full correction.
+"An LLM helps" still isn't a blanket claim here — on this specific task, at this difficulty, it barely
+helps at all.
 
 ## What this can't do, and what it refuses to do
 
@@ -172,7 +184,7 @@ the point: "an LLM helps" isn't a blanket claim here — it depends on which one
 Three commands, all working on a genuinely fresh clone:
 
 ```bash
-cd backend && python -m pytest tests/ -v                                          # 204 tests
+cd backend && python -m pytest tests/ -v                                          # 207 tests
 python scripts/audit_calibration.py --db ../docs/evidence/verified_calibration_history.db  # the netting_trap/duplicate_refund result above, recomputed live
 python -c "from app.pipeline import run_batch; r = run_batch(seed=42, main_n=120, stress_n=40, provider='mock'); print(r.fee_leak_report.total_fee_recovery, r.total_itc_separated)"  # fee-leak + ITC figures
 ```

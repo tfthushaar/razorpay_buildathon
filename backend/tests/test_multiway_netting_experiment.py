@@ -4,7 +4,7 @@ check_batch_anomalies structurally misses it). The LLM half is inherently non-de
 requires a real network call; it's verified live and reported honestly in BUILD_LOG.md/README.md,
 not asserted here as a passing/failing unit test."""
 
-from app.narrator.multiway_netting_experiment import build_experiment_case
+from app.narrator.multiway_netting_experiment import N_DISTRACTORS, build_experiment_case
 from app.narrator.tools import check_batch_anomalies, list_batch_deltas
 
 
@@ -52,3 +52,33 @@ def test_list_batch_deltas_reports_a_clean_error_for_an_unknown_id():
     _, context, _, _ = build_experiment_case()
     result = list_batch_deltas("order_does_not_exist", context)
     assert "error" in result
+
+
+def test_the_search_space_has_real_distractors_not_just_the_correct_pair():
+    """A first version put exactly 2 other transactions in the batch, making 'the other 2' the only
+    non-trivial candidate group -- not a search. This checks the fix held: N_DISTRACTORS unrelated
+    transactions plus the real group, so citing 'everyone I saw' is no longer a free correct answer."""
+    chains, context, target_id, group_ids = build_experiment_case()
+    batch_id = chains[target_id].settlement_batch_id
+    others = context.transaction_ids_by_settlement_batch[batch_id]
+    assert len(others) - 1 == N_DISTRACTORS + len(group_ids)
+
+
+def test_different_seeds_produce_genuinely_different_arithmetic():
+    """A first version hardcoded the same three deltas for every seed -- only ids/timestamps varied,
+    so multiple 'trials' were correlated samples of one fixed sum, not independent evidence. This
+    checks that fix held: different seeds must not all reduce to the same target/group deltas."""
+    seen_signatures = set()
+    for seed in (777, 42, 999, 5, 6):
+        chains, _, target_id, group_ids = build_experiment_case(seed=seed)
+        signature = (chains[target_id].settlement_delta, tuple(sorted(chains[g].settlement_delta for g in group_ids)))
+        seen_signatures.add(signature)
+    assert len(seen_signatures) == 5, "each seed should produce a genuinely different arithmetic puzzle"
+
+
+def test_construction_raises_if_ever_ambiguous_rather_than_silently_shipping_a_bad_case():
+    """build_experiment_case verifies (brute force, not assumed) that no OTHER subset of the other
+    transactions also cancels the target's delta -- confirms that safeguard actually runs and
+    doesn't just silently pass by construction, across a real range of seeds."""
+    for seed in range(1, 30):
+        build_experiment_case(seed=seed)  # raises AssertionError internally if ever ambiguous

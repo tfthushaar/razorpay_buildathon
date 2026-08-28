@@ -163,7 +163,7 @@ def _parse_json_response(content: str) -> dict:
 
 
 _DATE_RE = re.compile(r"\d{4}-\d{2}-\d{2}")
-_ANOMALY_KEYWORDS = ("duplicate", "netting", "anomal", "flagged", "suspicious", "fraud")
+_ANOMALY_KEYWORDS = ("duplicate", "netting", "anomal", "flagged", "suspicious", "fraud", "unexplained", "shortfall", "mismatch")
 
 
 def answer_mock(question: str, context: ToolContext, settled_at_by_transaction_id: dict) -> QAAnswer:
