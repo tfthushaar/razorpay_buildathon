@@ -45,11 +45,18 @@ batch size). The reported figure also moves with batch size — n=30 (the dashbo
 single size flatters both metrics at once (n=30 has the best coverage of the three and the worst
 MAPE). The headline figure uses the dashboard's actual default, not whichever size looked best.
 
-**Category discovery proposes a hypothesis per case, it doesn't cluster.** Across 8 real proposals
-from a live Ollama run, 6 distinct names came back, 5 of them singletons — a genuine taxonomy would
-recur across similar cases; independently-prompted proposals, with no memory of prior proposals in
-the same run, don't. The feature is accurately described as an "unreviewed hypothesis" a human
-confirms, never as a self-organizing category system.
+**Category discovery clusters within a run now, but only within a run.** Every proposal made so far
+in the same batch is threaded into the next one, and a live Ollama run confirms it actually reuses a
+name when the evidence genuinely matches (e.g. 5 of 7 `genuine_error` cases converging on the same
+`post_refunds_to_settlement_mismatch`, correctly leaving 2 different cases unnamed) rather than
+minting a fresh label each time, the behavior an earlier version measured (8 proposals, 6 distinct
+names, 5 singletons). It still starts over on the next run — nothing persists across batches, so the
+same real pattern seen in two separate runs gets no guarantee of the same name. The feature remains
+an "unreviewed hypothesis" a human confirms, never a self-organizing category system. One build note
+worth disclosing: the first attempt at this fix quietly regressed the local model's naming rate to
+near zero (mentioning a prior-proposals section at all, even as an empty placeholder, pushed
+`qwen2.5:7b-instruct` toward proposing nothing) — fixed by omitting that section from the prompt
+entirely until a real named proposal exists to show. See [WHAT_BROKE.md](WHAT_BROKE.md).
 
 **The Q&A agent's mock provider only routes on a few keywords.** A date pattern or a word like
 "duplicate"/"anomaly" routes to a real, specific lookup; anything else — including an entirely

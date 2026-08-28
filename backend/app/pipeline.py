@@ -250,7 +250,9 @@ def run_batch(
             tool_calls = [tc.model_dump() for tc in output.tool_calls]
             audit_entries.append(_audit_entry_for(run_id, result, decision, output.category, output.confidence, output.reasoning, tool_calls))
             if enable_discovery and output.category == "genuine_error":
-                category_proposals.append(propose_category(chain, tool_calls, context, provider=provider))
+                category_proposals.append(
+                    propose_category(chain, tool_calls, context, provider=provider, existing_proposals=category_proposals)
+                )
             if decision == "escalated":
                 escalated_count += 1
                 escalations.append(

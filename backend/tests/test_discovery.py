@@ -10,7 +10,15 @@ from unittest.mock import patch
 from app.chain.builder import build_all_chains
 from app.data_gen.generate import generate
 from app.narrator.agent import narrate_mock
-from app.narrator.discovery import propose_category, propose_category_groq, propose_category_mock, propose_category_ollama
+from app.narrator.discovery import (
+    CategoryProposal,
+    _describe_evidence,
+    _describe_prior_proposals,
+    propose_category,
+    propose_category_groq,
+    propose_category_mock,
+    propose_category_ollama,
+)
 from app.narrator.tools import build_tool_context
 
 
@@ -131,3 +139,85 @@ def test_propose_category_fails_safe_on_an_unknown_provider():
     proposal = propose_category(chain, tool_calls, context, provider="not-a-real-provider")
     assert proposal.proposed_name is None
     assert "crashed unexpectedly" in proposal.hypothesis or "unknown LLM_PROVIDER" in proposal.hypothesis
+
+
+# --- Clustering: existing_proposals threaded through so a recurring pattern gets one name, not a
+# fresh label each time it shows up (added after measuring 6 distinct names from 8 real proposals
+# on the first, non-clustering version of this module). ---
+
+
+def test_describe_prior_proposals_is_none_with_no_prior_proposals():
+    """None, not an empty placeholder string -- verified live that even a "(none yet)" placeholder
+    measurably pushes qwen2.5:7b-instruct toward proposing null across the board. The block must be
+    genuinely absent from the prompt, not merely empty."""
+    assert _describe_prior_proposals(None) is None
+    assert _describe_prior_proposals([]) is None
+
+
+def test_describe_prior_proposals_lists_named_proposals_deduplicated_by_name():
+    proposals = [
+        CategoryProposal(transaction_id="t1", proposed_name="stale_fx_rate", hypothesis="first case", supporting_evidence=[], confidence=0.4, provider="mock"),
+        CategoryProposal(transaction_id="t2", proposed_name=None, hypothesis="no pattern", supporting_evidence=[], confidence=0.0, provider="mock"),
+        CategoryProposal(transaction_id="t3", proposed_name="stale_fx_rate", hypothesis="second case, same pattern", supporting_evidence=[], confidence=0.4, provider="mock"),
+    ]
+    described = _describe_prior_proposals(proposals)
+    assert described.count("stale_fx_rate") == 1
+    assert "first case" in described
+    assert "no pattern" not in described  # a null-named proposal has nothing to reuse -- excluded
+
+
+def test_describe_evidence_omits_the_prior_proposals_block_entirely_when_nothing_named_exists():
+    """Regression guard for the live-verified null-collapse: the section header itself must not
+    appear in the prompt when there's nothing to reuse, not just render with an empty/placeholder
+    body."""
+    chain, tool_calls, context = _genuine_error_case()
+    evidence = _describe_evidence(chain, tool_calls, None)
+    assert "Proposals already made" not in evidence
+    with_prior = _describe_evidence(
+        chain,
+        tool_calls,
+        [CategoryProposal(transaction_id="other", proposed_name="stale_fx_rate", hypothesis="x", supporting_evidence=[], confidence=0.4, provider="mock")],
+    )
+    assert "Proposals already made" in with_prior
+    assert "stale_fx_rate" in with_prior
+
+
+def test_propose_category_mock_reuses_the_exact_prior_hypothesis_when_it_already_exists():
+    """The deterministic mock rule only ever proposes one name (unexplained_settlement_delay) -- this
+    checks it reuses the PRIOR case's hypothesis text verbatim rather than regenerating its own,
+    proving the existing_proposals plumbing actually reaches the synthesis step, not just the prompt."""
+    chain, tool_calls, context = _genuine_error_case()
+    sla_result = next((tc["result"] for tc in tool_calls if tc["tool"] == "check_sla_window"), None)
+    if sla_result is None or sla_result.get("within_tolerance", True):
+        return  # this fixture case doesn't hit the named branch -- nothing to cluster against
+    first = propose_category_mock(chain, tool_calls, context, existing_proposals=None)
+    assert first.proposed_name == "unexplained_settlement_delay"
+    second = propose_category_mock(chain, tool_calls, context, existing_proposals=[first])
+    assert second.hypothesis == first.hypothesis
+
+
+def test_propose_category_groq_receives_prior_proposals_in_its_prompt():
+    chain, tool_calls, context = _genuine_error_case()
+    prior = [CategoryProposal(transaction_id="other", proposed_name="stale_fx_rate", hypothesis="a prior case's pattern", supporting_evidence=[], confidence=0.4, provider="groq")]
+    fake_message = SimpleNamespace(
+        content='{"proposed_name": "stale_fx_rate", "hypothesis": "reused the prior name.", "supporting_evidence": [], "confidence": 0.4}'
+    )
+    fake_response = SimpleNamespace(choices=[SimpleNamespace(message=fake_message)])
+
+    with patch("groq.Groq") as MockGroq, patch.dict("os.environ", {"GROQ_API_KEY": "test-key"}):
+        MockGroq.return_value.chat.completions.create.return_value = fake_response
+        proposal = propose_category_groq(chain, tool_calls, context, existing_proposals=prior)
+        sent_messages = MockGroq.return_value.chat.completions.create.call_args.kwargs["messages"]
+
+    assert any("stale_fx_rate" in m["content"] and "a prior case's pattern" in m["content"] for m in sent_messages)
+    assert proposal.proposed_name == "stale_fx_rate"
+
+
+def test_propose_category_dispatcher_threads_existing_proposals_through_to_mock():
+    chain, tool_calls, context = _genuine_error_case()
+    sla_result = next((tc["result"] for tc in tool_calls if tc["tool"] == "check_sla_window"), None)
+    if sla_result is None or sla_result.get("within_tolerance", True):
+        return
+    first = propose_category(chain, tool_calls, context, provider="mock")
+    second = propose_category(chain, tool_calls, context, provider="mock", existing_proposals=[first])
+    assert second.hypothesis == first.hypothesis
