@@ -343,3 +343,62 @@ def test_recall_grows_as_the_run_progresses():
 
     after = recall_similar_resolutions(context.audit_log[0]["category"], context)
     assert after["prior_count"] == 1
+
+
+def test_build_tool_context_seeds_audit_log_from_a_persisted_audit_logger():
+    """recall_similar_resolutions is per-run only unless build_tool_context is given a real
+    AuditLogger -- this checks the seeding itself, in isolation from any real narration: a context
+    built from a logger holding prior entries starts non-empty, before this "run" has processed a
+    single transaction of its own."""
+    import tempfile
+    from pathlib import Path
+
+    from app.audit.logger import AuditEntry, AuditLogger
+
+    main, _ = generate(seed=42, main_n=10, stress_n=0)
+    chains = build_all_chains(main)
+
+    with tempfile.TemporaryDirectory() as tmp:
+        logger = AuditLogger(db_path=Path(tmp) / "test_audit.db")
+        logger.log(
+            AuditEntry(
+                transaction_id="order_from_a_prior_run",
+                decision="escalated",
+                category="genuine_error",
+                confidence=0.4,
+                reasoning="prior run",
+                order_id="o1",
+                payment_id="p1",
+                settlement_id="s1",
+                ledger_id="l1",
+                run_id="prior-run-id",
+            )
+        )
+        # An uncategorized (clean_pass1) entry must NOT show up as a "prior resolution" -- recall
+        # is only meaningful for narrated categories, never a deterministic pass-through.
+        logger.log(
+            AuditEntry(
+                transaction_id="order_clean_from_a_prior_run",
+                decision="clean_pass1",
+                category=None,
+                confidence=None,
+                reasoning=None,
+                order_id="o2",
+                payment_id="p2",
+                settlement_id="s2",
+                ledger_id="l2",
+                run_id="prior-run-id",
+            )
+        )
+
+        context_without_logger = build_tool_context(main, chains)
+        context_with_logger = build_tool_context(main, chains, audit_logger=logger)
+        logger.close()
+
+    assert context_without_logger.audit_log == []
+    assert len(context_with_logger.audit_log) == 1
+    assert context_with_logger.audit_log[0]["category"] == "genuine_error"
+
+    recalled = recall_similar_resolutions("genuine_error", context_with_logger)
+    assert recalled["prior_count"] == 1
+    assert recalled["avg_confidence"] == 0.4

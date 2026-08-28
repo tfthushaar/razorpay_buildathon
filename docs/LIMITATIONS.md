@@ -12,9 +12,15 @@ in the current design blocks either, but neither is exercised or measured yet.
 real webhook consumer would call — the endpoint and its full pipeline are real and tested, but the
 webhook receiver itself isn't wired to any actual Razorpay event stream.
 
-**`recall_similar_resolutions` is per-run only.** It doesn't persist across runs — a fresh batch run
-starts with no memory of prior resolutions in this session. Disclosed, not hidden: the tool call
-itself is real and tested, its scope is just narrower than "all history ever."
+**`recall_similar_resolutions`'s persisted history doesn't separate mock from real-provider
+confidence.** Now that it persists across runs (see [ARCHITECTURE.md](ARCHITECTURE.md)), the
+`avg_confidence` it reports blends every provider's logged decisions together — mock's fixed
+heuristic confidence values alongside genuine Ollama/Groq ones. Unlike the calibration layer, which
+explicitly excludes mock decisions from every trust gate, this tool has no such filter: it's
+informational context for the model to reason with, not something that gates auto-resolve, so a
+blended number is disclosed rather than silently biased toward whichever provider ran more often
+locally. It also only reaches back as far as whatever `backend/data/audit_log.db` (gitignored) has
+locally accumulated — a fresh clone starts with the same clean slate as before this fix.
 
 **The Tally XML export is verified against Tally's own published sample documents, not a live
 TallyPrime install** — no license was available to test against. Structurally correct per the

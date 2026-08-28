@@ -3979,6 +3979,44 @@ before trusting any nonzero number it reports).
 
 ---
 
+## 2026-08-29 (II) — `recall_similar_resolutions` persists across runs
+
+The last of the four disclosed limitations picked for this fix pass: the narrator's recall tool only
+ever saw decisions made earlier in the *same* run, starting every fresh batch with zero memory even
+of categories this project's own synthetic data resolves constantly.
+
+`AuditLogger` (`app/audit/logger.py`) already persists every decision, across every run, in a real
+SQLite db (`backend/data/audit_log.db`, gitignored) -- the exact history this needed, already built,
+already tested, for a different original purpose (the audit trail UI). New method
+`all_categorized_entries()` returns every logged decision with a real category and confidence,
+shaped to merge transparently with what `narrate()` itself appends during a run. `build_tool_context`
+(`app/narrator/tools.py`) now accepts an optional `audit_logger`, seeding the in-run audit log from
+it before returning -- so a run's very first transaction already has cross-run memory, not just
+whatever accumulates within that run. Wired into `run_batch`'s main and stress batches, and the
+judge-facing `/api/transactions/evaluate` endpoint (`app/pipeline.py`, `app/main.py`); call sites
+without a logger (most tests, and any one-off tool use) keep the old clean-slate behavior, unchanged.
+
+Verified live against this project's own accumulated `audit_log.db`, not just the mocked unit tests:
+a brand-new run's first `genuine_error` case saw 612 prior resolutions (avg confidence 0.315),
+`netting_trap` saw 834 (0.856), `duplicate_refund` saw 428 (0.904) -- confirmed via
+`GET /api/audit?run_id=...` reading the new run's own `recall_similar_resolutions` tool-call result,
+not asserted from the plumbing alone.
+
+One real residual disclosed, not swept under the rug: this persisted history blends mock and real-
+provider confidence together, unlike the calibration layer's explicit mock-exclusion gate -- fine for
+recall (informational context, not a trust gate) but worth stating rather than leaving a reader to
+assume the two subsystems apply the same filter.
+
+**Prevented:** `test_build_tool_context_seeds_audit_log_from_a_persisted_audit_logger` (an
+uncategorized/`clean_pass1` entry correctly excluded from what counts as a "prior resolution"),
+`test_recall_similar_resolutions_has_real_memory_of_a_prior_run_not_just_the_current_one` (two real
+`run_batch` calls against the same db, the second's context inspected before it narrates anything of
+its own).
+
+221/221 tests passing.
+
+---
+
 ## On the audit rounds and the scores
 
 Roughly every few hours during the build, a deliberate adversarial pass ran over the project's own

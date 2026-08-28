@@ -30,6 +30,22 @@ become a wrong autonomous action.
 | Time-to-revocation drill | 1 wrong decision (₹500) revoked a category's auto-resolve status after 40 clean decisions, even with the all-time aggregate still at 97.6% | `curl -X POST localhost:8000/api/drift/drill -d '{}'` |
 | Regret in rupees | ₹0 realized regret across 8 real auto-resolved transactions in the committed evidence db — the realized cost of autonomy, not `amount_at_risk`'s forward-looking estimate | `GET /api/regret` reads whatever history has actually accumulated locally — 0/0 on a fresh clone until real batches run; the 8 above is `verified_calibration_history.db`'s own accumulated total |
 
+## Cross-run memory for `recall_similar_resolutions`
+
+Live-verified against this project's own accumulated `backend/data/audit_log.db` (gitignored, local
+only): a brand-new run's first call for each category, before that run had narrated anything of its
+own —
+
+| Category | Prior count seen | Avg confidence |
+|---|---|---|
+| `genuine_error` | 612 | 0.315 |
+| `netting_trap` | 834 | 0.856 |
+| `duplicate_refund` | 428 | 0.904 |
+
+Reproduce: run a batch twice against the same `AuditLogger` db path (`POST /api/run` twice against a
+running server uses this automatically), then `GET /api/audit?run_id=<second_run_id>` and inspect any
+narrated entry's `tool_calls_json` for the `recall_similar_resolutions` call.
+
 ## Fee-leak detection / tax-line matcher
 
 | Claim | Number | Reproduce |
@@ -126,7 +142,7 @@ Reproduce: `python scripts/generate_multiway_netting_evidence.py`.
 ## Verify it yourself
 
 ```bash
-cd backend && python -m pytest tests/ -v                                          # 219 tests
+cd backend && python -m pytest tests/ -v                                          # 221 tests
 python scripts/audit_calibration.py --db ../docs/evidence/verified_calibration_history.db
 python scripts/measure_mock_narrator_accuracy.py
 python scripts/generate_multiway_netting_evidence.py

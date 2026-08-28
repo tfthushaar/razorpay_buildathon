@@ -544,7 +544,7 @@ def api_evaluate_transactions(scenario: TransactionScenario) -> EvaluateResponse
         )
         chains = build_all_chains(batch)
         match_results = run_matching_engine(chains)
-        context = build_tool_context(batch, chains)
+        context = build_tool_context(batch, chains, audit_logger=audit_logger)
         provider = scenario.provider or os.environ.get("LLM_PROVIDER", "mock")
 
         threshold = state.latest.result.threshold if state.latest.result else 0.90

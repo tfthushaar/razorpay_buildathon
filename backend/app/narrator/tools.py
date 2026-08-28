@@ -16,6 +16,7 @@ BUILD_LOG.md, 2026-08-23.
 
 from pydantic import BaseModel
 
+from app.audit.logger import AuditLogger
 from app.chain.builder import CausalChain
 from app.data_gen.fee_schedule import BASE_SLA_DAYS, FEE_PCT, GST_RATE, SLA_TOLERANCE_DAYS
 from app.data_gen.schemas import Rail, SyntheticBatch
@@ -33,7 +34,14 @@ class ToolContext(BaseModel):
     audit_log: list[dict] = []  # grows as the run progresses; read by recall_similar_resolutions
 
 
-def build_tool_context(batch: SyntheticBatch, chains: dict[str, CausalChain]) -> ToolContext:
+def build_tool_context(
+    batch: SyntheticBatch, chains: dict[str, CausalChain], audit_logger: AuditLogger | None = None
+) -> ToolContext:
+    """`audit_logger`, when given, seeds `audit_log` with every categorized decision logged across
+    EVERY prior run (AuditLogger.all_categorized_entries()) before this run's own narration adds
+    anything -- real cross-run memory for `recall_similar_resolutions`, not just what accumulates
+    within this one run. Omit it (the default) for call sites that don't have a persisted logger
+    available, or that deliberately want a clean-slate context (e.g. an isolated test)."""
     refund_amounts_by_payment: dict[str, list[int]] = {}
     for r in batch.refunds:
         refund_amounts_by_payment.setdefault(r.payment_id, []).append(r.amount)
@@ -42,11 +50,13 @@ def build_tool_context(batch: SyntheticBatch, chains: dict[str, CausalChain]) ->
     for txn_id, chain in chains.items():
         transaction_ids_by_settlement_batch.setdefault(chain.settlement_batch_id, []).append(txn_id)
 
+    audit_log = audit_logger.all_categorized_entries() if audit_logger is not None else []
+
     return ToolContext(
         chains=chains,
         refund_amounts_by_payment=refund_amounts_by_payment,
         transaction_ids_by_settlement_batch=transaction_ids_by_settlement_batch,
-        audit_log=[],
+        audit_log=audit_log,
     )
 
 
@@ -146,8 +156,12 @@ def verify_group_sum(transaction_id: str, candidate_transaction_ids: list[str], 
 
 
 def recall_similar_resolutions(category_guess: str, context: ToolContext) -> dict:
+    """Reads context.audit_log -- seeded with real cross-run history when build_tool_context was
+    given an AuditLogger, then grown further as this run's own narrate() calls append to it. This
+    function itself has no notion of "this run" vs. "a prior run"; whichever entries the context
+    was built with is exactly what a "similar prior resolution" means here."""
     matches = [entry for entry in context.audit_log if entry["category"] == category_guess]
     if not matches:
-        return {"category": category_guess, "prior_count": 0, "note": "no prior resolutions of this category yet in this run"}
+        return {"category": category_guess, "prior_count": 0, "note": "no prior resolutions of this category found"}
     avg_confidence = sum(m["confidence"] for m in matches) / len(matches)
     return {"category": category_guess, "prior_count": len(matches), "avg_confidence": round(avg_confidence, 3)}

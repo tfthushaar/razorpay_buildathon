@@ -96,11 +96,15 @@ the fetch, not just an already-cheap in-memory comparison.
 **Agentic narrator** (`app/narrator/`). A tool-calling loop, not a single completion, over four
 tools: `lookup_fee_schedule`, `check_sla_window`, `check_batch_anomalies` (duplicate-refund and
 netting-trap detection, consolidated into one tool once both turned out to need the same
-cross-transaction lookup), and `recall_similar_resolutions` (in-memory over the current run's own
-audit log, not persisted across runs). Output is strict JSON: category, confidence, one-line
-reasoning, and the full tool-call trace. Three backends behind one entry point: `mock` (zero-cost, calls the same
-real tools, fixed-rule synthesis), `ollama` (local, zero cost, zero rate limit, the recommended
-default), and `groq` (hosted, kept as a second real option).
+cross-transaction lookup), and `recall_similar_resolutions`. The last one persists across runs: when
+`build_tool_context` is given the same `AuditLogger` the run will log its own decisions to, it first
+seeds the in-run audit log with every categorized decision that logger has ever recorded, so a
+brand-new run's very first transaction already has real cross-run memory, not just whatever
+accumulates within that one run (see [RESULTS.md](RESULTS.md) for live-measured numbers, and
+[LIMITATIONS.md](LIMITATIONS.md) for what this doesn't cover). Output is strict JSON: category,
+confidence, one-line reasoning, and the full tool-call trace. Three backends behind one entry point:
+`mock` (zero-cost, calls the same real tools, fixed-rule synthesis), `ollama` (local, zero cost, zero
+rate limit, the recommended default), and `groq` (hosted, kept as a second real option).
 
 **Calibration layer** (`app/calibration/`). Per-category accuracy against ground truth, reported
 with a Wilson score interval, gated on the CI *lower bound*. Two additional, deliberately

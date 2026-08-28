@@ -7,6 +7,9 @@ from pathlib import Path
 from app.audit.logger import AuditLogger
 from app.calibration.calibrator import ScoredDecision
 from app.calibration.history import CalibrationHistory
+from app.chain.builder import build_all_chains
+from app.data_gen.generate import generate
+from app.narrator.tools import build_tool_context, recall_similar_resolutions
 from app.pipeline import run_batch
 
 
@@ -135,6 +138,37 @@ def test_audit_log_persists_every_decision_for_the_run():
     assert len(entries) == result.total_transactions
     decisions = {e["decision"] for e in entries}
     assert decisions <= {"clean_pass1", "auto_resolved_deterministic", "auto_resolved_calibrated", "escalated"}
+
+
+def test_recall_similar_resolutions_has_real_memory_of_a_prior_run_not_just_the_current_one():
+    """The limitation this closes: recall_similar_resolutions used to start every run with zero
+    memory, even of a category this exact merchant's data resolves constantly. With a real,
+    persisted AuditLogger threaded through two separate run_batch calls, the second run's narrator
+    tools see the first run's own logged decisions from the moment it starts -- not something that
+    merely accumulates within the second run itself."""
+    with tempfile.TemporaryDirectory() as tmp:
+        db_path = Path(tmp) / "test_audit.db"
+        logger = AuditLogger(db_path=db_path)
+
+        first = run_batch(seed=42, main_n=150, stress_n=0, threshold=0.90, provider="mock", audit_logger=logger)
+        first_entries = logger.entries_for_run(first.run_id)
+        assert any(e["category"] is not None for e in first_entries), "fixture assumption: seed 42 narrates at least one category"
+
+        # A brand-new context, built the same way run_batch's own _process_batch does, but called
+        # directly here so the seeded history can be inspected BEFORE any of this "second run"'s own
+        # narration has touched it.
+        second_batch, _ = generate(seed=101, main_n=10, stress_n=0)
+        second_chains = build_all_chains(second_batch)
+        seeded_context = build_tool_context(second_batch, second_chains, audit_logger=logger)
+        logger.close()
+
+    persisted_categories = {e["category"] for e in first_entries if e["category"] is not None}
+    assert seeded_context.audit_log, "a fresh context seeded from a logger with real prior history must not start empty"
+    assert {e["category"] for e in seeded_context.audit_log} == persisted_categories
+
+    for category in persisted_categories:
+        recalled = recall_similar_resolutions(category, seeded_context)
+        assert recalled["prior_count"] > 0
 
 
 def test_threshold_change_reruns_cheaply_and_changes_escalation_count():

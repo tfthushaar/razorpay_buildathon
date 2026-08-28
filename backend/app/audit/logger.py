@@ -115,6 +115,19 @@ class AuditLogger:
             cols = [c[0] for c in cursor.description]
             return [dict(zip(cols, row)) for row in cursor.fetchall()]
 
+    def all_categorized_entries(self) -> list[dict]:
+        """Every decision ever logged, across every run, that has a real category and confidence --
+        used to seed a fresh batch's own in-run tool context (app/narrator/tools.py::build_tool_context)
+        so `recall_similar_resolutions` has genuine cross-run memory from the moment a run starts,
+        not just whatever accumulates within that one run. Shape matches exactly what narrate()
+        itself appends to ToolContext.audit_log during a run, so the two sources merge transparently."""
+        with self._lock:
+            cursor = self._conn.execute(
+                "SELECT transaction_id, category, confidence FROM audit_log "
+                "WHERE category IS NOT NULL AND confidence IS NOT NULL ORDER BY id ASC"
+            )
+            return [{"transaction_id": row[0], "category": row[1], "confidence": row[2]} for row in cursor.fetchall()]
+
     def close(self) -> None:
         with self._lock:
             self._conn.close()

@@ -54,7 +54,7 @@ smaller local model solved 1/8. Full numbers and raw evidence: [RESULTS.md](docs
 ## Verify it yourself
 
 ```bash
-cd backend && python -m pytest tests/ -v                 # 219 tests
+cd backend && python -m pytest tests/ -v                 # 221 tests
 python scripts/audit_calibration.py --db ../docs/evidence/verified_calibration_history.db
 python scripts/measure_mock_narrator_accuracy.py
 ```

@@ -135,7 +135,9 @@ def _audit_entry_for(
     )
 
 
-def _process_batch(batch: SyntheticBatch, provider: str | None) -> tuple[dict[str, CausalChain], dict[str, MatchResult], dict, ToolContext]:
+def _process_batch(
+    batch: SyntheticBatch, provider: str | None, audit_logger: AuditLogger | None = None
+) -> tuple[dict[str, CausalChain], dict[str, MatchResult], dict, ToolContext]:
     # Not wired to app.matching.merkle_prefilter -- measured, not assumed, and the honest number
     # says it shouldn't be. See BUILD_LOG.md: at 50k records/97% clean, the prefilter's own hashing
     # cost (~260ms) exceeds what it saves by skipping Pass 1/2 for clean transactions (~2ms), since
@@ -146,16 +148,19 @@ def _process_batch(batch: SyntheticBatch, provider: str | None) -> tuple[dict[st
     # rather than wired into the default path where it would be a net regression.
     chains = build_all_chains(batch)
     match_results = run_matching_engine(chains)
-    context = build_tool_context(batch, chains)
+    context = build_tool_context(batch, chains, audit_logger=audit_logger)
     narration_queue = [txn_id for txn_id, r in match_results.items() if r.resolution == "needs_narration"]
     narrator_outputs = {txn_id: narrate(chains[txn_id], context, provider=provider) for txn_id in narration_queue}
     return chains, match_results, narrator_outputs, context
 
 
 def _stress_scorecard(
-    stress_batch: SyntheticBatch, provider: str | None, auto_resolve_categories: set[str]
+    stress_batch: SyntheticBatch,
+    provider: str | None,
+    auto_resolve_categories: set[str],
+    audit_logger: AuditLogger | None = None,
 ) -> StressScorecard:
-    chains, match_results, narrator_outputs, _ = _process_batch(stress_batch, provider)
+    chains, match_results, narrator_outputs, _ = _process_batch(stress_batch, provider, audit_logger=audit_logger)
     gt = {g.transaction_id: g.true_label for g in stress_batch.ground_truth}
 
     deterministic_correct = 0
@@ -200,7 +205,7 @@ def run_batch(
     started_at = time.monotonic()
     main_batch, stress_batch = generate(seed=seed, main_n=main_n, stress_n=stress_n)
 
-    chains, match_results, narrator_outputs, context = _process_batch(main_batch, provider)
+    chains, match_results, narrator_outputs, context = _process_batch(main_batch, provider, audit_logger=audit_logger)
     elapsed_seconds = time.monotonic() - started_at
     gt_by_id = {g.transaction_id: g.true_label for g in main_batch.ground_truth}
     baseline_results = run_naive_baseline(chains)
@@ -286,7 +291,7 @@ def run_batch(
         1 for txn_id, label in gt_by_id.items() if label == "currency_rounding" and not baseline_results[txn_id].clean
     )
 
-    stress = _stress_scorecard(stress_batch, provider, auto_resolve_categories)
+    stress = _stress_scorecard(stress_batch, provider, auto_resolve_categories, audit_logger=audit_logger)
 
     # Independent of seed's main/stress streams (generate_fee_leak_batch uses seed+2 internally,
     # see data_gen/generate.py) -- deterministic per seed, same convention as everything else here.
