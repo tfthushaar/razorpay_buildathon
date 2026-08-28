@@ -18,6 +18,9 @@ read start to finish. These six entries are the ones actually worth the time:
 - [The real Razorpay connector, a real payment, and the hard wall test mode actually has](#2026-08-25-real-data-investigation-a-genuine-captured-payment-and-a-hard-platform-wall) — 2026-08-25.
 - [The forecaster's headline number, re-examined and corrected in public](#2026-08-27-forecaster-honesty-correction-disclosing-what-the-backtest-number-actually-measures) — 2026-08-27.
 
+PROGRESS.md was a build-time tracker, since removed (see the 2026-08-27 entry below) — the many
+mentions of it elsewhere in this log are historical, not live pointers to a file that still exists.
+
 ## On the audit rounds and the scores
 
 Roughly every few hours during the build, I ran a deliberate adversarial pass over my own work —

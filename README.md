@@ -30,12 +30,12 @@ python -m uvicorn app.main:app --reload --port 8000   # then: cd ../frontend && 
 | Throughput | 5,508 tx/sec (mock, 50k scale) — 2.58 tx/sec (real LLM, measured, not extrapolated). The 2,000× gap is the deterministic/LLM split below, not two different systems | [docs/setup.md](docs/setup.md) |
 | Measured accuracy | Wilson 95% CI *lower bound* per category, not a raw point estimate | [below](#the-result) |
 | Honest exception list | Every escalation ships a reason + tool trace; full build gaps in [What this can't do](#what-this-cant-do-and-what-it-refuses-to-do) | ↓ |
-| Real Razorpay data | Order + payment + fee + refund are real API objects on a live test account; settlement is structurally unavailable in test mode, verified not assumed. The fee-rate discrepancy this uncovered is below | [raw API dump](docs/evidence/razorpay-sandbox-2026-08-25.json) |
+| Real Razorpay data | Order + payment + fee + refund are real API objects on a live test account; settlement is structurally unavailable in test mode. The fee-rate discrepancy this uncovered is below | [raw API dump](docs/evidence/razorpay-sandbox-2026-08-25.json) |
 
 > **The one thing here a Razorpay engineer doesn't already know**: the real sandbox payment's raw
 > fee (`fee: 1180, tax: 180` on a `50000`-paise capture) implies a 2.0% rate — matching this
-> project's own `card` fee constant, not `netbanking`, the rail the payment actually used. A real,
-> disclosed discrepancy, not hidden or explained away.
+> project's own `card` fee constant, not `netbanking`, the rail the payment actually used — left in
+> the README as found, not smoothed over.
 
 ## Track 04 listed four example directions. All four are built.
 
@@ -53,7 +53,7 @@ didn't suffer for it. Caveats on the forecaster: [below](#what-this-cant-do-and-
 
 ## The result
 
-After 8 real, honestly-accumulated Ollama batches — not one lucky run — `netting_trap` earned
+After 8 real Ollama batches, accumulated over time — not one lucky run — `netting_trap` earned
 auto-resolve: 59 distinct real cases, 98.3% measured accuracy, a 95% Wilson confidence interval whose
 *lower bound* (91.0%) cleared the 90% trust threshold. That's real, distinct money: **₹4,86,473.13
 auto-resolved with zero human review**, not the same handful of transactions counted once per
@@ -69,7 +69,7 @@ real money, over-revoking costs one human review; under-revoking costs real rupe
 limit is a tunable parameter, and this project ships it tuned toward the expensive-to-get-wrong side.
 Replaying the real accumulated history chronologically (`GET /api/regret` — realized cost, not
 `amount_at_risk`'s forward-looking estimate) shows **₹0 in realized regret across 8 real
-auto-resolved transactions so far** — honest, small, still early, not rounded up to match the pitch.
+auto-resolved transactions so far** — small, still early.
 
 The counterweight is the actual point. `genuine_error` sat at 80.3% measured accuracy across the same
 evidence and **stayed escalated anyway** — it's the one category that never auto-resolves regardless
@@ -123,19 +123,21 @@ past resolutions — and audited, not a bare classification. Autonomy in bullet 
   synthetic generator covers the settlement leg alone, for exactly this reason — full trail:
   [BUILD_LOG.md](BUILD_LOG.md).
 - **The forecaster is exact by construction on ~73% of transactions** — it reuses the merchant's own
-  known fee/SLA schedule, not a learned model, so its MAPE/coverage come entirely from the
-  ~27% of transactions with a refund, dispute, or timing anomaly it structurally can't see in
-  advance. Disclosed, not hidden. The reported figure also moves with batch size (n=30: 9.1%/93.3%;
-  n=120: 8.6%/90.8%; n=160: 4.1%/90.6%) since the anomaly categories are a roughly fixed share, not a
-  fixed count — the headline uses this platform's own default, not the most flattering size tried.
+  known fee/SLA schedule, not a learned model, so its MAPE/coverage come entirely from the ~27% of
+  transactions with a refund, dispute, or timing anomaly it structurally can't see in advance. The
+  reported figure also moves with batch size (n=30: 9.1% MAPE / 93.3% coverage; n=120: 8.6%/90.8%;
+  n=160: 4.1%/90.6%) since the anomaly categories are a roughly fixed share, not a fixed count — n=30
+  has the best coverage of the three and the worst MAPE, so no single size flatters both metrics at
+  once; the headline uses this dashboard's own default batch size (30), not a cherry-picked one. The
+  backend's own API default is 120 — a bare `curl` to the endpoint without a prior UI run reads
+  8.6%/90.8% instead, which is a different default, not an inconsistency.
 - **Category discovery proposes a hypothesis per case, it doesn't cluster.** Eight live proposals
   produced six distinct names, five of them singletons — a genuine taxonomy would recur across
   cases; this doesn't yet.
 
 ## Verify it yourself
 
-Three commands, all working on a genuinely fresh clone — not read off a dashboard, not retyped by
-hand:
+Three commands, all working on a genuinely fresh clone:
 
 ```bash
 cd backend && python -m pytest tests/ -v                                          # 196 tests
