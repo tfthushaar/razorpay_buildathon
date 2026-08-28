@@ -1,10 +1,32 @@
 # Build Log — what broke, what's working, and why
 
-Chronological engineering journal. This is real, not reconstructed after the fact — it's the source material for the
-submission's required "what broke during development and how I fixed it" narrative (spec §10). Nothing here is invented
-retroactively to look good; entries are added as things actually happen during the build.
+Chronological engineering journal, written as things happened. Long because it's a process record,
+not a pitch — it's the source material for the submission's required "what broke during development
+and how I fixed it" narrative.
 
 Format per entry: **date/phase — what was attempted — what happened — resolution/status**.
+
+## Start here
+
+39,000+ words, 27 audit rounds, five days of building. Most of it is process detail nobody needs to
+read start to finish. These six entries are the ones actually worth the time:
+
+- [The auto-resolve gate checked category membership but never the decision's own provider](#2026-08-24-my-audit-loop-round-5-the-most-significant-finding-of-the-whole-loop) — round 5, the most significant single finding of the whole loop.
+- [A recurring bug shape named and structurally closed, not patched again in place](#2026-08-24-my-audit-loop-round-8-the-whack-a-mole-pattern-named-and-structurally-closed) — round 8.
+- [Gaming the auto-resolve gate by repeated re-scoring, with no race condition required at all](#2026-08-24-my-audit-loop-round-13-gaming-the-gate-without-any-race-at-all) — round 13.
+- [An external review caught a genuinely inflated headline number, and it got fixed, not defended](#2026-08-25-a-real-external-review-caught-a-genuinely-inflated-headline-number) — 2026-08-25.
+- [The real Razorpay connector, a real payment, and the hard wall test mode actually has](#2026-08-25-real-data-investigation-a-genuine-captured-payment-and-a-hard-platform-wall) — 2026-08-25.
+- [The forecaster's headline number, re-examined and corrected in public](#2026-08-27-forecaster-honesty-correction-disclosing-what-the-backtest-number-actually-measures) — 2026-08-27.
+
+## On the audit rounds and the scores
+
+Roughly every few hours during the build, I ran a deliberate adversarial pass over my own work —
+reading the code as someone trying to break the claims, not confirm them. The score attached to each
+round was an internal tracking device against a rubric written for that purpose, not a claim about
+quality on its own. It's kept here because the *shape* of it is the evidence, not the number itself:
+the score dropped to 83 in round 4 (down from round 3's 84) and to 72 in round 5, both times because
+a pass found something real. A smooth, monotonic climb across 27 rounds would have meant the loop had
+stopped finding anything — this one didn't.
 
 ---
 
