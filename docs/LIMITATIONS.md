@@ -1,6 +1,6 @@
 # What this can't do
 
-Nine limits, ordered by how much they constrain the claims here.
+Ten limits, ordered by how much they constrain the claims here.
 
 ## Every reading result rests on one model family
 
@@ -76,6 +76,17 @@ alone.
 parsing. It cannot reconcile on its own. The order, payment and ledger side of a transaction lives in
 the merchant's own integration, never in a settlement-only payload. The Tally XML export is verified
 against Tally's published sample documents, not a live TallyPrime install. No licence was available.
+
+## The forecaster's refusal layer is validated on one reason out of five
+
+`partial_capture`, `not_captured`, `non_positive_net` and `sla_already_breached` are implemented and
+unit-tested, and none of them fires on this generator's data. Only `refund_in_flight` is exercised
+against real batches, so the measured effect of refusing (MAPE 14.87% to 4.32%) rests entirely on one
+reason. The other four are untested against anything but hand-built cases.
+
+Refusing also does not improve date coverage, only amount accuracy, because every reason currently
+firing is amount-related. A refund changes what settles, not when. The forecaster still has no reason
+to decline a prediction on timing grounds beyond an already-breached SLA.
 
 ## Not horizontally scaled, and the forecaster's headline flatters it
 

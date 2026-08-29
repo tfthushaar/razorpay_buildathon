@@ -37,7 +37,9 @@ from app.erp.journal import generate_journal_entries
 from app.forecast.backtest import BacktestReport, run_backtest
 from app.forecast.blind_backtest import run_blind_backtest
 from app.forecast.cash_position import PayrollCoverageResult, WorkingCapitalReport, check_payroll_coverage, compute_working_capital
-from app.forecast.predictor import SettlementPrediction, predict_pending_batch
+from app.forecast.calibrated_interval import fit as fit_intervals, reliability_curve
+from app.forecast.forecastability import assess_batch
+from app.forecast.predictor import SettlementPrediction, predict_pending_batch, predict_settlement
 from app.matching.engine import run_matching_engine
 from app.narrator.agent import narrate
 from app.narrator.tools import build_tool_context
@@ -462,6 +464,80 @@ def api_forecast_payroll_check(req: PayrollCheckRequest) -> PayrollCoverageResul
         return check_payroll_coverage(predictions, req.outflow_amount, req.outflow_date)
     except Exception as e:
         raise HTTPException(422, f"Could not check payroll coverage ({type(e).__name__}: {e}).")
+
+
+class ForecastReliabilityReport(BaseModel):
+    """What the forecaster refuses to predict, and whether its stated confidence is earned."""
+
+    fit_seed: int
+    holdout_seed: int
+    n_assessed: int
+    n_forecastable: int
+    n_refused: int
+    refusal_reasons: dict[str, int]
+    reliability_curve: list[dict]
+    largest_deviation: dict
+    mape_on_forecast_set: float | None
+    mape_on_everything: float | None
+
+
+@app.get("/api/forecast/reliability")
+def api_forecast_reliability(
+    fit_seed: int = Query(1, ge=1),
+    holdout_seed: int = Query(100, ge=1),
+    n: int = Query(600, ge=50, le=5000),
+) -> ForecastReliabilityReport:
+    """The forecasting analogue of the calibration dial.
+
+    Two things the forecaster never reported. Which predictions it declines to make and why
+    (app/forecast/forecastability.py), and whether a stated confidence level is honest -- intervals
+    are fitted on one batch and verified on a different one, so the curve measures calibration rather
+    than memorisation. The coverage figure this project used to quote was the hit rate of a fixed SLA
+    window, not a confidence level with a nominal to check it against.
+    """
+    try:
+        fit_batch, _ = generate(seed=fit_seed, main_n=n, stress_n=0)
+        holdout, _ = generate(seed=holdout_seed, main_n=n, stress_n=0)
+        model = fit_intervals(fit_batch)
+        curve = [dict(p.model_dump(), gap=p.gap) for p in reliability_curve(model, holdout)]
+        worst = max(curve, key=lambda c: abs(c["gap"]))
+
+        assessments = assess_batch(holdout.orders, holdout.payments, holdout.refunds)
+        accepted = {t for t, a in assessments.items() if a.forecastable}
+        reasons: dict[str, int] = {}
+        for a in assessments.values():
+            for r in a.reasons:
+                reasons[r] = reasons.get(r, 0) + 1
+
+        order_by_id = {o.order_id: o for o in holdout.orders}
+        payment_by_id = {p.payment_id: p for p in holdout.payments}
+
+        def _mape(only):
+            errs = []
+            for s2 in holdout.settlements:
+                payment = payment_by_id.get(s2.payment_id)
+                order = order_by_id.get(payment.order_id) if payment else None
+                if order is None or (only is not None and order.order_id not in only):
+                    continue
+                if s2.settled_amount:
+                    pred = predict_settlement(order, payment)
+                    errs.append(abs(pred.predicted_net_amount - s2.settled_amount) / abs(s2.settled_amount))
+            return round(sum(errs) / len(errs), 6) if errs else None
+
+        return ForecastReliabilityReport(
+            fit_seed=fit_seed,
+            holdout_seed=holdout_seed,
+            n_assessed=len(assessments),
+            n_forecastable=len(accepted),
+            n_refused=len(assessments) - len(accepted),
+            refusal_reasons=reasons,
+            reliability_curve=curve,
+            largest_deviation=worst,
+            mape_on_forecast_set=_mape(accepted),
+            mape_on_everything=_mape(None),
+        )
+    except Exception as e:
+        raise HTTPException(422, f"Could not build the forecast reliability report ({type(e).__name__}: {e}).")
 
 
 class QARequest(BaseModel):

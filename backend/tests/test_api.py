@@ -609,3 +609,33 @@ def test_forecast_backtest_accepts_explicit_seed_and_n():
     response = fresh.get("/api/forecast/backtest?seed=42&n=30")
     assert response.status_code == 200, response.text
     assert response.json()["n"] == 30
+
+
+def test_forecast_reliability_reports_refusals_and_a_calibration_curve():
+    """The forecasting analogue of the calibration dial. Reports what the forecaster declines to
+    predict and whether a stated confidence level is honest, fitted and verified on separate
+    batches."""
+    response = TestClient(app).get("/api/forecast/reliability?n=400")
+    assert response.status_code == 200, response.text
+    body = response.json()
+
+    assert body["fit_seed"] != body["holdout_seed"], "calibration must not be fitted and scored on one batch"
+    assert body["n_refused"] > 0, "nothing refused, so the refusal layer is inert"
+    assert body["n_forecastable"] + body["n_refused"] == body["n_assessed"]
+    assert body["refusal_reasons"]
+
+    curve = body["reliability_curve"]
+    assert len(curve) >= 5
+    for point in curve:
+        assert 0.0 <= point["empirical"] <= 1.0
+        assert point["n"] > 0
+    # widening the requested confidence must not shrink the interval
+    widths = [p["mean_width_days"] for p in curve]
+    assert widths == sorted(widths)
+
+
+def test_forecast_reliability_shows_refusing_improves_amount_accuracy():
+    body = TestClient(app).get("/api/forecast/reliability?n=400").json()
+    assert body["mape_on_forecast_set"] < body["mape_on_everything"], (
+        "refusing did not improve MAPE on what remains, so the refusal layer is decoration"
+    )

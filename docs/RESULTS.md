@@ -214,6 +214,63 @@ same day costs 97 minutes of model time.
 Reproduce: `python scripts/benchmark_throughput.py`. Raw:
 [`throughput-2026-08-29.json`](evidence/throughput-2026-08-29.json).
 
+## Forecasting, measured against the same bar
+
+The track's bar is throughput, measured accuracy, and an honest exception list. The reconciler meets
+all three. The forecaster met one and a half, and the gap was not obvious: it reported MAPE and
+coverage, but it predicted every pending payment with identical confidence, and the coverage figure
+quoted here for several passes was not a confidence at all. It was the hit rate of a fixed SLA
+window, with no nominal level to check it against.
+
+### What it now refuses to predict
+
+`predict_settlement` computes net as `captured - fee(rail, captured) - tax`. That is exact when the
+transaction is ordinary and simply wrong when it is not, so `app/forecast/forecastability.py`
+declines those cases instead of issuing a number. Every reason is decidable from Order, Payment and
+Refund alone; none consults a Settlement, which does not exist yet for a forward prediction.
+
+| Scored population | n | MAPE | SLA-window coverage |
+|---|---|---|---|
+| what it forecasts | 1,795 | **4.32%** | 87.1% |
+| what it refuses | 205 | 107.22% | 91.2% |
+| everything, as before | 2,000 | 14.87% | 87.5% |
+
+Refusing 10.2% of the batch cuts MAPE from 14.87% to 4.32%. It does not improve date coverage, and
+that is reported rather than omitted: every refusal reason currently firing is amount-related
+(`refund_in_flight`), and a refund changes what settles, not when. A refusal layer that improved
+neither would be decoration, and `test_refusing_actually_improves_amount_accuracy` fails the build if
+that ever becomes true.
+
+Four of the five refusal reasons never fire on this generator's data. `partial_capture`,
+`not_captured`, `non_positive_net` and `sla_already_breached` are implemented and unit-tested but
+empirically unexercised, so only one is validated against real batches.
+
+### Whether its stated confidence is earned
+
+Intervals are fitted on one batch and verified on twelve entirely different ones. Fitting quantiles
+and scoring the same data measures memorisation, so they never share a batch.
+
+| Nominal | Empirical | Gap | Mean width |
+|---|---|---|---|
+| 50% | 57.1% | +7.1 | 0.42 d |
+| 60% | 65.6% | +5.6 | 0.65 d |
+| 70% | 77.5% | +7.5 | 0.72 d |
+| 80% | 83.6% | +3.6 | 0.78 d |
+| 90% | 93.6% | +3.6 | 2.40 d |
+| 95% | 96.5% | +1.5 | 3.57 d |
+| 99% | 99.1% | +0.1 | 4.49 d |
+
+n=2,000 per batch, seeds 100–111. Empirical coverage is at or above nominal at every level, so the
+stated confidence is conservative rather than overclaimed, and the largest deviation is +7.5 points
+at the 70% level. A forecaster whose stated 90% really contained 60% would be the same failure as a
+category auto-resolving without having earned it; this is the forecasting analogue of the Wilson
+lower bound.
+
+Throughput: **455,955 predictions/sec**, which the forecaster had never had measured.
+
+Reproduce: `python scripts/generate_forecast_evidence.py`, or `GET /api/forecast/reliability`. Raw:
+[`forecast-2026-08-30.json`](evidence/forecast-2026-08-30.json).
+
 ## Core reconciliation
 
 | Claim | Number |

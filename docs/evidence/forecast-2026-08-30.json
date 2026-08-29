@@ -1,0 +1,117 @@
+{
+  "generated_on": "2026-08-30",
+  "n_per_batch": 2000,
+  "fit_seed": 1,
+  "holdout_seeds": [
+    100,
+    101,
+    102,
+    103,
+    104,
+    105,
+    106,
+    107,
+    108,
+    109,
+    110,
+    111
+  ],
+  "fitted_90pct_window_days": {
+    "card": [
+      2.0,
+      4.291666666666667
+    ],
+    "netbanking": [
+      2.0833333333333335,
+      5.416666666666667
+    ],
+    "upi": [
+      1.0,
+      3.2083333333333335
+    ]
+  },
+  "reliability_curve": [
+    {
+      "nominal": 0.5,
+      "empirical": 0.5712,
+      "gap": 0.0712,
+      "mean_width_days": 0.42,
+      "n": 21646
+    },
+    {
+      "nominal": 0.6,
+      "empirical": 0.6563,
+      "gap": 0.0563,
+      "mean_width_days": 0.65,
+      "n": 21646
+    },
+    {
+      "nominal": 0.7,
+      "empirical": 0.7751,
+      "gap": 0.0751,
+      "mean_width_days": 0.72,
+      "n": 21646
+    },
+    {
+      "nominal": 0.8,
+      "empirical": 0.8358,
+      "gap": 0.0358,
+      "mean_width_days": 0.78,
+      "n": 21646
+    },
+    {
+      "nominal": 0.9,
+      "empirical": 0.9363,
+      "gap": 0.0363,
+      "mean_width_days": 2.4,
+      "n": 21646
+    },
+    {
+      "nominal": 0.95,
+      "empirical": 0.9651,
+      "gap": 0.0151,
+      "mean_width_days": 3.57,
+      "n": 21646
+    },
+    {
+      "nominal": 0.99,
+      "empirical": 0.9905,
+      "gap": 0.0005,
+      "mean_width_days": 4.49,
+      "n": 21646
+    }
+  ],
+  "largest_deviation": {
+    "nominal": 0.7,
+    "empirical": 0.7751,
+    "gap": 0.0751,
+    "mean_width_days": 0.72,
+    "n": 21646
+  },
+  "refusal": {
+    "audit_seed": 7,
+    "total": 2000,
+    "refused": 205,
+    "refused_share": 0.1025,
+    "reason_counts": {
+      "refund_in_flight": 205
+    },
+    "on_forecast_set": {
+      "n": 1795,
+      "mape": 0.043188,
+      "sla_window_coverage": 0.8708
+    },
+    "on_refused_set": {
+      "n": 205,
+      "mape": 1.072157,
+      "sla_window_coverage": 0.9122
+    },
+    "on_everything": {
+      "n": 2000,
+      "mape": 0.148657,
+      "sla_window_coverage": 0.875
+    },
+    "verdict": "refusing improves one of MAPE and coverage, not both"
+  },
+  "throughput_predictions_per_sec": 455955
+}

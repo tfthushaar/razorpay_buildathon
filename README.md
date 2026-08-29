@@ -73,6 +73,31 @@ winning 13 paired cases and losing 4 (exact McNemar p = 0.049).
 When free text is one signal among several, the model does not pay for itself. When it is the only
 evidence left, it is worth 6 points and the rule is worth zero.
 
+## Forecasting: what it refuses to predict
+
+The track asks for throughput, measured accuracy, and an honest exception list. The reconciler had all
+three. The forecaster had one and a half. It predicted every pending payment with identical
+confidence, and the coverage figure it reported was the hit rate of a fixed SLA window, not a
+confidence level with a nominal to check against.
+
+It now declines the cases where its own arithmetic does not apply, decided from Order, Payment and
+Refund alone and never from a settlement that does not exist yet.
+
+| Scored population | n | MAPE |
+|---|---|---|
+| what it forecasts | 1,795 | **4.32%** |
+| what it refuses | 205 | 107.22% |
+| everything, as before | 2,000 | 14.87% |
+
+Refusing 10.2% of the batch cuts MAPE from 14.87% to 4.32%. It does not improve *date* coverage, and
+that is published rather than dropped: every refusal reason currently firing is amount-related, and a
+refund changes what settles, not when.
+
+Its intervals are now fitted on one batch and verified on twelve others, at nominal levels from 50%
+to 99%. Empirical coverage sits at or above nominal everywhere, largest deviation +7.5 points. A
+forecaster whose stated 90% really contained 60% is the same failure as a category auto-resolving
+without having earned it. Throughput: 455,955 predictions/sec.
+
 ## Money the merchant is already losing
 
 Reconciliation compares the settlement against the records. It never compares the fee against the
