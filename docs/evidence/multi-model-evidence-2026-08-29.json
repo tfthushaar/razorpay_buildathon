@@ -1,0 +1,150 @@
+{
+  "multiway_netting_trap": {
+    "qwen2.5:7b-instruct": {
+      "entries": [
+        {
+          "seed": 1,
+          "correct": false,
+          "predicted": "genuine_error"
+        },
+        {
+          "seed": 2,
+          "correct": true,
+          "predicted": "multiway_netting_trap"
+        },
+        {
+          "seed": 3,
+          "correct": true,
+          "predicted": "multiway_netting_trap"
+        },
+        {
+          "seed": 4,
+          "correct": false,
+          "predicted": "genuine_error"
+        },
+        {
+          "seed": 5,
+          "correct": false,
+          "predicted": "genuine_error"
+        },
+        {
+          "seed": 7,
+          "correct": true,
+          "predicted": "multiway_netting_trap"
+        },
+        {
+          "seed": 8,
+          "correct": true,
+          "predicted": "multiway_netting_trap"
+        }
+      ],
+      "correct": 4,
+      "total": 7
+    },
+    "qwen2.5:14b-instruct": {
+      "entries": [
+        {
+          "seed": 1,
+          "correct": false,
+          "predicted": "genuine_error"
+        },
+        {
+          "seed": 2,
+          "correct": true,
+          "predicted": "multiway_netting_trap"
+        },
+        {
+          "seed": 3,
+          "correct": false,
+          "predicted": "genuine_error"
+        },
+        {
+          "seed": 4,
+          "correct": false,
+          "predicted": "genuine_error"
+        },
+        {
+          "seed": 5,
+          "correct": false,
+          "predicted": "genuine_error"
+        },
+        {
+          "seed": 7,
+          "correct": false,
+          "predicted": "genuine_error"
+        },
+        {
+          "seed": 8,
+          "correct": false,
+          "predicted": "genuine_error"
+        }
+      ],
+      "correct": 1,
+      "total": 7
+    }
+  },
+  "narration_explained": {
+    "qwen2.5:7b-instruct": {
+      "entries": [
+        {
+          "seed": 1,
+          "correct": true,
+          "predicted": "narration_explained"
+        },
+        {
+          "seed": 2,
+          "correct": true,
+          "predicted": "narration_explained"
+        },
+        {
+          "seed": 3,
+          "correct": true,
+          "predicted": "narration_explained"
+        },
+        {
+          "seed": 4,
+          "correct": false,
+          "predicted": "genuine_error"
+        },
+        {
+          "seed": 5,
+          "correct": true,
+          "predicted": "narration_explained"
+        }
+      ],
+      "correct": 4,
+      "total": 5
+    },
+    "qwen2.5:14b-instruct": {
+      "entries": [
+        {
+          "seed": 1,
+          "correct": true,
+          "predicted": "narration_explained"
+        },
+        {
+          "seed": 2,
+          "correct": true,
+          "predicted": "narration_explained"
+        },
+        {
+          "seed": 3,
+          "correct": true,
+          "predicted": "narration_explained"
+        },
+        {
+          "seed": 4,
+          "correct": true,
+          "predicted": "narration_explained"
+        },
+        {
+          "seed": 5,
+          "correct": true,
+          "predicted": "narration_explained"
+        }
+      ],
+      "correct": 5,
+      "total": 5
+    }
+  }
+}
