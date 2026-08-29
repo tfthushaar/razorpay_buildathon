@@ -14,9 +14,9 @@
       "provider": "mock",
       "phrasing": "seen",
       "answers": 30,
-      "numeric_correct": 25,
-      "numeric_scored": 30,
-      "numeric_accuracy": 0.8333,
+      "numeric_correct": 20,
+      "numeric_scored": 25,
+      "numeric_accuracy": 0.8,
       "mean_citation_jaccard": 0.6667,
       "answers_with_fabricated_ids": 0,
       "fabrication_rate": 0.0,
@@ -42,9 +42,7 @@
           "numeric_n": 5
         },
         "flagged_ids": {
-          "n": 5,
-          "numeric_n": 5,
-          "numeric_correct": 5
+          "n": 5
         },
         "needs_review_count": {
           "n": 5,
@@ -59,9 +57,9 @@
       "phrasing": "seen",
       "answers": 30,
       "numeric_correct": 19,
-      "numeric_scored": 30,
-      "numeric_accuracy": 0.6333,
-      "mean_citation_jaccard": 0.9,
+      "numeric_scored": 25,
+      "numeric_accuracy": 0.76,
+      "mean_citation_jaccard": 0.8535,
       "answers_with_fabricated_ids": 0,
       "fabrication_rate": 0.0,
       "fabricated_ids_total": 0,
@@ -87,8 +85,7 @@
           "numeric_correct": 5
         },
         "flagged_ids": {
-          "n": 5,
-          "numeric_n": 5
+          "n": 5
         },
         "needs_review_count": {
           "n": 5,
@@ -102,7 +99,7 @@
       "phrasing": "held_out",
       "answers": 30,
       "numeric_correct": 0,
-      "numeric_scored": 30,
+      "numeric_scored": 25,
       "numeric_accuracy": 0.0,
       "mean_citation_jaccard": 0.0112,
       "answers_with_fabricated_ids": 0,
@@ -126,8 +123,7 @@
           "numeric_n": 5
         },
         "flagged_ids": {
-          "n": 5,
-          "numeric_n": 5
+          "n": 5
         },
         "needs_review_count": {
           "n": 5,
@@ -141,9 +137,9 @@
       "phrasing": "held_out",
       "answers": 30,
       "numeric_correct": 15,
-      "numeric_scored": 30,
-      "numeric_accuracy": 0.5,
-      "mean_citation_jaccard": 0.5833,
+      "numeric_scored": 25,
+      "numeric_accuracy": 0.6,
+      "mean_citation_jaccard": 0.6056,
       "answers_with_fabricated_ids": 0,
       "fabrication_rate": 0.0,
       "fabricated_ids_total": 0,
@@ -168,8 +164,7 @@
           "numeric_correct": 5
         },
         "flagged_ids": {
-          "n": 5,
-          "numeric_n": 5
+          "n": 5
         },
         "needs_review_count": {
           "n": 5,
@@ -180,7 +175,7 @@
     }
   },
   "generalisation_gap_numeric": {
-    "mock": -0.8333,
-    "ollama": -0.1333
+    "mock": -0.8,
+    "ollama": -0.16
   }
 }

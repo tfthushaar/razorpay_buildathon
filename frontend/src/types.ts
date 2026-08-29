@@ -243,7 +243,12 @@ export interface ForwardCurvePoint {
 
 export interface BacktestReport {
   n: number;
+  exact_rate: number;
+  median_ape: number;
   mape: number;
+  p95_ape: number;
+  worst_ape: number;
+  n_undefined_ape: number;
   interval_coverage: number;
   forward_curve: ForwardCurvePoint[];
 }

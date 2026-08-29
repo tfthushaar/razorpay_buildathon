@@ -30,6 +30,7 @@ import json
 import statistics
 import sys
 import time
+from collections import Counter
 from datetime import date
 from pathlib import Path
 
@@ -37,16 +38,21 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from app.data_gen.generate import generate  # noqa: E402
 from app.forecast.calibrated_interval import NOMINAL_LEVELS, fit, reliability_curve  # noqa: E402
+from app.forecast.backtest import ape_panel  # noqa: E402
 from app.forecast.forecastability import assess_batch  # noqa: E402
 from app.forecast.predictor import predict_settlement  # noqa: E402
 
 
-def _score(batch, only):
-    """MAPE on net amount and SLA-window coverage, over a chosen subset of a settled batch."""
+def _score(batch, only, interval_model=None, confidence=0.90):
+    """Amount error and date coverage over a chosen subset of a settled batch.
+
+    Amount numbers come from backtest.ape_panel, the same function run_backtest uses, so the two do
+    not drift apart again.
+    """
     order_by_id = {o.order_id: o for o in batch.orders}
     payment_by_id = {p.payment_id: p for p in batch.payments}
 
-    apes, covered, scored = [], 0, 0
+    apes, covered, scored, exact, undefined = [], 0, 0, 0, 0
     for s in batch.settlements:
         payment = payment_by_id.get(s.payment_id)
         if payment is None:
@@ -56,16 +62,22 @@ def _score(batch, only):
             continue
         if only is not None and order.order_id not in only:
             continue
-        pred = predict_settlement(order, payment)
-        if s.settled_amount:
-            apes.append(abs(pred.predicted_net_amount - s.settled_amount) / abs(s.settled_amount))
+        pred = predict_settlement(order, payment, interval_model, confidence)
+        if s.settled_amount > 0:
+            apes.append(abs(pred.predicted_net_amount - s.settled_amount) / s.settled_amount)
+        else:
+            undefined += 1
+        if pred.predicted_net_amount == s.settled_amount:
+            exact += 1
         scored += 1
         if pred.predicted_date_low <= s.settled_at <= pred.predicted_date_high:
             covered += 1
+    panel = ape_panel(apes, undefined)
     return {
         "n": scored,
-        "mape": round(sum(apes) / len(apes), 6) if apes else None,
-        "sla_window_coverage": round(covered / scored, 4) if scored else None,
+        "exact_rate": round(exact / scored, 4) if scored else None,
+        **{k: (round(v, 6) if isinstance(v, float) else v) for k, v in panel.items()},
+        "date_coverage": round(covered / scored, 4) if scored else None,
     }
 
 
@@ -124,18 +136,19 @@ def main() -> None:
     on_accepted = _score(audit, accepted)
     on_refused = _score(audit, refused)
     on_all = _score(audit, None)
-    print(f"  {'':<12} {'n':>6} {'MAPE':>9} {'SLA coverage':>13}")
+    print(f"  {'':<12} {'n':>6} {'exact':>8} {'median':>9} {'mean':>9} {'p95':>9} {'coverage':>10}")
     for label, s in (("forecast", on_accepted), ("refused", on_refused), ("everything", on_all)):
-        mape = f"{s['mape'] * 100:.2f}%" if s["mape"] is not None else "n/a"
-        cov = f"{s['sla_window_coverage'] * 100:.1f}%" if s["sla_window_coverage"] is not None else "n/a"
-        print(f"  {label:<12} {s['n']:>6} {mape:>9} {cov:>13}")
+        print(
+            f"  {label:<12} {s['n']:>6} {s['exact_rate'] * 100:>7.1f}% {s['median_ape'] * 100:>8.2f}% "
+            f"{s['mape'] * 100:>8.2f}% {s['p95_ape'] * 100:>8.2f}% {s['date_coverage'] * 100:>9.1f}%"
+        )
     share = len(refused) / max(len(assessments), 1)
     print(f"  refused {len(refused)} of {len(assessments)} ({share:.1%}): {reason_counts}")
 
     improves_mape = (
         on_accepted["mape"] is not None and on_refused["mape"] is not None and on_accepted["mape"] < on_refused["mape"]
     )
-    improves_cov = (on_accepted["sla_window_coverage"] or 0) > (on_refused["sla_window_coverage"] or 0)
+    improves_cov = (on_accepted["date_coverage"] or 0) > (on_refused["date_coverage"] or 0)
     if improves_mape and improves_cov:
         verdict = "refusing improves both MAPE and coverage on what remains"
     elif improves_mape or improves_cov:
@@ -143,6 +156,74 @@ def main() -> None:
     else:
         verdict = "refusing does NOT improve what remains, so this layer is not earning its place"
     print(f"  verdict: {verdict}")
+
+    # --- which interval, and what does the extra coverage cost --------------------------------
+    # The SLA tolerance window claims no confidence level, so no coverage number can falsify it.
+    # The calibrated interval states one. This is the comparison that decides which to ship.
+    print("\n=== SLA window vs calibrated interval, held-out batches, forecastable only ===")
+    print(f"  {'interval':<16} {'coverage':>9} {'width (d)':>10}  claims")
+    head_to_head = []
+    for name, mdl, conf, claim in (
+        ("sla_window", None, 0.90, "nothing"),
+        ("calibrated_90", model, 0.90, "90%"),
+        ("calibrated_95", model, 0.95, "95%"),
+    ):
+        covs, widths = [], []
+        for seed in holdout_seeds[:5]:
+            hb, _ = generate(seed=seed, main_n=args.n, stress_n=0)
+            acc = {t_ for t_, a in assess_batch(hb.orders, hb.payments, hb.refunds).items() if a.forecastable}
+            s = _score(hb, acc, mdl, conf)
+            covs.append(s["date_coverage"])
+            ob = {o.order_id: o for o in hb.orders}
+            pb = {p.payment_id: p for p in hb.payments}
+            ws = [
+                (predict_settlement(ob[pb[x.payment_id].order_id], pb[x.payment_id], mdl, conf).predicted_date_high
+                 - predict_settlement(ob[pb[x.payment_id].order_id], pb[x.payment_id], mdl, conf).predicted_date_low).total_seconds() / 86400
+                for x in hb.settlements
+                if x.payment_id in pb and pb[x.payment_id].order_id in ob and pb[x.payment_id].order_id in acc
+            ]
+            widths.append(statistics.mean(ws))
+        entry = {
+            "interval": name,
+            "claimed_confidence": None if claim == "nothing" else conf,
+            "empirical_coverage": round(statistics.mean(covs), 4),
+            "mean_width_days": round(statistics.mean(widths), 2),
+        }
+        head_to_head.append(entry)
+        print(f"  {name:<16} {entry['empirical_coverage'] * 100:>8.1f}% {entry['mean_width_days']:>10.2f}  {claim}")
+
+    # --- where the remaining error comes from --------------------------------------------------
+    # POST-HOC ATTRIBUTION, using the generator's answer key. The forecaster never sees these
+    # labels; this exists to say which misses a better forecaster could have avoided and which are
+    # unpredictable from Order and Payment alone.
+    print("\n=== residual error by generator pattern (post-hoc, uses the answer key) ===")
+    label_of = {g.transaction_id: g.true_label for g in audit.ground_truth}
+    ob = {o.order_id: o for o in audit.orders}
+    pb = {p.payment_id: p for p in audit.payments}
+    amount_miss, date_miss = {}, {}
+    for s in audit.settlements:
+        p = pb.get(s.payment_id)
+        o = ob.get(p.order_id) if p else None
+        if o is None or o.order_id not in accepted:
+            continue
+        pred = predict_settlement(o, p)
+        lab = label_of.get(o.order_id, "?")
+        if pred.predicted_net_amount != s.settled_amount:
+            amount_miss[lab] = amount_miss.get(lab, 0) + 1
+        if not (pred.predicted_date_low <= s.settled_at <= pred.predicted_date_high):
+            date_miss[lab] = date_miss.get(lab, 0) + 1
+    print(f"  amount wrong: {dict(sorted(amount_miss.items(), key=lambda kv: -kv[1]))}")
+    print(f"  date missed:  {dict(sorted(date_miss.items(), key=lambda kv: -kv[1]))}")
+
+    # --- a banking calendar would not help, and here is why -------------------------------------
+    # Real settlement lands on business days, so a weekday-aware window is the obvious next move.
+    # It is only worth building if this data has weekday structure to exploit. Measured, not assumed.
+    weekday_counts = Counter(s.settled_at.weekday() for s in audit.settlements)
+    total_wd = sum(weekday_counts.values())
+    weekend_share = (weekday_counts[5] + weekday_counts[6]) / total_wd if total_wd else 0.0
+    print("\n=== banking-calendar check ===")
+    print(f"  settlements landing on a weekend: {weekend_share:.1%} (uniform would be 28.6%)")
+    print("  no weekday structure to exploit; a business-day adjustment would model nothing here")
 
     # --- throughput -------------------------------------------------------------------------------
     bench, _ = generate(seed=3, main_n=args.n, stress_n=0)
@@ -162,6 +243,17 @@ def main() -> None:
         "holdout_seeds": holdout_seeds,
         "fitted_90pct_window_days": {r: list(model.interval_days(r, 0.90)) for r in sorted(model.per_rail)},
         "reliability_curve": curve,
+        "interval_head_to_head": head_to_head,
+        "residual_error_by_pattern": {
+            "note": "post-hoc attribution against the generator's answer key, which the forecaster never sees",
+            "amount_wrong": dict(sorted(amount_miss.items(), key=lambda kv: -kv[1])),
+            "date_missed": dict(sorted(date_miss.items(), key=lambda kv: -kv[1])),
+        },
+        "banking_calendar_check": {
+            "weekend_share_of_settlements": round(weekend_share, 4),
+            "uniform_expectation": 0.2857,
+            "conclusion": "no weekday structure in this generator, so a business-day window would model nothing",
+        },
         "largest_deviation": worst,
         "refusal": {
             "audit_seed": 7,

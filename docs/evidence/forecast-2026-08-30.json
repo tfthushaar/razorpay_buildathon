@@ -81,6 +81,47 @@
       "n": 21646
     }
   ],
+  "interval_head_to_head": [
+    {
+      "interval": "sla_window",
+      "claimed_confidence": null,
+      "empirical_coverage": 0.8719,
+      "mean_width_days": 1.14
+    },
+    {
+      "interval": "calibrated_90",
+      "claimed_confidence": 0.9,
+      "empirical_coverage": 0.9384,
+      "mean_width_days": 2.4
+    },
+    {
+      "interval": "calibrated_95",
+      "claimed_confidence": 0.95,
+      "empirical_coverage": 0.9662,
+      "mean_width_days": 3.57
+    }
+  ],
+  "residual_error_by_pattern": {
+    "note": "post-hoc attribution against the generator's answer key, which the forecaster never sees",
+    "amount_wrong": {
+      "currency_rounding": 125,
+      "netting_trap": 120,
+      "genuine_error": 100
+    },
+    "date_missed": {
+      "timing_lag": 125,
+      "clean_match": 73,
+      "currency_rounding": 10,
+      "fee_deduction": 10,
+      "genuine_error": 7,
+      "netting_trap": 7
+    }
+  },
+  "banking_calendar_check": {
+    "weekend_share_of_settlements": 0.298,
+    "uniform_expectation": 0.2857,
+    "conclusion": "no weekday structure in this generator, so a business-day window would model nothing"
+  },
   "largest_deviation": {
     "nominal": 0.7,
     "empirical": 0.7751,
@@ -98,20 +139,35 @@
     },
     "on_forecast_set": {
       "n": 1795,
-      "mape": 0.043188,
-      "sla_window_coverage": 0.8708
+      "exact_rate": 0.8078,
+      "median_ape": 0.0,
+      "mape": 0.031755,
+      "p95_ape": 0.062708,
+      "worst_ape": 8.272846,
+      "n_undefined_ape": 6,
+      "date_coverage": 0.8708
     },
     "on_refused_set": {
       "n": 205,
+      "exact_rate": 0.0,
+      "median_ape": 0.778529,
       "mape": 1.072157,
-      "sla_window_coverage": 0.9122
+      "p95_ape": 3.150187,
+      "worst_ape": 4.072895,
+      "n_undefined_ape": 0,
+      "date_coverage": 0.9122
     },
     "on_everything": {
       "n": 2000,
-      "mape": 0.148657,
-      "sla_window_coverage": 0.875
+      "exact_rate": 0.725,
+      "median_ape": 0.0,
+      "mape": 0.138717,
+      "p95_ape": 0.841422,
+      "worst_ape": 8.272846,
+      "n_undefined_ape": 6,
+      "date_coverage": 0.875
     },
     "verdict": "refusing improves one of MAPE and coverage, not both"
   },
-  "throughput_predictions_per_sec": 455955
+  "throughput_predictions_per_sec": 420645
 }

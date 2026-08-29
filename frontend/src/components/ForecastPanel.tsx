@@ -72,12 +72,28 @@ export function ForecastPanel({ refreshKey }: Props) {
       {backtest && (
         <div className="fee-leak-summary">
           <div className="fee-leak-summary-stat">
+            <span className="fee-leak-summary-value">{pct(backtest.exact_rate)}</span>
+            <span className="fee-leak-summary-label">of {backtest.n} predicted to the exact paise</span>
+          </div>
+          <div className="fee-leak-summary-stat">
+            <span className="fee-leak-summary-value">{pct(backtest.median_ape)}</span>
+            <span className="fee-leak-summary-label">median error on net amount</span>
+          </div>
+          <div className="fee-leak-summary-stat">
             <span className="fee-leak-summary-value">{pct(backtest.mape)}</span>
-            <span className="fee-leak-summary-label">MAPE on predicted vs. actual net amount</span>
+            <span className="fee-leak-summary-label">
+              mean error — carried by the tail, not the middle: p95 is {pct(backtest.p95_ape)} and the worst single case is{" "}
+              {pct(backtest.worst_ape)}. {backtest.n_undefined_ape} settlement(s) landed at or below zero, where a
+              percentage error has no meaning, and are excluded rather than divided by.
+            </span>
           </div>
           <div className="fee-leak-summary-stat">
             <span className="fee-leak-summary-value">{pct(backtest.interval_coverage)}</span>
-            <span className="fee-leak-summary-label">of {backtest.n} real settlements landed inside the predicted window</span>
+            <span className="fee-leak-summary-label">
+              landed inside the predicted window. That window is the rail's SLA tolerance, a policy boundary that states
+              no confidence level, so this is its hit rate rather than a calibrated interval. The calibrated alternative
+              is on the autonomy page.
+            </span>
           </div>
         </div>
       )}

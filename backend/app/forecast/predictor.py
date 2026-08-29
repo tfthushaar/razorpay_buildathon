@@ -16,11 +16,15 @@ not a fabricated symmetric one.
 from __future__ import annotations
 
 from datetime import datetime, timedelta
+from typing import TYPE_CHECKING
 
 from pydantic import BaseModel
 
 from app.data_gen.fee_schedule import BASE_SLA_DAYS, SLA_TOLERANCE_DAYS, fee_and_tax
 from app.data_gen.schemas import Order, Payment, Rail
+
+if TYPE_CHECKING:  # import only for the annotation; calibrated_interval imports nothing from here
+    from app.forecast.calibrated_interval import CalibratedIntervalModel
 
 
 class SettlementPrediction(BaseModel):
@@ -31,20 +35,48 @@ class SettlementPrediction(BaseModel):
     predicted_tax: int
     predicted_net_amount: int
     captured_at: datetime
-    predicted_date_low: datetime  # nominal SLA -- the earliest a settlement would be expected
-    predicted_date_high: datetime  # tolerance ceiling -- the latest before it's genuinely late
+    predicted_date_low: datetime
+    predicted_date_high: datetime
+    interval_source: str = "sla_window"  # "sla_window" | "calibrated"
+    interval_confidence: float | None = None  # only set when interval_source == "calibrated"
 
 
-def predict_settlement(order: Order, payment: Payment) -> SettlementPrediction:
-    """Predicts net settlement amount and a genuine (low, high) date interval for a captured
-    payment that hasn't settled yet. Uses only information that would actually be available
-    before settlement: the captured amount and the rail's own fee schedule / SLA window --
-    never a Settlement record, which by definition doesn't exist yet for this to be a real
-    prediction rather than a lookup."""
+def predict_settlement(
+    order: Order,
+    payment: Payment,
+    interval_model: "CalibratedIntervalModel | None" = None,
+    confidence: float = 0.90,
+) -> SettlementPrediction:
+    """Predicts net settlement amount and a (low, high) date interval for a captured payment that
+    hasn't settled yet. Uses only information available before settlement: the captured amount and
+    the rail's own fee schedule -- never a Settlement record, which by definition doesn't exist yet
+    for this to be a prediction rather than a lookup.
+
+    THE DATE INTERVAL COMES FROM ONE OF TWO PLACES, and they mean different things.
+
+    Without `interval_model` the interval is the rail's SLA tolerance window: nominal SLA to
+    tolerance ceiling. That is a policy boundary, not a prediction. It carries no confidence level,
+    and asking what fraction of settlements land inside it gives the hit rate of a fixed window --
+    a real number, but not the number a "90% interval" claims. It is the default because it needs
+    no history, so a merchant with no settled batch yet still gets a window.
+
+    With `interval_model` the interval is the empirical quantile of that rail's own observed
+    settlement lag at the requested confidence, fitted on the merchant's history. That one does
+    claim a confidence level, and app/forecast/calibrated_interval.py::reliability_curve measures
+    out-of-sample whether it earns it.
+
+    The default is None so every backtest and evidence file produced before the calibrated model
+    existed still describes what the code does.
+    """
     fee, tax = fee_and_tax(order.rail, payment.captured_amount)
     net = payment.captured_amount - fee - tax
-    nominal_days = BASE_SLA_DAYS[order.rail]
-    tolerance_days = SLA_TOLERANCE_DAYS[order.rail]
+    if interval_model is not None:
+        low, high = interval_model.interval(order.rail, payment.captured_at, confidence)
+        source, stated = "calibrated", confidence
+    else:
+        low = payment.captured_at + timedelta(days=BASE_SLA_DAYS[order.rail])
+        high = payment.captured_at + timedelta(days=SLA_TOLERANCE_DAYS[order.rail])
+        source, stated = "sla_window", None
     return SettlementPrediction(
         transaction_id=order.order_id,
         rail=order.rail,
@@ -53,12 +85,19 @@ def predict_settlement(order: Order, payment: Payment) -> SettlementPrediction:
         predicted_tax=tax,
         predicted_net_amount=net,
         captured_at=payment.captured_at,
-        predicted_date_low=payment.captured_at + timedelta(days=nominal_days),
-        predicted_date_high=payment.captured_at + timedelta(days=tolerance_days),
+        predicted_date_low=low,
+        predicted_date_high=high,
+        interval_source=source,
+        interval_confidence=stated,
     )
 
 
-def predict_pending_batch(orders: list[Order], payments: list[Payment]) -> list[SettlementPrediction]:
+def predict_pending_batch(
+    orders: list[Order],
+    payments: list[Payment],
+    interval_model: "CalibratedIntervalModel | None" = None,
+    confidence: float = 0.90,
+) -> list[SettlementPrediction]:
     """Predicts every payment in a batch of still-in-flight (captured, not yet settled)
     transactions. Order is matched to payment by order_id -- payments without a matching order
     (shouldn't happen in generated data, but a real integration could see it) are skipped rather
@@ -71,5 +110,5 @@ def predict_pending_batch(orders: list[Order], payments: list[Payment]) -> list[
         order = orders_by_id.get(payment.order_id)
         if order is None:
             continue
-        predictions.append(predict_settlement(order, payment))
+        predictions.append(predict_settlement(order, payment, interval_model, confidence))
     return predictions
