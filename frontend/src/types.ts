@@ -12,7 +12,50 @@ export type Category =
   | "currency_rounding"
   | "genuine_error"
   | "multiway_netting_trap"
-  | "narration_explained";
+  | "narration_explained"
+  | "compound_delta";
+
+// Residual architecture (backend app/resolver/). Layer 0 runs over every exception the matching
+// engine could not close; the model is handed only what Layer 0 could not finish.
+export interface ResidualComponent {
+  cause: string;
+  amount: number;
+  evidence_ref: string;
+  why: string;
+}
+
+export interface ResidualCase {
+  transaction_id: string;
+  status: "RESOLVED" | "UNDER_DETERMINED" | "UNMATCHED";
+  observed_delta: number;
+  ambiguity: number;
+  chance_baseline: number;
+  candidate_pool_size: number;
+  reached_model: boolean;
+  provider: string;
+  verified: boolean;
+  verify_rounds: number;
+  components: ResidualComponent[];
+  reasoning: string;
+  parsimony_choice: ResidualComponent[];
+  keyword_choice: ResidualComponent[];
+  keyword_ties: number;
+}
+
+export interface ResidualReport {
+  tolerance: number;
+  closed_before_stage: number;
+  layer0_resolved: number;
+  under_determined: number;
+  unmatched: number;
+  model_calls: number;
+  model_verified: number;
+  cases: ResidualCase[];
+  total: number;
+  deterministic_share: number;
+  layer0_share_of_exceptions: number;
+  mean_chance_baseline: number;
+}
 
 export interface CategoryCalibration {
   category: string;
@@ -100,6 +143,7 @@ export interface BatchRunResult {
   narrated_count: number;
   transactions_per_second: number;
   category_proposals: CategoryProposal[];
+  residual: ResidualReport | null;
 }
 
 export interface RevocationDrillReport {

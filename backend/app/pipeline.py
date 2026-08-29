@@ -26,6 +26,7 @@ from app.matching.escalation import EscalationItem, build_escalation_item, triag
 from app.narrator.agent import narrate
 from app.narrator.discovery import CategoryProposal, propose_category
 from app.narrator.tools import ToolContext, build_tool_context
+from app.resolver.residual_stage import ResidualReport, run_residual_stage
 
 
 class StressScorecard(BaseModel):
@@ -88,6 +89,13 @@ class BatchRunResult(BaseModel):
     # (including every prior test) sees no behavior change. Never auto-adopted into
     # NARRATOR_CATEGORIES -- these are for a human to review, see app/narrator/discovery.py.
     category_proposals: list[CategoryProposal] = []
+
+    # Residual architecture (app/resolver/): Layer 0 runs over every exception the matching engine
+    # could not close, keeps the ones it can fully explain, and hands only the rest to a model. None
+    # by default -- when `enable_compound_delta` was not passed this stage does not run at all and
+    # the pipeline behaves exactly as it did before, so every already-committed evidence file and
+    # every number in docs/ measured without it stays valid.
+    residual: ResidualReport | None = None
 
     @computed_field  # type: ignore[prop-decorator]
     @property
@@ -202,6 +210,8 @@ def run_batch(
     enable_multiway_netting: bool = False,
     enable_held_out_variants: bool = False,
     enable_narration_explained: bool = False,
+    enable_compound_delta: bool = False,
+    held_out_advice_phrasing: bool = False,
 ) -> BatchRunResult:
     run_id = str(uuid.uuid4())
     provider = provider or os.environ.get("LLM_PROVIDER", "mock")
@@ -213,9 +223,24 @@ def run_batch(
         enable_multiway_netting=enable_multiway_netting,
         enable_held_out_variants=enable_held_out_variants,
         enable_narration_explained=enable_narration_explained,
+        enable_compound_delta=enable_compound_delta,
+        held_out_advice_phrasing=held_out_advice_phrasing,
     )
 
     chains, match_results, narrator_outputs, context = _process_batch(main_batch, provider, audit_logger=audit_logger)
+
+    # Layer 0 over every exception, then the model over what is left. Runs on the SAME set the
+    # narrator was given (`needs_narration`), so the two are directly comparable on identical input,
+    # and reads no ground truth of any kind -- `resolve` sees only the chain and the batch context.
+    residual: ResidualReport | None = None
+    if enable_compound_delta:
+        residual = run_residual_stage(
+            chains,
+            context,
+            [txn_id for txn_id, r in match_results.items() if r.resolution == "needs_narration"],
+            provider=provider,
+            closed_before_stage=sum(1 for r in match_results.values() if r.resolution != "needs_narration"),
+        )
     elapsed_seconds = time.monotonic() - started_at
     gt_by_id = {g.transaction_id: g.true_label for g in main_batch.ground_truth}
     baseline_results = run_naive_baseline(chains)
@@ -330,4 +355,5 @@ def run_batch(
         elapsed_seconds=elapsed_seconds,
         narrated_count=len(narrator_outputs),
         category_proposals=category_proposals,
+        residual=residual,
     )

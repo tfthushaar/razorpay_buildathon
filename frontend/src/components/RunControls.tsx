@@ -33,6 +33,8 @@ export function RunControls({ onRun, loading, error }: Props) {
   const [enableMultiwayNetting, setEnableMultiwayNetting] = useState(false);
   const [enableHeldOutVariants, setEnableHeldOutVariants] = useState(false);
   const [enableNarrationExplained, setEnableNarrationExplained] = useState(false);
+  const [enableCompoundDelta, setEnableCompoundDelta] = useState(false);
+  const [heldOutAdvicePhrasing, setHeldOutAdvicePhrasing] = useState(false);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -113,6 +115,25 @@ export function RunControls({ onRun, loading, error }: Props) {
           <input type="checkbox" checked={enableNarrationExplained} onChange={(e) => setEnableNarrationExplained(e.target.checked)} />
           Inject narration-explained case
         </label>
+        <label
+          className="checkbox-label"
+          title="Inject compound_delta cases and run the residual architecture: the deterministic resolver runs first over every exception and keeps everything it can explain on its own, and the model is handed only what is left -- cases where the resolver found two or more equally valid explanations and arithmetic has no basis left to choose between them"
+        >
+          <input type="checkbox" checked={enableCompoundDelta} onChange={(e) => setEnableCompoundDelta(e.target.checked)} />
+          Run residual architecture
+        </label>
+        <label
+          className="checkbox-label"
+          title="Build the remittance advice from phrasing the keyword baseline's negation cues were never written against -- the honest test of whether reading generalises or was simply authored by the same person who wrote the parser"
+        >
+          <input
+            type="checkbox"
+            checked={heldOutAdvicePhrasing}
+            disabled={!enableCompoundDelta}
+            onChange={(e) => setHeldOutAdvicePhrasing(e.target.checked)}
+          />
+          Held-out advice phrasing
+        </label>
         <button
           disabled={loading}
           onClick={() =>
@@ -127,6 +148,8 @@ export function RunControls({ onRun, loading, error }: Props) {
               enable_multiway_netting: enableMultiwayNetting,
               enable_held_out_variants: enableHeldOutVariants,
               enable_narration_explained: enableNarrationExplained,
+              enable_compound_delta: enableCompoundDelta,
+              held_out_advice_phrasing: heldOutAdvicePhrasing,
             })
           }
         >

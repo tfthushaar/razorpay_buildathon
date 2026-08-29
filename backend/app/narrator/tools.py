@@ -30,6 +30,13 @@ class ToolContext(BaseModel):
 
     chains: dict[str, CausalChain]
     refund_amounts_by_payment: dict[str, list[int]]
+    # (refund_id, amount) pairs, same grouping as refund_amounts_by_payment above. The amounts-only
+    # map predates it and stays because several tools only ever need the amounts; the resolver's
+    # candidate pool needs the ids too, since a decomposition component has to CITE the specific
+    # refund it claims (app/resolver/causes.py) rather than just assert an amount that happens to
+    # match one. Kept as a parallel field instead of changing the original's shape, so no existing
+    # caller's expectations move.
+    refund_objects_by_payment: dict[str, list[tuple[str, int]]] = {}
     transaction_ids_by_settlement_batch: dict[str, list[str]]
     audit_log: list[dict] = []  # grows as the run progresses; read by recall_similar_resolutions
 
@@ -43,8 +50,10 @@ def build_tool_context(
     within this one run. Omit it (the default) for call sites that don't have a persisted logger
     available, or that deliberately want a clean-slate context (e.g. an isolated test)."""
     refund_amounts_by_payment: dict[str, list[int]] = {}
+    refund_objects_by_payment: dict[str, list[tuple[str, int]]] = {}
     for r in batch.refunds:
         refund_amounts_by_payment.setdefault(r.payment_id, []).append(r.amount)
+        refund_objects_by_payment.setdefault(r.payment_id, []).append((r.refund_id, r.amount))
 
     transaction_ids_by_settlement_batch: dict[str, list[str]] = {}
     for txn_id, chain in chains.items():
@@ -55,6 +64,7 @@ def build_tool_context(
     return ToolContext(
         chains=chains,
         refund_amounts_by_payment=refund_amounts_by_payment,
+        refund_objects_by_payment=refund_objects_by_payment,
         transaction_ids_by_settlement_batch=transaction_ids_by_settlement_batch,
         audit_log=audit_log,
     )

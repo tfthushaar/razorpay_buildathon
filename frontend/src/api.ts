@@ -51,6 +51,8 @@ export interface RunRequest {
   enable_multiway_netting?: boolean;
   enable_held_out_variants?: boolean;
   enable_narration_explained?: boolean;
+  enable_compound_delta?: boolean;
+  held_out_advice_phrasing?: boolean;
 }
 
 export const runBatch = (req: RunRequest) =>

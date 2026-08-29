@@ -10,6 +10,7 @@ import { EscalationQueue } from "./components/EscalationQueue";
 import { StressScorecard } from "./components/StressScorecard";
 import { FeeLeakAnalysis } from "./components/FeeLeakAnalysis";
 import { ForecastPanel } from "./components/ForecastPanel";
+import { ResidualPanel } from "./components/ResidualPanel";
 import { ErpExport } from "./components/ErpExport";
 import { AuditLogView } from "./components/AuditLogView";
 import { SettlementQA } from "./components/SettlementQA";
@@ -101,6 +102,7 @@ function App() {
           <div className="two-column">
             <BaselineComparison result={result} />
             <StressScorecard stress={result.stress} />
+            {result.residual && <ResidualPanel residual={result.residual} />}
           </div>
           <FeeLeakAnalysis result={result} />
           <ForecastPanel refreshKey={refreshKey} />

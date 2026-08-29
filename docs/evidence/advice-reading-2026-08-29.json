@@ -1,0 +1,111 @@
+{
+  "generated_on": "2026-08-29",
+  "seed": 42,
+  "n": 60,
+  "causes": [
+    "fee_rate_mismatch",
+    "gst_on_fee_mismatch",
+    "duplicate_refund",
+    "tds_deduction",
+    "rolling_reserve",
+    "fx_rounding",
+    "promotional_waiver"
+  ],
+  "conditions": {
+    "seen": {
+      "keyword_rule": {
+        "correct": 400,
+        "total": 420,
+        "accuracy": 0.9524,
+        "errors": {
+          "not_mentioned->not_applied": 14,
+          "not_applied->applied": 5,
+          "not_mentioned->applied": 1
+        },
+        "dangerous_errors": 6,
+        "dangerous_error_rate": 0.0143,
+        "conservative_errors": 0
+      },
+      "qwen2.5:7b-instruct": {
+        "correct": 335,
+        "total": 420,
+        "accuracy": 0.7976,
+        "errors": {
+          "not_applied->not_mentioned": 42,
+          "applied->not_mentioned": 22,
+          "applied->not_applied": 13,
+          "not_applied->applied": 5,
+          "not_mentioned->not_applied": 3
+        },
+        "dangerous_errors": 5,
+        "dangerous_error_rate": 0.0119,
+        "conservative_errors": 64
+      },
+      "qwen2.5:14b-instruct": {
+        "correct": 365,
+        "total": 420,
+        "accuracy": 0.869,
+        "errors": {
+          "applied->not_mentioned": 22,
+          "not_applied->not_mentioned": 13,
+          "not_applied->applied": 8,
+          "applied->not_applied": 8,
+          "not_mentioned->not_applied": 3,
+          "not_mentioned->applied": 1
+        },
+        "dangerous_errors": 9,
+        "dangerous_error_rate": 0.0214,
+        "conservative_errors": 35
+      }
+    },
+    "held_out": {
+      "keyword_rule": {
+        "correct": 259,
+        "total": 420,
+        "accuracy": 0.6167,
+        "errors": {
+          "not_applied->applied": 142,
+          "not_mentioned->applied": 19
+        },
+        "dangerous_errors": 161,
+        "dangerous_error_rate": 0.3833,
+        "conservative_errors": 0
+      },
+      "qwen2.5:7b-instruct": {
+        "correct": 305,
+        "total": 420,
+        "accuracy": 0.7262,
+        "errors": {
+          "not_applied->not_mentioned": 37,
+          "applied->not_mentioned": 32,
+          "applied->not_applied": 19,
+          "not_applied->applied": 15,
+          "not_mentioned->not_applied": 12
+        },
+        "dangerous_errors": 15,
+        "dangerous_error_rate": 0.0357,
+        "conservative_errors": 69
+      },
+      "qwen2.5:14b-instruct": {
+        "correct": 343,
+        "total": 420,
+        "accuracy": 0.8167,
+        "errors": {
+          "not_applied->not_mentioned": 29,
+          "applied->not_mentioned": 18,
+          "not_applied->applied": 14,
+          "applied->not_applied": 9,
+          "not_mentioned->not_applied": 7
+        },
+        "dangerous_errors": 14,
+        "dangerous_error_rate": 0.0333,
+        "conservative_errors": 47
+      }
+    }
+  },
+  "generalisation_gap": {
+    "keyword_rule": -0.3357,
+    "qwen2.5:7b-instruct": -0.0714,
+    "qwen2.5:14b-instruct": -0.0523
+  }
+}

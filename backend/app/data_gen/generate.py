@@ -26,8 +26,16 @@ from app.data_gen.schemas import (
     Refund,
     Settlement,
     SyntheticBatch,
+    TrueCause,
 )
 from app.data_gen.subset_sum import find_other_subsets_that_cancel
+
+# The rate sets `_gen_compound_delta` injects from. Imported from the resolver's own taxonomy rather
+# than redeclared here on purpose: the point of a compound case is that its true decomposition is
+# something the resolver could in principle have proposed, so the two sides must agree on which
+# rates exist and how a citation to one is spelled. app/resolver/causes.py imports nothing from this
+# package (only pydantic and typing), so this direction is safe.
+from app.resolver.causes import PLAUSIBLE_FEE_RATES, STANDARD_GST_RATES, STANDARD_RESERVE_RATES, STANDARD_TDS_RATES
 
 GATEWAYS = ["HDFC", "ICICI", "AXIS", "YESBANK", "KOTAK"]
 AMOUNTS_INR = [500, 1000, 1500, 2500, 4200, 7500, 12000, 25000, 50000]  # rupees; stored as paise
@@ -585,6 +593,282 @@ class SyntheticDataGenerator:
         )
         return [order], [payment], [], [settlement], [ledger], [gt]
 
+    # Remittance-advice phrasing, per cause, in two registers. POSITIVE phrases assert a component
+    # really was applied this cycle; NEGATIVE phrases mention the same component and its vocabulary
+    # while saying it was NOT applied -- denied, reversed, exempted, deferred to a later cycle, or
+    # merely proposed. Both registers use the same keywords on purpose.
+    #
+    # This is what makes the narration a genuine reading task rather than a lookup. A keyword scan
+    # sees "TDS" and "RSV HOLD" in both registers and cannot tell them apart; resolving them needs
+    # negation ("nil deduction"), scope ("50% partial"), and tense ("effective next cycle") to be
+    # read as what they are. app/resolver/keyword_baseline.py implements that keyword scan as an
+    # honest, standing comparator rather than leaving "a rule couldn't do this" as an assertion --
+    # and it is a real rule written to win, not a strawman.
+    _CAUSE_PHRASES: dict[str, dict[str, list[str]]] = {
+        "fee_rate_mismatch": {
+            "pos": ["MDR applied @ {rate}pct", "chgs levied at {rate}% this cycle", "mdr {rate} pct debited"],
+            "neg": ["MDR revision to {rate}pct effective next cycle", "rate change to {rate}% NOT applied this cycle", "proposed mdr {rate}pct - pending approval"],
+        },
+        "gst_on_fee_mismatch": {
+            "pos": ["GST @{rate}pct on chgs", "tax on fee computed {rate}%"],
+            "neg": ["GST slab revision pending - no change this cycle", "gst @{rate}pct queried, not adjusted"],
+        },
+        "duplicate_refund": {
+            "pos": ["RFND {ref} redebited", "refund {ref} reapplied in error", "rfnd{ref} deducted again"],
+            "neg": ["duplicate refund {ref} reversal CANCELLED", "rfnd {ref} already netted - not re-deducted", "refund {ref} flagged, no second debit"],
+        },
+        "tds_deduction": {
+            "pos": ["TDS @{rate}pct withheld u/s 194O", "tds {rate}% deducted at source"],
+            "neg": ["TDS exemption cert on file - nil deduction", "tds {rate}pct to commence next FY", "TDS NOT withheld - lower deduction certificate"],
+        },
+        "rolling_reserve": {
+            "pos": ["RSV HOLD {rate}pct APPLIED", "rolling reserve {rate}% withheld", "resv {rate}pct retained"],
+            "neg": ["rolling reserve released - no hold this cycle", "reserve {rate}pct applies from next settlement", "RSV HOLD WAIVED FOR THIS BATCH"],
+        },
+        "fx_rounding": {
+            "pos": ["FX rnd adj", "conv rounding applied"],
+            "neg": ["no fx adj this cycle", "fx rounding suppressed"],
+        },
+        "promotional_waiver": {
+            "pos": ["FEE WAIVED - PROMO {ref} APPLIED", "chgs waived promo ref {ref}", "FEEEXEMPT/{ref}/AUTOAPPLIED"],
+            "neg": [
+                "fee waiver request DENIED - standard charges applied",
+                "promo {ref} expired, no exemption this cycle",
+                "waiver applies from next settlement cycle",
+                "partial waiver 50pct + GST adj ref {ref} - not applied pending review",
+            ],
+        },
+    }
+    # A SECOND phrase bank the keyword baseline's negation-cue list has never seen.
+    #
+    # This exists because the keyword rule reads the bank above at 96.1%, and it is worth being blunt
+    # about why: I wrote both the phrases and the cue list that parses them. That is the shared-author
+    # problem this project has already been caught by once, in its purest form -- a rule scoring
+    # against text its own author wrote is measuring authorship, not reading.
+    #
+    # So the fair test is held-out phrasing, and the design of it matters. The CAUSE-identifying
+    # vocabulary is deliberately kept recognisable (TDS, RSV, GST, MDR, refund, waiver are domain
+    # terms that appear however the sentence is built) -- changing those too would let the rule fail
+    # merely by not knowing a synonym, which is a cheap win and not the interesting question. What
+    # changes is only how "applied" and "not applied" are EXPRESSED: abeyance, rescinded, held over,
+    # zero-rated, struck off, stood down, lapsed, contra -- real settlement-advice idiom, none of it
+    # matching any cue in app/resolver/keyword_baseline.py. That isolates negation, scope and tense
+    # comprehension, which is the actual hard part and the only part a language model should be
+    # expected to be better at.
+    _CAUSE_PHRASES_HELDOUT: dict[str, dict[str, list[str]]] = {
+        "fee_rate_mismatch": {
+            "pos": ["MDR {rate}pct raised on this txn", "comm. debited mdr @{rate}pct", "svc chg mdr {rate}pct posted"],
+            "neg": ["MDR {rate}pct held over to the next run", "mdr revision stood down for this batch", "MDR {rate}pct in abeyance"],
+        },
+        "gst_on_fee_mismatch": {
+            "pos": ["GST {rate}pct raised on chgs", "gst @{rate}pct posted contra"],
+            "neg": ["GST {rate}pct zero-rated for the period", "gst revision lapsed", "GST {rate}pct struck off prior to posting"],
+        },
+        "duplicate_refund": {
+            "pos": ["rfnd {ref} re-raised against this settlement", "refund {ref} debited a second time in error"],
+            "neg": ["refund {ref} re-debit rescinded", "rfnd {ref} second posting struck off", "refund {ref} contra stood down"],
+        },
+        "tds_deduction": {
+            "pos": ["TDS {rate}pct effected u/s 194O", "tds withholding {rate}pct posted"],
+            "neg": ["TDS nil for this run", "tds {rate}pct zero-rated for the period", "TDS {rate}pct lapsed", "tds in abeyance"],
+        },
+        "rolling_reserve": {
+            "pos": ["RSV {rate}pct retained at source", "reserve {rate}pct booked contra", "resv {rate}pct raised"],
+            "neg": ["RSV HOLD in abeyance", "reserve {rate}pct rescinded", "resv held over to the next run", "reserve stood down for this batch"],
+        },
+        "fx_rounding": {
+            "pos": ["fx conv adj raised", "fx rounding posted"],
+            "neg": ["fx adj in abeyance", "fx rounding stood down"],
+        },
+        "promotional_waiver": {
+            "pos": ["fee waiver {ref} effected in full", "promo {ref} chgs abated", "waiver {ref} posted contra"],
+            "neg": ["fee waiver {ref} rescinded", "promo {ref} lapsed", "waiver {ref} held over to the next run", "promo {ref} struck off prior to posting"],
+        },
+    }
+    _NARRATION_SEPARATORS = [" | ", "; ", " / ", " -- ", ", "]
+
+    @staticmethod
+    def _advice_tokens_from_ref(evidence_ref: str) -> tuple[str, str]:
+        """The (rate, ref) text a remittance-advice phrase should quote for a given citation.
+
+        A positive phrase has to quote the component's REAL rate/identifier, or the text carries no
+        information and the whole channel is decorative. Everything needed is already encoded in the
+        evidence_ref (`tds:0.0100`, `fee_schedule:upi@0.0045`, `refund:rfnd_x`), so it is read back
+        out here rather than threaded separately and risking the two drifting apart."""
+        kind, _, rest = evidence_ref.partition(":")
+        if kind in ("tds", "reserve", "gst"):
+            return f"{float(rest) * 100:g}", ""
+        if kind == "fee_schedule":
+            _, _, rate = rest.partition("@")
+            return f"{float(rate) * 100:g}", ""
+        if kind == "refund":
+            return "", rest
+        return "", ""
+
+    def _compose_remittance_advice(
+        self,
+        true_causes: list[TrueCause],
+        absent_causes: list[str],
+        promo_code: str,
+        mentions: dict[str, str] | None = None,
+        held_out: bool = False,
+    ) -> str:
+        """Messy free-text remittance advice: some true components asserted with their REAL rates,
+        some absent components mentioned with a plausible-but-wrong rate only to be denied, deferred,
+        or left pending -- in arbitrary order, with inconsistent separators and casing.
+
+        Deliberately PARTIAL: only about 60% of true components get a positive mention, so the text
+        is never a complete oracle. Reading it well narrows the problem; it does not remove the
+        arithmetic. That is the honest shape of a real remittance advice, and it keeps this from
+        becoming a second lookup task wearing a free-text costume."""
+        fragments: list[str] = []
+        for c in true_causes:
+            if self.rng.random() < 0.6:
+                rate, ref = self._advice_tokens_from_ref(c.evidence_ref)
+                if c.cause == "promotional_waiver":
+                    ref = promo_code
+                fragments.append(self._phrase_for(c.cause, "pos", rate, ref, held_out=held_out))
+                if mentions is not None:
+                    mentions[c.cause] = "applied"
+        for cause in absent_causes:
+            if self.rng.random() < 0.6:
+                if mentions is not None:
+                    mentions[cause] = "not_applied"
+                # a plausible rate that is NOT this transaction's true one -- so a rule that scrapes
+                # any rate out of the text and believes it lands on a wrong number, not merely a
+                # missing one
+                wrong_rate = f"{self.rng.choice([0.18, 0.25, 0.3, 0.45, 0.5, 1.0, 2.0, 5.0]):g}"
+                fragments.append(self._phrase_for(cause, "neg", wrong_rate, f"rfnd_{self.rng.randrange(16**8):08x}", held_out=held_out))
+        if not fragments:
+            fragments.append("settlement processed - see statement")
+        self.rng.shuffle(fragments)
+        return self.rng.choice(self._NARRATION_SEPARATORS).join(fragments)
+
+    def _phrase_for(self, cause: str, register: str, rate: str, ref: str, held_out: bool = False) -> str:
+        bank = self._CAUSE_PHRASES_HELDOUT if held_out else self._CAUSE_PHRASES
+        template = self.rng.choice(bank[cause][register])
+        return template.format(rate=rate or "0.5", ref=ref or f"PR{self.rng.randint(1000, 9999)}")
+
+    def _gen_compound_delta(self, n_causes: int | None = None, rounding_noise: int = 3, held_out_phrasing: bool = False):
+        """A settlement delta produced by SEVERAL causes at once, the way real settlement arithmetic
+        actually works -- a fee charged at the wrong contracted rate, plus a refund applied a second
+        time, plus a rolling reserve withheld, plus FX rounding, all landing in one net number.
+
+        This is the generator the residual architecture needs, and it exists because every
+        single-mechanism category in this file eventually collapsed to a rule. The reason is
+        structural: one mechanism means one arithmetic signature, and an exact-match search over one
+        signature has exactly one answer, so a hash table finds it. Compounding breaks that in a way
+        that is not a trick -- it is just what a real settlement line is.
+
+        Two properties do the work, and both are deliberate:
+
+        1. `n_causes` >= 2. The observed delta is a SUM, so recovering it means partitioning a number
+           rather than looking it up, and the number of ways to partition grows combinatorially.
+        2. `rounding_noise`. Real percentage withholdings are rounded to the paise independently at
+           several steps, so the components never sum to the observed delta *exactly* and an honest
+           resolver has to search with a tolerance. The default is 3 paise -- genuinely
+           rounding-scale, deliberately not a large fudge factor, because a large one would make the
+           ambiguity this generator produces an artefact of the fudge rather than of the task.
+
+        It is worth being precise about which of those two is actually doing the work, because the
+        obvious objection to this whole design is "you manufactured the ambiguity with a tolerance
+        knob." Measured directly (scripts/generate_residual_evidence.py), at `rounding_noise=0` and
+        tolerance 0 -- exact integer arithmetic, no tolerance whatsoever -- 45 of 60 compound cases
+        are STILL under-determined, at a median of 3.5 valid decompositions each. Compositionality
+        alone is sufficient; tolerance amplifies it (median k rises to ~19 at a 10-paise tolerance)
+        but is not the cause. The full curve is published rather than a single flattering row.
+
+        Given its own dedicated settlement batch, the same bounding `_gen_multiway_netting_trap`
+        already uses, so the resolver's netting hypotheses stay limited to this case's own small
+        group rather than every transaction in the run -- a real choice that makes the measured
+        ambiguity counts SMALLER (and so the model's job harder), disclosed rather than quiet.
+        """
+        rail = self._pick_rail()
+        amount = self._rand_amount()
+        created_at = self._rand_created_at()
+        order, payment, fee, tax = self._build_order_and_payment(amount, rail, "INR", created_at)
+        batch_id = f"batch_compound_{self._new_id('cmp', 6)}"
+
+        n_causes = n_causes if n_causes is not None else self.rng.randint(2, 4)
+        contracted_rate = FEE_PCT[rail]
+        refunds: list[Refund] = []
+        narration: str | None = None
+        causes: list[TrueCause] = []
+
+        # Which mechanisms are available to compose. Sampled without replacement so the same
+        # mechanism never appears twice in one transaction -- the same physical-exclusivity rule the
+        # resolver's enumerator applies (app/resolver/enumerate.py), kept consistent on both sides so
+        # ground truth is always something the resolver could in principle have proposed.
+        menu = ["fee_rate_mismatch", "gst_on_fee_mismatch", "duplicate_refund", "tds_deduction", "rolling_reserve", "fx_rounding", "promotional_waiver"]
+        chosen = self.rng.sample(menu, k=min(n_causes, len(menu)))
+        absent = [c for c in menu if c not in chosen]
+        promo_code = f"PR{self.rng.randint(1000, 9999)}"
+
+        for cause in chosen:
+            if cause == "fee_rate_mismatch":
+                rate = self.rng.choice([r for r in PLAUSIBLE_FEE_RATES if abs(r - contracted_rate) > 1e-9])
+                contribution = round(amount * contracted_rate) - round(amount * rate)
+                causes.append(TrueCause(cause=cause, amount=contribution, evidence_ref=f"fee_schedule:{rail}@{rate:.4f}"))
+            elif cause == "gst_on_fee_mismatch":
+                rate = self.rng.choice([r for r in STANDARD_GST_RATES if abs(r - GST_RATE) > 1e-9])
+                contribution = round(fee * GST_RATE) - round(fee * rate)
+                causes.append(TrueCause(cause=cause, amount=contribution, evidence_ref=f"gst:{rate:.2f}"))
+            elif cause == "duplicate_refund":
+                refund_amount = round(amount * self.rng.choice([0.15, 0.2, 0.25, 0.3]))
+                refund = Refund(
+                    refund_id=self._new_id("rfnd"),
+                    payment_id=payment.payment_id,
+                    amount=refund_amount,
+                    created_at=payment.captured_at + timedelta(hours=self.rng.randint(2, 40)),
+                    refund_type="partial",
+                )
+                refunds.append(refund)
+                causes.append(TrueCause(cause=cause, amount=-refund_amount, evidence_ref=f"refund:{refund.refund_id}"))
+            elif cause == "tds_deduction":
+                rate = self.rng.choice(STANDARD_TDS_RATES)
+                causes.append(TrueCause(cause=cause, amount=-round(amount * rate), evidence_ref=f"tds:{rate:.4f}"))
+            elif cause == "rolling_reserve":
+                rate = self.rng.choice(STANDARD_RESERVE_RATES)
+                causes.append(TrueCause(cause=cause, amount=-round(amount * rate), evidence_ref=f"reserve:{rate:.4f}"))
+            elif cause == "fx_rounding":
+                causes.append(TrueCause(cause=cause, amount=self.rng.choice([-3, -2, -1, 1, 2, 3]), evidence_ref="fx:INR"))
+            elif cause == "promotional_waiver":
+                causes.append(TrueCause(cause=cause, amount=fee + tax, evidence_ref="narration:PLACEHOLDER"))
+
+        # Every compound settlement carries a remittance advice, whether or not a waiver is among its
+        # causes -- if the text appeared only when a waiver was real, its mere PRESENCE would be the
+        # giveaway and a one-line rule would win again. It is always there, and always partly about
+        # things that did not happen.
+        advice_mentions: dict[str, str] = {}
+        narration = self._compose_remittance_advice(causes, absent, promo_code, mentions=advice_mentions, held_out=held_out_phrasing)
+
+        # net expected from the records alone: order - fee - tax - any refund actually on file
+        net = amount - fee - tax - sum(r.amount for r in refunds)
+        noise = self.rng.randint(-rounding_noise, rounding_noise) if rounding_noise else 0
+        delta = sum(c.amount for c in causes) + noise
+
+        settlement = self._build_settlement(
+            payment.payment_id, rail, net + delta, payment.captured_at, batch_id_override=batch_id, bank_narration=narration
+        )
+        # the waiver's evidence_ref can only be written once the settlement it cites exists
+        for c in causes:
+            if c.evidence_ref == "narration:PLACEHOLDER":
+                c.evidence_ref = f"narration:{settlement.settlement_id}"
+
+        ledger = self._build_ledger(order.order_id, net, created_at + timedelta(minutes=5))
+        gt = GroundTruthEntry(
+            transaction_id=order.order_id,
+            true_label="compound_delta",
+            injected_by_you=True,
+            true_causes=causes,
+            advice_mentions=advice_mentions,
+            internal_note=(
+                f"delta={delta} from {len(causes)} causes "
+                f"({', '.join(f'{c.cause}={c.amount}' for c in causes)}) + rounding noise {noise}"
+            ),
+        )
+        return [order], [payment], refunds, [settlement], [ledger], [gt]
+
     # ---- batch assembly -------------------------------------------------------
 
     def _merge(self, batches: list[tuple]) -> SyntheticBatch:
@@ -609,6 +893,8 @@ class SyntheticDataGenerator:
         multiway_n_distractors: int = 3,
         enable_held_out_variants: bool = False,
         enable_narration_explained: bool = False,
+        enable_compound_delta: bool = False,
+        held_out_advice_phrasing: bool = False,
     ) -> SyntheticBatch:
         """Main batch: `clean_ratio` clean (default 60%), remaining share split
         25:10:5 (explainable:adversarial:ambiguous -- the spec's original relative proportions
@@ -706,8 +992,13 @@ class SyntheticDataGenerator:
                 remaining_adversarial -= 1
 
         for _ in range(remaining_ambiguous):
-            use_narration = enable_narration_explained and self.rng.random() < 0.34
-            batches.append(self._gen_narration_explained() if use_narration else self._gen_genuine_error())
+            roll = self.rng.random()
+            if enable_compound_delta and roll < 0.5:
+                batches.append(self._gen_compound_delta(held_out_phrasing=held_out_advice_phrasing))
+            elif enable_narration_explained and roll < 0.67:
+                batches.append(self._gen_narration_explained())
+            else:
+                batches.append(self._gen_genuine_error())
 
         self.rng.shuffle(batches)
         return self._merge(batches)
@@ -919,6 +1210,8 @@ def generate(
     enable_multiway_netting: bool = False,
     enable_held_out_variants: bool = False,
     enable_narration_explained: bool = False,
+    enable_compound_delta: bool = False,
+    held_out_advice_phrasing: bool = False,
 ) -> tuple[SyntheticBatch, SyntheticBatch]:
     gen = SyntheticDataGenerator(seed=seed)
     main_batch = gen.generate_main_batch(
@@ -927,6 +1220,8 @@ def generate(
         enable_multiway_netting=enable_multiway_netting,
         enable_held_out_variants=enable_held_out_variants,
         enable_narration_explained=enable_narration_explained,
+        enable_compound_delta=enable_compound_delta,
+        held_out_advice_phrasing=held_out_advice_phrasing,
     )
     stress_gen = SyntheticDataGenerator(seed=seed + 1)  # distinct stream so the stress batch isn't a replay of the main one
     stress_batch = stress_gen.generate_stress_batch(stress_n)

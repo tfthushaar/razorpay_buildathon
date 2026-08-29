@@ -138,3 +138,76 @@ table {
     animation-delay: 0ms !important;
   }
 }
+
+/* --- Residual architecture panel ------------------------------------------------------------
+   The funnel is rendered as a funnel because the shape is the argument: the deterministic layer
+   takes everything it can FIRST, so whatever reaches the model is provably not rule-solvable. */
+.residual-funnel {
+  display: flex;
+  align-items: stretch;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin: 1rem 0;
+}
+.residual-step {
+  flex: 1 1 8rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.75rem;
+  border: 1px solid var(--border, #d8d8d8);
+  border-radius: 6px;
+  background: var(--panel-alt, #fafafa);
+}
+.residual-step-model {
+  border-color: #3b6fd4;
+  background: #f2f6ff;
+}
+.residual-step-n {
+  font-size: 1.6rem;
+  font-weight: 600;
+  line-height: 1;
+}
+.residual-step-label {
+  font-size: 0.78rem;
+  opacity: 0.75;
+  line-height: 1.25;
+}
+.residual-arrow {
+  align-self: center;
+  opacity: 0.4;
+  font-size: 1.2rem;
+}
+.residual-table {
+  margin-top: 1rem;
+  font-size: 0.85rem;
+}
+.residual-component {
+  white-space: nowrap;
+}
+.residual-cause {
+  font-weight: 600;
+}
+.residual-ref {
+  opacity: 0.6;
+  font-size: 0.78rem;
+}
+.residual-status {
+  font-size: 0.72rem;
+  padding: 0.15rem 0.4rem;
+  border-radius: 3px;
+  white-space: nowrap;
+}
+.residual-status-resolved {
+  background: #e6f4ea;
+  color: #1a6c34;
+}
+.residual-status-under_determined,
+.residual-status-under-determined {
+  background: #fff4e5;
+  color: #8a5300;
+}
+.residual-status-unmatched {
+  background: #fdecea;
+  color: #a4262c;
+}

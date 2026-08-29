@@ -24,7 +24,26 @@ TrueLabel = Literal[
     "genuine_error",
     "multiway_netting_trap",
     "narration_explained",
+    "compound_delta",
 ]
+
+
+class TrueCause(BaseModel):
+    """One component of the ground-truth explanation for a `compound_delta` transaction.
+
+    Distinct from `TrueLabel` on purpose. Every label above names a single mechanism, which is what
+    made each of them eventually collapse to a rule -- one mechanism, one arithmetic signature, one
+    detector. A compound delta has no single label to guess; the ground truth IS a set of components,
+    and scoring asks whether every component of an explanation checked out rather than whether one
+    string matched. See app/resolver/__init__.py.
+
+    Mirrors app.resolver.causes.CauseCandidate field-for-field but is declared here rather than
+    imported from it, so the data layer keeps no dependency on the resolver that scores it.
+    """
+
+    cause: str
+    amount: int
+    evidence_ref: str
 
 
 class Order(BaseModel):
@@ -91,6 +110,15 @@ class GroundTruthEntry(BaseModel):
     injected_by_you: bool
     linked_transaction_id: Optional[str] = None  # set for netting_trap pairs
     linked_transaction_ids: list[str] = []  # set for multiway_netting_trap groups (2+ other members)
+    true_causes: list[TrueCause] = []  # set for compound_delta: the real decomposition, in full
+    # What the remittance advice actually SAYS about each charge type: "applied", "not_applied", or
+    # absent from the mapping entirely when the text does not mention it. Distinct from true_causes,
+    # which is what really happened -- the advice is deliberately partial, so a cause can be true and
+    # unmentioned. Recorded so the reading step can be scored on its own, separately from whether the
+    # right decomposition was ultimately chosen: that isolates language understanding from the
+    # arithmetic bookkeeping that follows it, which is the only way to say whether a model reads this
+    # text better than a regex does. Scoring-only, like every other field here.
+    advice_mentions: dict[str, str] = {}
     internal_note: Optional[str] = None  # debugging aid only, never read by scoring code paths
 
 

@@ -132,6 +132,13 @@ class RunRequest(BaseModel):
     enable_multiway_netting: bool = False  # opt-in: inject multiway_netting_trap cases (default off -- see app/data_gen/generate.py)
     enable_held_out_variants: bool = False  # opt-in: near-miss duplicate_refund/netting_trap cases the exact-match rule can't confirm
     enable_narration_explained: bool = False  # opt-in: inject narration_explained cases (delta explained only by free text)
+    # opt-in: inject compound_delta cases AND run the residual architecture (app/resolver/) -- Layer 0
+    # over every exception, the model only over what it could not close. Off by default so a run
+    # without it behaves exactly as before and every committed evidence file stays valid.
+    enable_compound_delta: bool = False
+    # opt-in: build the remittance advice from phrasing the keyword baseline's negation cues have
+    # never seen, which is the honest test of whether reading generalises or was authored
+    held_out_advice_phrasing: bool = False
 
 
 class ResolveRequest(BaseModel):
@@ -171,6 +178,8 @@ def api_run(req: RunRequest) -> BatchRunResult:
             enable_multiway_netting=req.enable_multiway_netting,
             enable_held_out_variants=req.enable_held_out_variants,
             enable_narration_explained=req.enable_narration_explained,
+            enable_compound_delta=req.enable_compound_delta,
+            held_out_advice_phrasing=req.held_out_advice_phrasing,
         )
         escalations_by_id = {e.transaction_id: e.model_dump() for e in result.escalations}
 
