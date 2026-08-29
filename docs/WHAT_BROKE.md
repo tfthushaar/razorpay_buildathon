@@ -2,7 +2,34 @@
 
 Nineteen incidents, chosen from a much longer chronological journal ([`BUILD_LOG.md`](../BUILD_LOG.md))
 as the ones that actually changed how the system works, or how it was built. Same fixed format
-throughout, so this stays scannable instead of becoming a second wall of text.
+throughout — symptom, root cause, fix, and the test that would now catch it.
+
+A previous reviewer pointed out that this file had grown past a reasonable scan budget, and it has
+grown further since, because more things broke and I would rather have them written down than have a
+shorter document. The index below is the fix I'd defend: thirty seconds gets you the whole list, and
+you can drop into whichever ones are actually worth your time.
+
+| # | What broke | Where it bit |
+|---|---|---|
+| 1 | Published evidence described three algorithms while only ever running one | evidence integrity |
+| 2 | A cascade router built on an escalation signal that can never fire | routing design |
+| 3 | A candidate pool full of plausible numbers that never contained the true ones | resolver |
+| 4 | My own prompt didn't implement my own architecture, and I blamed the model first | prompt design |
+| 5 | The same unguarded-boundary pattern recurred five times across two subsystems | narrator + API |
+| 6 | The flagship experiment's own methodology was weak, caught by re-reading its evidence | experiment design |
+| 7 | A brute-force timing experiment's construction defeated what it was measuring | benchmarking |
+| 8 | A live model got the arithmetic right and the category wrong; one sentence fixed it | prompt design |
+| 9 | Mock decisions could ride on trust a real provider had earned | calibration gate |
+| 10 | A test suite was silently erasing the live demo's accumulated history | test isolation |
+| 11 | Re-running the same batch could manufacture "trust" with zero new evidence, twice | calibration |
+| 12 | An architecture change was measured before being kept, and it made things worse | performance |
+| 13 | Eleven rounds of fail-safe fixes assumed a failing call would raise something | timeouts |
+| 14 | A regulatory citation had gone stale three weeks before I checked it | domain accuracy |
+| 15 | An integration spec named a Razorpay endpoint that doesn't exist | API research |
+| 16 | The real Razorpay connector crashed on a real API response shape | connector |
+| 17 | One specific batch size silently generated one transaction too many | generator |
+| 18 | A fix that looked done still regressed the behaviour it was meant to improve | verification |
+| 19 | A hang that wasn't a hang — real rate-limiting, diagnosed from network state | diagnosis |
 
 ### Published evidence described three algorithms while only ever running one
 

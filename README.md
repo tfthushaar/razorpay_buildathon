@@ -22,6 +22,7 @@ what it has measured itself accurate on.
 | `multiway_netting_trap` — genuine judgment, real category | rule 0/42 (structural), Ollama 5/7, Groq 6/7 | `python scripts/generate_multiway_netting_trap_production_evidence.py` |
 | Reading bank advice, held-out phrasing | best rule 61.7% (−33.6 pts), `qwen2.5:14b` 81.7% (−5.2) — and the rule reads a denial as a confirmation 38.3% of the time | `python scripts/generate_reading_evidence.py` |
 | Strongest rule's real frontier | at a genuine 4-member netting group it's unreliable by **n=200**, not n=1,500 | `python scripts/generate_multiway_netting_optimal_solver_evidence.py` |
+| Three-source entity resolution, held-out phrasing | best regex cycle parser 88.0% (buys nothing over no parsing), model reading the same text **94.7%** | `python scripts/generate_three_source_evidence.py` |
 
 Full numbers, every claim in this file: [RESULTS.md](docs/RESULTS.md).
 
@@ -85,20 +86,37 @@ judgements — asserting charges the text explicitly says were *not* applied, wh
 files recovery claims is a false claim about money. Both models sit at 3.3–3.6%, and their dominant
 error runs the safe way (missing a mention, so the case escalates).
 
-**And the result that cuts against all of this.** End-to-end on the residual, the strategy that wins
-on held-out phrasing is a free heuristic that ignores the advice entirely — "always take the
+**The result that cuts against that.** End-to-end on the compound-delta residual, the strategy that
+wins on held-out phrasing is a free heuristic that ignores the advice entirely — "always take the
 fewest-component explanation" scores **31.7%**, beating the 14b reader at 26.7% and burying the
-collapsed keyword rule at 8.3%. Reading this text at 73–82% accuracy is better than a broken rule and
-still not good enough to beat a trivial structural prior. So the claim I'll actually defend is narrow:
-*a model reads this text better than a rule does and fails far more safely, but on this end-to-end
-task, at these model sizes, reading doesn't yet pay for itself.* Anyone looking for "the LLM beat the
-rules" in this repo won't find it. Full numbers, every raw evidence file:
-[RESULTS.md](docs/RESULTS.md).
+collapsed keyword rule at 8.3%. There, reading competes against a strong structural prior that already
+does most of the work, and it loses.
+
+**And the one place the model wins outright.** Real reconciliation isn't gateway data matched against
+itself — it's three sources that never agreed: the settlement report, the bank statement, and the
+merchant's ERP ledger, joined on nothing reliable. The hard case is the one every subscription
+business produces constantly: *two payouts to the same merchant, same amount, same day*. Merchant,
+amount and date all stop discriminating, the truncated UTRs share a tail, and the only thing left is
+the settlement cycle — which the bank writes in free text, wherever it likes, a third of the time not
+at all. Same matcher, same filters, same weights; the only thing swapped is what reads the cycle:
+
+| | Seen phrasing | Held-out | Gap |
+|---|---|---|---|
+| no cycle parsing at all | 91.3% | 88.0% | −3.3 |
+| best regex cycle parser I could write | **98.7%** | 88.0% (buys *nothing*) | −10.7 |
+| a model reading the same text | 98.0% | **94.7%** | −3.3 |
+
+The model recovers **10 of the 18 matches** the regex loses and cuts unresolved cases from 10 to 2.
+
+Put together, the claim I'll defend is specific rather than triumphant: **when free text is one signal
+among several, a model doesn't pay for itself — and when the structured fields are exhausted and the
+text is the only evidence left, it's worth 6.7 points and the rule is worth zero.** Full numbers,
+every raw evidence file: [RESULTS.md](docs/RESULTS.md).
 
 ## Verify it yourself
 
 ```bash
-cd backend && python -m pytest tests/ -v                 # 318 tests
+cd backend && python -m pytest tests/ -v                 # 337 tests
 python scripts/audit_calibration.py --db ../docs/evidence/verified_calibration_history.db
 python scripts/measure_mock_narrator_accuracy.py
 ```

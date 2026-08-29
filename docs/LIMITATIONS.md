@@ -4,6 +4,22 @@ The complete list. README keeps the five most load-bearing of these as one-line 
 the full picture, including the ones that didn't make the cut for space, not because they matter
 less.
 
+**The three-source generator is a model of real bank statements, not a sample of them.** The
+entity-resolution result — a model recovering 10 of the 18 matches the best regex cycle parser loses on
+held-out phrasing ([RESULTS.md](RESULTS.md)) — rests on corruption patterns I chose (truncated and
+prefixed UTRs, house-style merchant names, value-date slip, whole-rupee ERP rounding, cycle references
+in inconsistent free text). Every one of them is a real pattern, and the identical-twin case is
+genuinely the one that breaks joins in production. But the *mix* is mine, and a real bank feed will
+contain shapes neither reader here has met. The controlled part of that result is solid — everything in
+the matcher is held identical between the columns, so the gap is attributable to the reading step and
+nothing else — but it is a controlled comparison on synthetic text, not a production benchmark.
+
+**The three-source pipeline is a measured experiment, not wired into the product.**
+`app/resolver/entity_resolution.py` and its generator run from their own evidence script and their own
+tests; no batch run, dashboard panel or calibration gate consumes them. Wiring a second reconciliation
+axis into the shipped loop is a real piece of work that has not been done, and calling this
+"three-source reconciliation, shipped" would overstate it by a lot.
+
 **The "held-out" advice phrasing is held out from the parser, not from me.** The generalisation
 result this project now leads with — the keyword rule dropping 33.6 points on phrasing its cue list
 never saw, while both models drop 5–7 — is measured against a second phrase bank that I also wrote.

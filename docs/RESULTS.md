@@ -253,6 +253,57 @@ Reproduce: `cd backend && python scripts/generate_residual_evidence.py` (add
 [`residual-architecture-2026-08-29.json`](evidence/residual-architecture-2026-08-29.json),
 [`residual-architecture-14b-2026-08-29.json`](evidence/residual-architecture-14b-2026-08-29.json).
 
+## Three sources that disagree — and the one place the model beats the best rule outright
+
+Everything above reconciles gateway data against itself, so the join is trivial and all the difficulty
+sits in the arithmetic. This is the other half of real reconciliation: a settlement report, a bank
+statement and an ERP ledger that never agreed (`app/data_gen/three_source.py`), joined on nothing
+reliable — banks truncate the UTR to its last 6–8 characters, prefix it with a scheme code, render the
+merchant name in their own house style, and slip the value date across a weekend.
+
+It exists as a **check on the residual argument itself**. If under-determination only ever showed up in
+compound settlement arithmetic, it would be fair to suspect the arithmetic was built to produce it.
+This is a different problem, on different data, with a different rule.
+
+The case that makes it hard is the one that happens constantly in any subscription business: **two
+payouts to the same merchant, for the same amount, on the same day**. Merchant, amount and date all
+stop discriminating, the truncated UTRs share a tail, and the only thing left is the settlement cycle
+reference — which the bank carries in free text, wherever it likes, and a third of the time not at all.
+
+Everything in the matcher is held identical across these three columns — same filters, same scoring
+weights, same tie-breaking. The *only* difference is what decides "does this description state this
+settlement's cycle?":
+
+| | Seen phrasing | Held-out phrasing | Gap |
+|---|---|---|---|
+| UTR + amount + date + name, no cycle parsing | 91.3% | 88.0% | −3.3 pts |
+| **+ the best regex cycle parser I could write** | **98.7%** | 88.0% | **−10.7 pts** |
+| **+ a model reading the same text** | 98.0% | **94.7%** | −3.3 pts |
+
+(150 settlements against 180 bank rows; the true row was reachable in 150/150 for every column, so
+nothing here is capped by filtering.)
+
+On phrasing the parser's author saw, the regex wins — 98.7% against the model's 98.0%, a difference of
+one match. On phrasing he didn't, **cycle parsing buys exactly nothing**: 88.0%, identical to not
+parsing the cycle at all, because the regexes match zero descriptions. The model recovers **10 of the
+18 matches** the regex loses, and cuts under-determined cases from 10 down to 2.
+
+That is the first place in this entire project where the model beats the best rule I could write on
+the *end-to-end* task rather than on an isolated sub-step — and it is exactly where the theory said it
+should be. The difference from the compound-delta result above is instructive rather than
+contradictory: there, reading competed against a strong structural prior (parsimony) that did most of
+the work on its own; here the reading **is** the discriminator, because every structured field has
+already been exhausted by construction. When the text is the only evidence left, reading it well is
+worth 6.7 points; when it is one signal among several, it is not.
+
+Held-out phrasing keeps the domain vocabulary intact (`SETTLEMENT RUN D DTD 13.03.2026`, `window D on
+2026-03-13`, `processed in slot d of 2026-03-13`) and changes only the house style, so the regex is not
+failing on an unknown word. Two standing tests assert that the held-out bank defeats the regex
+completely and that the seen bank is fully parseable by it, or the comparison would measure nothing.
+
+Reproduce: `cd backend && python scripts/generate_three_source_evidence.py`. Raw evidence:
+[`three-source-2026-08-29.json`](evidence/three-source-2026-08-29.json).
+
 ## Cascade routing: built, measured, and it doesn't work — here's exactly why
 
 The obvious next move is a cascade: free rule → 7b → 14b → human, each tier handling only what the
@@ -511,7 +562,7 @@ Reproduce: `python scripts/generate_multiway_netting_evidence.py`.
 ## Verify it yourself
 
 ```bash
-cd backend && python -m pytest tests/ -v                                          # 318 tests
+cd backend && python -m pytest tests/ -v                                          # 337 tests
 python scripts/audit_calibration.py --db ../docs/evidence/verified_calibration_history.db
 python scripts/measure_mock_narrator_accuracy.py
 python scripts/measure_mock_narrator_accuracy_multiway.py

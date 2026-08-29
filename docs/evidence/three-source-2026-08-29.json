@@ -1,0 +1,87 @@
+{
+  "generated_on": "2026-08-29",
+  "seed": 42,
+  "n": 120,
+  "model": null,
+  "conditions": {
+    "seen_phrasing": {
+      "no_cycle_parsing": {
+        "n": 150,
+        "top_candidate_correct": 137,
+        "accuracy": 0.9133,
+        "truth_reachable": 150,
+        "resolved": 145,
+        "under_determined": 5,
+        "unmatched": 0,
+        "mean_chance_on_under_determined": 0.5,
+        "max_k": 2
+      },
+      "regex_cycle_parser": {
+        "n": 150,
+        "top_candidate_correct": 148,
+        "accuracy": 0.9867,
+        "truth_reachable": 150,
+        "resolved": 148,
+        "under_determined": 2,
+        "unmatched": 0,
+        "mean_chance_on_under_determined": 0.5,
+        "max_k": 2
+      },
+      "model_cycle_reader": {
+        "n": 150,
+        "top_candidate_correct": 147,
+        "accuracy": 0.98,
+        "truth_reachable": 150,
+        "resolved": 148,
+        "under_determined": 2,
+        "unmatched": 0,
+        "mean_chance_on_under_determined": 0.5,
+        "max_k": 2,
+        "model_calls": 242,
+        "lookups": 242
+      }
+    },
+    "held_out_phrasing": {
+      "no_cycle_parsing": {
+        "n": 150,
+        "top_candidate_correct": 132,
+        "accuracy": 0.88,
+        "truth_reachable": 150,
+        "resolved": 140,
+        "under_determined": 10,
+        "unmatched": 0,
+        "mean_chance_on_under_determined": 0.5,
+        "max_k": 2
+      },
+      "regex_cycle_parser": {
+        "n": 150,
+        "top_candidate_correct": 132,
+        "accuracy": 0.88,
+        "truth_reachable": 150,
+        "resolved": 140,
+        "under_determined": 10,
+        "unmatched": 0,
+        "mean_chance_on_under_determined": 0.5,
+        "max_k": 2
+      },
+      "model_cycle_reader": {
+        "n": 150,
+        "top_candidate_correct": 142,
+        "accuracy": 0.9467,
+        "truth_reachable": 150,
+        "resolved": 148,
+        "under_determined": 2,
+        "unmatched": 0,
+        "mean_chance_on_under_determined": 0.5,
+        "max_k": 2,
+        "model_calls": 248,
+        "lookups": 248
+      }
+    }
+  },
+  "generalisation_gap": {
+    "no_cycle_parsing": -0.0333,
+    "regex_cycle_parser": -0.1067,
+    "model_cycle_reader": -0.0333
+  }
+}

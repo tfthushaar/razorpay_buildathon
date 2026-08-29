@@ -32,7 +32,11 @@ from app.narrator.agent import narrate
 from app.narrator.tools import build_tool_context
 
 MOCK_SEEDS = list(range(1, 21))  # free -- a full sweep
-REAL_PROVIDER_SEEDS = list(range(1, 6))  # real calls cost time/money -- a smaller, still-real sample
+# Raised from 5 seeds (which produced n=10) after a review pointed out the obvious: a 10/10 result has
+# a 95% Wilson LOWER BOUND of 72.2%, so "10/10" and "clearly good enough to trust" are not the same
+# claim and the first should never be written as if it were the second. Thirty seeds is still a
+# tractable number of real local calls and puts the lower bound somewhere worth quoting.
+REAL_PROVIDER_SEEDS = list(range(1, 31))
 
 
 def _first_case_per_seed(seed: int, main_n: int = 200):

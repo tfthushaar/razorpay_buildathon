@@ -187,6 +187,34 @@ model and the rule get symmetric help: the rule's negation-cue list was written 
 the generator's phrasing, so the model's prompt carries the corresponding domain warning. Neither is
 given the answer. Numbers, including where the rule wins: [RESULTS.md](RESULTS.md).
 
+## Three sources that disagree — the same structure, reached from a different direction
+
+Everything else in this project reconciles Razorpay-side data against itself: one settlement record,
+one ledger entry, one causal chain, referential integrity guaranteed by construction. That makes the
+*join* trivial and pushes all the difficulty into the arithmetic, which is why every hard case above
+lives in the arithmetic.
+
+Real reconciliation is three systems that never agreed: the gateway's settlement report, the bank
+statement, and the merchant's own ERP ledger (`app/data_gen/three_source.py`). Nothing joins them
+cleanly — banks truncate the UTR to its last 6–8 characters or prefix it with a scheme code, render
+the merchant name in their own house style, and slip the value date across a weekend; the ERP records
+to the whole rupee. `app/resolver/entity_resolution.py` is Layer 0 for that problem, emitting the same
+three statuses (`RESOLVED` / `UNDER_DETERMINED` / `UNMATCHED`) with the same 1/k chance baseline.
+
+This exists as a **check on the residual argument itself**. If under-determination only ever showed up
+in compound settlement arithmetic, it would be fair to suspect the arithmetic was built to produce it.
+Entity resolution is a different problem, on different data, with a different rule — and it produces
+the same structure, which is evidence that the structure belongs to reconciliation rather than to one
+generator.
+
+The case that makes it real is the one that actually occurs constantly in any subscription or
+marketplace business: **two payouts to the same merchant, for the same amount, on the same day**.
+Merchant, amount and date all stop discriminating, the truncated UTRs share a tail, and the only thing
+left is the settlement cycle reference — which the bank carries in free text, in whatever position
+that bank uses, and about a third of the time not at all. The structured fields run out and what
+remains is a reading problem, arrived at from the opposite end of the system from the remittance-advice
+work. Numbers, including where the regex parser wins: [RESULTS.md](RESULTS.md).
+
 ## Where genuine judgment lives in the product
 
 On the original three categories, the deterministic rule already matches the LLM exactly (see

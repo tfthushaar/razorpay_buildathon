@@ -4281,6 +4281,53 @@ every real-provider claim throughout its build.
 
 ---
 
+## 2026-08-29 (VI) — Three sources that disagree, and the first place the model actually wins
+
+- **Why I built it.** The residual result above has a hole in it that I could see clearly: every hard
+  case in this repo lives in the *arithmetic*, because everything reconciles gateway data against
+  itself and the join is therefore trivial by construction. If under-determination only ever showed up
+  in compound settlement arithmetic, anyone would be entitled to think I built the arithmetic to
+  produce it. So I built the other half of real reconciliation — a settlement report, a bank statement
+  and an ERP ledger that never agreed — as a check on my own argument.
+
+- **What makes it hard, and it isn't the obvious thing.** My first version corrupted UTRs, merchant
+  names and dates, and a well-written matcher scored 119/120. That told me about my generator, not
+  about entity resolution. The case that actually breaks joins in production is boring and constant:
+  two payouts to the same merchant, same amount, same day — any subscription business produces them
+  all week. Merchant, amount and date all stop discriminating at once, the truncated UTRs share a
+  tail, and the only thing left is the settlement cycle, which the bank writes in free text wherever
+  it likes and a third of the time not at all.
+
+- **The controlled comparison.** Same matcher, same filters, same scoring weights, same tie-breaking.
+  The only thing swapped is what answers "does this description state this settlement's cycle?" On
+  phrasing my regexes were written against: regex 98.7%, model 98.0% — the rule wins by one match. On
+  held-out house styles (`SETTLEMENT RUN D DTD 13.03.2026`, `window D on 2026-03-13`, `processed in
+  slot d of 2026-03-13`): regex 88.0%, which is *identical to not parsing the cycle at all* because it
+  matches nothing; model 94.7%. It recovers 10 of the 18 matches the regex loses and cuts unresolved
+  cases from 10 to 2.
+
+- **This is the first time in the whole project the model beats the best rule I could write on an
+  end-to-end task** rather than on an isolated sub-step. And the contrast with the compound-delta
+  result is the interesting part, not an inconsistency: there, reading competed against a strong
+  structural prior (parsimony) that already did most of the work, and lost. Here the reading *is* the
+  discriminator, because every structured field has been exhausted by construction. Free text as one
+  signal among several doesn't pay for itself; free text as the only remaining evidence is worth 6.7
+  points while the rule is worth zero.
+
+- **One measurement error I made and caught.** My first pass reported "truth in candidate set:
+  140/150" and I briefly believed the matcher's filters were discarding true rows. They weren't — the
+  result object only returned the winning tie, so ten ordinary *ranking* errors were indistinguishable
+  from ten *reachability* failures. Those are different bugs with different fixes. The matcher now
+  returns every scored candidate and `reachable()` is asserted at 150/150.
+
+- **Honest scope.** This is a controlled comparison on synthetic text whose corruption mix I chose, not
+  a production benchmark; and the pipeline runs from its own evidence script and tests, not from the
+  shipped batch loop. Both disclosed in LIMITATIONS.md rather than left implied.
+
+- **Status.** 337 tests passing.
+
+---
+
 ## On the audit rounds and the scores
 
 Roughly every few hours during the build, a deliberate adversarial pass ran over the project's own
