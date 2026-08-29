@@ -148,7 +148,7 @@ provider. Six consecutive mock runs crossed the 90% threshold with no LLM ever c
 Fix. `narrator_provider != "mock"` on the auto-resolve path. Mock decisions are tracked as `mock_n`
 and never counted toward any gate.
 
-Found by: an external audit, reproduced live.
+Found by: an external review, then reproduced live.
 
 ---
 
