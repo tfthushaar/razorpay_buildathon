@@ -639,3 +639,34 @@ def test_forecast_reliability_shows_refusing_improves_amount_accuracy():
     assert body["mape_on_forecast_set"] < body["mape_on_everything"], (
         "refusing did not improve MAPE on what remains, so the refusal layer is decoration"
     )
+
+
+def test_qa_accuracy_scores_answers_against_derived_ground_truth():
+    """The Q&A agent was the one loop with no accuracy number. Its other tests cover routing,
+    grounding and fail-safes, never whether an answer is right."""
+    response = TestClient(app).get("/api/qa/accuracy?n=80&phrasing=seen&provider=mock")
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["answers"] == 6
+    assert body["numeric_scored"] > 0
+    assert 0.0 <= body["numeric_accuracy"] <= 1.0
+    for row in body["per_question"]:
+        assert row["kind"] and row["question"]
+        assert isinstance(row["numeric_correct"], bool)
+
+
+def test_qa_accuracy_shows_the_keyword_router_losing_on_held_out_phrasing():
+    """The mock routes on a keyword list and a date regex that I wrote, so its seen-column score is
+    authorship. Held-out phrasing asks the same questions in words it was never built for."""
+    client = TestClient(app)
+    seen = client.get("/api/qa/accuracy?n=80&phrasing=seen&provider=mock").json()
+    held = client.get("/api/qa/accuracy?n=80&phrasing=held_out&provider=mock").json()
+    assert seen["numeric_accuracy"] > held["numeric_accuracy"]
+
+
+def test_qa_accuracy_reports_fabricated_ids_separately():
+    """An invented transaction id is a reference someone will go and look for, so it is counted on
+    its own rather than folded into an accuracy average."""
+    body = TestClient(app).get("/api/qa/accuracy?n=80&provider=mock").json()
+    assert "fabrication_rate" in body
+    assert body["answers_with_fabricated_ids"] == 0, "the mock cites only ids it looked up"

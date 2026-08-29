@@ -24,7 +24,7 @@ from pydantic import BaseModel
 from app.chain.builder import CausalChain
 from app.narrator.circuit_breaker import CircuitBreaker, CircuitBreakerOpenError
 from app.narrator.tools import ToolContext, check_batch_anomalies
-from app.qa.tools import find_transactions_by_date, get_transaction_detail, list_flagged_transactions
+from app.qa.tools import find_transactions_by_date, get_transaction_detail, list_flagged_transactions, summarise_batch
 
 _T = TypeVar("_T")
 
@@ -83,6 +83,14 @@ TOOL_SCHEMAS = [
     {
         "type": "function",
         "function": {
+            "name": "summarise_batch",
+            "description": "Aggregate facts about the whole batch: how many transactions it holds, total settled value, how many reconcile exactly, how many need human review, and a breakdown by rail. Use this for any question about totals, counts, or the size and shape of the run rather than about one transaction.",
+            "parameters": {"type": "object", "properties": {}, "required": []},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "list_flagged_transactions",
             "description": "Scan the entire batch for transactions with a duplicate-refund match or a netting-trap partner. Use this for any question not scoped to one transaction id or one date.",
             "parameters": {"type": "object", "properties": {}},
@@ -122,6 +130,8 @@ def _execute_tool(name: str, arguments: dict, context: ToolContext, settled_at_b
         if transaction_id not in context.chains:
             return {"error": f"no transaction {transaction_id!r} in this batch"}
         return check_batch_anomalies(transaction_id, context)
+    if name == "summarise_batch":
+        return summarise_batch(context.chains)
     if name == "list_flagged_transactions":
         return list_flagged_transactions(context)
     raise ValueError(f"unknown tool: {name}")
@@ -163,6 +173,7 @@ def _parse_json_response(content: str) -> dict:
 
 
 _DATE_RE = re.compile(r"\d{4}-\d{2}-\d{2}")
+_AGGREGATE_KEYWORDS = ("in total", "batch size", "how many transactions", "overall", "summary", "summarise", "summarize", "total value")
 _ANOMALY_KEYWORDS = ("duplicate", "netting", "anomal", "flagged", "suspicious", "fraud", "unexplained", "shortfall", "mismatch")
 
 
@@ -193,6 +204,16 @@ def answer_mock(question: str, context: ToolContext, settled_at_by_transaction_i
             else f"Mock provider: no transactions settled on {date_str} in this batch (real lookup, no LLM synthesis)."
         )
         return QAAnswer(question=question, answer=answer, cited_transaction_ids=cited, tool_calls=tool_calls_log, provider="mock")
+
+    if any(kw in question_lower for kw in _AGGREGATE_KEYWORDS):
+        result = summarise_batch(context.chains)
+        tool_calls_log.append(ToolCallRecord(tool="summarise_batch", arguments={}, result=result))
+        answer = (
+            f"Mock provider: this batch holds {result['total_transactions']} transaction(s); "
+            f"{result['reconciles_exactly']} reconcile exactly, {result['has_a_discrepancy']} carry a discrepancy, "
+            f"and {result['needs_human_review']} need human review (real aggregate, no LLM synthesis)."
+        )
+        return QAAnswer(question=question, answer=answer, cited_transaction_ids=[], tool_calls=tool_calls_log, provider="mock")
 
     if any(kw in question_lower for kw in _ANOMALY_KEYWORDS):
         result = list_flagged_transactions(context)

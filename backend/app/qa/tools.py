@@ -94,3 +94,37 @@ def get_transaction_detail(transaction_id: str, chains: dict[str, CausalChain]) 
         "first_divergence_hop": chain.first_divergence_hop,
         "hops": [{"name": h.name, "expected": h.expected, "actual": h.actual, "delta": h.delta} for h in chain.hops],
     }
+
+
+def summarise_batch(chains: dict[str, CausalChain]) -> dict:
+    """Aggregate facts about the whole batch: size, value, and how much of it needed a human.
+
+    Added after a ground-truth benchmark (app/qa/benchmark.py) showed the agent scoring 0/5 on every
+    aggregate question, in every condition, for both providers. The cause was not the model. The
+    toolset had nothing that answered one: every tool was scoped to a single transaction, a single
+    date, or the anomaly check. "How many transactions are in this run" was unanswerable, which is
+    among the first things a finance controller asks.
+
+    Everything reported here is the system's own observable output -- chain arithmetic and the
+    deterministic matching engine's resolution -- never the generator's answer key. `needs_human_review`
+    is what the engine could not close on its own, which is the honest reading of "could not account
+    for", as distinct from the true_label the agent has no access to and should not.
+    """
+    from app.matching.engine import run_matching_engine
+
+    results = run_matching_engine(chains)
+    by_rail: dict[str, int] = {}
+    for chain in chains.values():
+        by_rail[chain.rail] = by_rail.get(chain.rail, 0) + 1
+
+    needs_review = sum(1 for r in results.values() if r.resolution == "needs_narration")
+    return {
+        "total_transactions": len(chains),
+        "total_settled_value_paise": sum(c.actual_settled_amount for c in chains.values()),
+        "reconciles_exactly": sum(1 for c in chains.values() if c.settlement_delta == 0),
+        "has_a_discrepancy": sum(1 for c in chains.values() if c.settlement_delta != 0),
+        "resolved_without_review": len(chains) - needs_review,
+        "needs_human_review": needs_review,
+        "settled_outside_sla": sum(1 for c in chains.values() if not c.within_sla),
+        "transactions_by_rail": by_rail,
+    }

@@ -1,0 +1,181 @@
+{
+  "generated_on": "2026-08-30",
+  "seeds": [
+    1,
+    2,
+    3,
+    4,
+    5
+  ],
+  "n_per_batch": 120,
+  "questions_per_batch": 6,
+  "conditions": {
+    "mock:seen": {
+      "provider": "mock",
+      "phrasing": "seen",
+      "answers": 30,
+      "numeric_correct": 15,
+      "numeric_scored": 30,
+      "numeric_accuracy": 0.5,
+      "mean_citation_jaccard": 0.75,
+      "answers_with_fabricated_ids": 0,
+      "fabrication_rate": 0.0,
+      "fabricated_ids_total": 0,
+      "per_question": {
+        "batch_size": {
+          "n": 5,
+          "numeric_n": 5
+        },
+        "busiest_date": {
+          "n": 5,
+          "numeric_n": 5,
+          "numeric_correct": 5
+        },
+        "clean_count": {
+          "n": 5,
+          "numeric_n": 5
+        },
+        "flagged_count": {
+          "n": 5,
+          "numeric_n": 5,
+          "numeric_correct": 5
+        },
+        "flagged_ids": {
+          "n": 5,
+          "numeric_n": 5,
+          "numeric_correct": 5
+        },
+        "genuine_error_count": {
+          "n": 5,
+          "numeric_n": 5
+        }
+      },
+      "fabrication_examples": []
+    },
+    "ollama:seen": {
+      "provider": "ollama",
+      "phrasing": "seen",
+      "answers": 30,
+      "numeric_correct": 10,
+      "numeric_scored": 30,
+      "numeric_accuracy": 0.3333,
+      "mean_citation_jaccard": 0.6485,
+      "answers_with_fabricated_ids": 0,
+      "fabrication_rate": 0.0,
+      "fabricated_ids_total": 0,
+      "per_question": {
+        "batch_size": {
+          "n": 5,
+          "numeric_n": 5
+        },
+        "busiest_date": {
+          "n": 5,
+          "numeric_n": 5,
+          "numeric_correct": 5
+        },
+        "clean_count": {
+          "n": 5,
+          "numeric_n": 5
+        },
+        "flagged_count": {
+          "n": 5,
+          "numeric_n": 5,
+          "numeric_correct": 5
+        },
+        "flagged_ids": {
+          "n": 5,
+          "numeric_n": 5
+        },
+        "genuine_error_count": {
+          "n": 5,
+          "numeric_n": 5
+        }
+      },
+      "fabrication_examples": []
+    },
+    "mock:held_out": {
+      "provider": "mock",
+      "phrasing": "held_out",
+      "answers": 30,
+      "numeric_correct": 0,
+      "numeric_scored": 30,
+      "numeric_accuracy": 0.0,
+      "mean_citation_jaccard": 0.0084,
+      "answers_with_fabricated_ids": 0,
+      "fabrication_rate": 0.0,
+      "fabricated_ids_total": 0,
+      "per_question": {
+        "batch_size": {
+          "n": 5,
+          "numeric_n": 5
+        },
+        "busiest_date": {
+          "n": 5,
+          "numeric_n": 5
+        },
+        "clean_count": {
+          "n": 5,
+          "numeric_n": 5
+        },
+        "flagged_count": {
+          "n": 5,
+          "numeric_n": 5
+        },
+        "flagged_ids": {
+          "n": 5,
+          "numeric_n": 5
+        },
+        "genuine_error_count": {
+          "n": 5,
+          "numeric_n": 5
+        }
+      },
+      "fabrication_examples": []
+    },
+    "ollama:held_out": {
+      "provider": "ollama",
+      "phrasing": "held_out",
+      "answers": 30,
+      "numeric_correct": 7,
+      "numeric_scored": 30,
+      "numeric_accuracy": 0.2333,
+      "mean_citation_jaccard": 0.4417,
+      "answers_with_fabricated_ids": 0,
+      "fabrication_rate": 0.0,
+      "fabricated_ids_total": 0,
+      "per_question": {
+        "batch_size": {
+          "n": 5,
+          "numeric_n": 5
+        },
+        "busiest_date": {
+          "n": 5,
+          "numeric_n": 5,
+          "numeric_correct": 2
+        },
+        "clean_count": {
+          "n": 5,
+          "numeric_n": 5
+        },
+        "flagged_count": {
+          "n": 5,
+          "numeric_n": 5,
+          "numeric_correct": 5
+        },
+        "flagged_ids": {
+          "n": 5,
+          "numeric_n": 5
+        },
+        "genuine_error_count": {
+          "n": 5,
+          "numeric_n": 5
+        }
+      },
+      "fabrication_examples": []
+    }
+  },
+  "generalisation_gap_numeric": {
+    "mock": -0.5,
+    "ollama": -0.1
+  }
+}

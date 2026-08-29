@@ -44,6 +44,7 @@ from app.matching.engine import run_matching_engine
 from app.narrator.agent import narrate
 from app.narrator.tools import build_tool_context
 from app.qa.agent import QAAnswer, answer_question
+from app.qa.benchmark import build_questions, extract_ids_from_text, score_answer
 from app.qa.tools import build_settled_at_index
 from app.webhooks.razorpay import ParsedSettlementEvent, WebhookParseError, WebhookSignatureError, parse_settlement_processed_event, verify_razorpay_signature
 from app.pipeline import BatchRunResult, _final_decision, run_batch
@@ -479,6 +480,95 @@ class ForecastReliabilityReport(BaseModel):
     largest_deviation: dict
     mape_on_forecast_set: float | None
     mape_on_everything: float | None
+
+
+class QAAccuracyReport(BaseModel):
+    """Whether the Q&A agent's answers are correct, not merely grounded."""
+
+    provider: str
+    phrasing: str
+    seed: int
+    answers: int
+    numeric_correct: int
+    numeric_scored: int
+    numeric_accuracy: float | None
+    mean_citation_jaccard: float | None
+    answers_with_fabricated_ids: int
+    fabrication_rate: float
+    per_question: list[dict]
+
+
+@app.get("/api/qa/accuracy")
+def api_qa_accuracy(
+    seed: int = Query(1, ge=1),
+    n: int = Query(120, ge=20, le=2000),
+    phrasing: Literal["seen", "held_out"] = Query("seen"),
+    provider: Literal["mock", "groq", "ollama"] | None = Query(None),
+) -> QAAccuracyReport:
+    """Scores the Q&A agent against ground truth derived from the batch's own answer key.
+
+    Every other loop in this project reports an accuracy figure; this one reported none. Its tests
+    covered routing, grounding and fail-safes, never whether an answer was right. `phrasing` selects
+    between questions worded the way the mock's keyword router expects and the same questions worded
+    the way it was never built for -- the same seen/held-out split the reading experiment uses, and
+    for the same reason: I wrote that router's vocabulary.
+
+    Fabrication is reported separately because it is the failure that matters. An invented
+    transaction id is a reference someone will go and look for.
+    """
+    try:
+        batch, _ = generate(seed=seed, main_n=n, stress_n=0)
+        chains = build_all_chains(batch)
+        context = build_tool_context(batch, chains)
+        settled_at = build_settled_at_index(batch)
+        all_ids = set(chains)
+
+        rows, numeric_hits, numeric_total, fabricated_answers = [], 0, 0, 0
+        citation_scores: list[float] = []
+
+        for spec in build_questions(batch, settled_at):
+            question = spec.seen if phrasing == "seen" else spec.held_out
+            truth = spec.truth(batch, chains, settled_at)
+            result = answer_question(question, context, settled_at, provider=provider)
+            cited = list(set(result.cited_transaction_ids) | extract_ids_from_text(result.answer))
+            scored = score_answer(result.answer, cited, truth, all_ids)
+
+            if truth.expected_number is not None:
+                numeric_total += 1
+                numeric_hits += int(scored["numeric_correct"])
+            if scored["citation_jaccard"] is not None:
+                citation_scores.append(scored["citation_jaccard"])
+            if scored["n_fabricated"]:
+                fabricated_answers += 1
+
+            rows.append(
+                {
+                    "kind": spec.kind,
+                    "question": question,
+                    "answer": (result.answer or "")[:300],
+                    "expected_number": truth.expected_number,
+                    "numeric_correct": scored["numeric_correct"],
+                    "citation_jaccard": scored["citation_jaccard"],
+                    "n_fabricated": scored["n_fabricated"],
+                    "fabricated_ids": scored["fabricated_ids"][:5],
+                }
+            )
+
+        return QAAccuracyReport(
+            provider=rows and result.provider or (provider or "mock"),
+            phrasing=phrasing,
+            seed=seed,
+            answers=len(rows),
+            numeric_correct=numeric_hits,
+            numeric_scored=numeric_total,
+            numeric_accuracy=round(numeric_hits / numeric_total, 4) if numeric_total else None,
+            mean_citation_jaccard=round(sum(citation_scores) / len(citation_scores), 4) if citation_scores else None,
+            answers_with_fabricated_ids=fabricated_answers,
+            fabrication_rate=round(fabricated_answers / len(rows), 4) if rows else 0.0,
+            per_question=rows,
+        )
+    except Exception as e:
+        raise HTTPException(422, f"Could not score the Q&A agent ({type(e).__name__}: {e}).")
 
 
 @app.get("/api/forecast/reliability")
