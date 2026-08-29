@@ -11,8 +11,6 @@ import pytest
 
 from app.data_gen.three_source import ThreeSourceGenerator, generate_three_source_batch
 from app.resolver.entity_resolution import (
-    MAX_AMOUNT_SLIP_PAISE,
-    MAX_DATE_SLIP_DAYS,
     _cycle_agrees,
     _name_similarity,
     _utr_match,

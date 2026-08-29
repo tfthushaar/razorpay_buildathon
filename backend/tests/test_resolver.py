@@ -21,7 +21,7 @@ from app.resolver.causes import CauseCandidate, Decomposition
 from app.resolver.enumerate import build_candidate_pool, enumerate_decompositions
 from app.resolver.keyword_baseline import best_decomposition_by_advice, read_advice
 from app.resolver.residual_stage import run_residual_stage
-from app.resolver.resolver import most_parsimonious, present_options, rank_decompositions
+from app.resolver.resolver import present_options, rank_decompositions
 from app.resolver.verifier import verify_decomposition
 
 
