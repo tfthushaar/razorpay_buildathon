@@ -1,6 +1,6 @@
 # Full setup
 
-Requires Python 3.11+ and Node 20.19+ (or 22.12+) — Vite 8's own minimum, not just a suggestion. The
+Requires Python 3.11+ and Node 20.19+ (or 22.12+), which is Vite 8's own hard minimum. The
 [README](../README.md) has a three-line quick start for a mock-provider run; this is the full
 picture — real LLM providers, Docker, and how the live deployment is wired.
 
@@ -63,12 +63,12 @@ SQLite state persists in a named volume. Actually built and run against a real D
 live through a browser with zero console errors — see BUILD_LOG.md.
 
 This containerizes the current single-instance implementation as-is — no horizontal scaling, message
-queue, or real settlement-ledger webhook (identified next steps, not built). The integration point
+queue, or real settlement-ledger webhook (identified next steps, still unbuilt). The integration point
 that already exists: `POST /api/transactions/evaluate` accepts an arbitrary transaction record and
-runs it through the full pipeline; wiring a real webhook to call it is the remaining work, not a
+runs it through the full pipeline; wiring a real webhook to call it is the remaining work, short of a
 redesign.
 
-**Measured, not guessed:** a real Ollama run processed 120 transactions end-to-end in 46.5 seconds —
+**Measured:** a real Ollama run processed 120 transactions end-to-end in 46.5 seconds —
 **2.58 tx/sec** sustained, on local, free inference. Extrapolated at that rate, continuously:
 ~222,700 tx/day on one instance. This demo's own mix sends 15% of transactions to the narrator; a
 realistic settlement batch (1-3% needing narration, per BUILD_LOG.md's sparse-batch benchmark) would
@@ -77,7 +77,7 @@ run proportionally faster.
 ## Frontend hosting (Netlify / Vercel)
 
 Both are static-build configs for `frontend/` only — the backend is a stateful FastAPI service with
-SQLite persistence and narrator calls that can run minutes against a real LLM, not a fit for either
+SQLite persistence and narrator calls that can run minutes against a real LLM, which suits neither
 platform's serverless model. Set `VITE_API_BASE_URL` (frontend) to wherever the backend runs, and
 `ALLOWED_ORIGINS` (backend) to the deployed frontend URL — CORS only allows `localhost` by default.
 
@@ -92,7 +92,7 @@ platform's serverless model. Set `VITE_API_BASE_URL` (frontend) to wherever the 
 Backend on Render (`razorpay-buildathon-a1p0.onrender.com`), frontend on
 [Vercel](https://razorpay-buildathon-five.vercel.app), `ALLOWED_ORIGINS` pointed at the Vercel URL,
 and a free UptimeRobot monitor pinging `/api/health` every 5 minutes so Render's free-tier idle sleep
-never kicks in — a judge opening the link gets an instant response, not a cold start, and state
+never kicks in, so a judge opening the link gets an instant response instead of a cold start, and state
 persists across visits. Verified live end to end via Playwright against the actual public URLs, zero
 console/network errors. Full deployment trail, including a hardcoded port that would have silently
 broken on Render and was caught before it shipped: BUILD_LOG.md.

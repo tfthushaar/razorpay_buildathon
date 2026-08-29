@@ -1,7 +1,46 @@
 # What broke
 
-Eleven incidents that changed how the system works, newest first. Longer journal:
+Thirteen incidents that changed how the system works, newest first. Longer journal:
 [`BUILD_LOG.md`](../BUILD_LOG.md).
+
+---
+
+## A benchmark that graded the agent against an answer key it cannot see
+
+Symptom. The new Q&A benchmark put the model at 33% on seen phrasing and 23% on held-out, with three
+of six questions scoring 0/5 for every provider in every condition.
+
+Cause. Two faults, and the first was in my scoring. "How many reconciled cleanly" was graded against
+the generator's `clean_match` label (72 on seed 1) when the observable answer is delta == 0 (95). "How
+many could not be accounted for" was graded against `genuine_error` (6) when the observable answer is
+what reaches human review (18). Those labels live in the answer key, so two of six questions were
+unanswerable by construction and the agent was marked wrong for them.
+
+The second fault was real: every tool was scoped to one transaction, one date or the anomaly check, so
+"how many transactions are in this run" had no tool behind it.
+
+Fix. Both ground truths now score against observables, `summarise_batch` covers the aggregate
+questions, and the mock router gets matching keywords so the baseline stays the strongest rule I can
+write. Re-measured, the rule scores 83.3% on my phrasing and 0.0% on held-out; the model 63.3% and
+50.0%.
+
+Found by: a per-question breakdown, after the aggregate number alone suggested a weak model.
+
+---
+
+## An absolute error that could be reduced by being more wrong
+
+Symptom. Two implementations of the same measure reported different MAPE for the same batch.
+
+Cause. `run_backtest` guarded on `actual != 0` and then divided by `actual`. Six settlements per
+2,000-transaction batch are over-netted to a negative amount, so those terms came out negative and
+pulled down the mean of a quantity defined as absolute. Worse, the surviving figure was not a central
+tendency at all: 83% of it came from five rows out of 1,795, and the median was 0.000000.
+
+Fix. Settlements at or below zero are counted, not divided by. Amount accuracy is published as five
+numbers -- exact rate, median, mean, p95, worst -- through one shared `ape_panel` both callers use.
+
+Found by: plotting the error distribution before trying to improve it.
 
 ---
 
@@ -15,7 +54,8 @@ meant only two others had to cancel, which is a 2-sum every time. I had written 
 k-sum paths and published a table that exercised one.
 
 Fix. Sweep 3/4/5, and count separately when a coincidental smaller group cancels first. The corrected
-frontier is much worse: at a genuine four-member group the solver is unreliable by n=200, not n=1,500.
+frontier is much worse: at a genuine four-member group the solver is unreliable by n=200 rather than
+n=1,500.
 The same re-run corrected an n=500 cell of 29/30 = 96.7%, which I had published inside a blanket "100%
 across 30 seeds up to n=1000". The sweep now records `algorithm_used` per row.
 
@@ -26,26 +66,23 @@ Found by: reading the committed evidence file after an external prompt to check 
 ## A throughput figure that improved by changing definition
 
 Symptom. A published throughput number went from 5,508 tx/sec to 20,953 tx/sec between two passes,
-with the old row deleted and no note. It was then promoted to the README's lead economic argument,
-with no reproduce command and no committed evidence.
+with the old row deleted and no note, then promoted to the README's lead economic argument with no
+reproduce command and no committed evidence.
 
 Cause. The metric changed scope. The old figure timed `run_batch`'s instrumented region; the new one
-timed chains and matching alone. Both were true measurements of different things. Separately, the new
-figures came from single unrepeated runs: the medians over 3 repeats are 17,424 and 20,513, which is
-17% and 25% below what I published.
+timed chains and matching alone. Both were true measurements of different things. The new figures also
+came from single unrepeated runs: medians over 3 repeats are 17,424 and 20,513, or 17% and 25% below
+what I published. Underneath sat a third error. The BUILD_LOG entry for the original run described the
+9.08s as covering "matching + fee-leak review + journal generation", and `run_batch` stops its timer
+before both. That description had been wrong since the day it was written, which is what let the later
+comparison look reasonable.
 
-A third error sat underneath. The BUILD_LOG entry for the original run described the 9.08s as covering
-"matching + fee-leak review + journal generation". `run_batch` stops its timer before both. The
-description had been wrong since the day it was written, which is what let the later comparison look
-reasonable.
+Fix. `scripts/benchmark_throughput.py` times every component separately so the scopes sum. It records
+the hardware, because a reader measuring 1.8× lower needs to tell whether that is their CPU or my
+arithmetic. Evidence committed, reproduce command added, scope stated per row.
 
-Fix. `scripts/benchmark_throughput.py` times every component separately so the scopes sum and any two
-published figures can be checked against each other. It records the hardware, because a reader
-measuring 1.8× lower needs to be able to tell whether that is their CPU or my arithmetic. Evidence
-committed, reproduce command added, scope stated per row.
-
-Found by: an external reviewer running chains-and-matching on their own machine, getting 11,427 tx/sec
-against my 20,953, and finding nothing in the repo to reconcile it against.
+Found by: an external reviewer getting 11,427 tx/sec against my 20,953, with nothing in the repo to
+reconcile it against.
 
 ---
 
@@ -58,7 +95,7 @@ Cause. `cycle_reader.py` never called `load_dotenv`, so every Groq call raised `
 missing key. The retry wrapper caught it, saw no rate-limit string, and returned "no reading
 available". A column of 300 silent failures looks exactly like a model that reads nothing.
 
-Fix. Load the key and raise if it is absent, rather than degrade to None. Any non-rate-limit error now
+Fix. Load the key and raise if it is absent, instead of degrading to None. Any non-rate-limit error now
 propagates.
 
 Found by: the column matching the baseline to three decimal places in both conditions. I was one edit
@@ -152,7 +189,7 @@ Symptom. Four rounds each fixed a different unguarded model-supplied value in th
 loop. A fifth shape appeared in code the fourth fix had just touched. The pattern then reappeared in
 the API's run state.
 
-Cause. Each fix closed one exception shape, not the pattern. The next malformed shape is unforeseen by
+Cause. Each fix closed one exception shape and left the pattern open. The next malformed shape is unforeseen by
 definition. On the API side, three related fields were committed as three unlocked writes.
 
 Fix. A broad `except Exception` backstop around the whole narrator dispatch, and one frozen
@@ -168,7 +205,7 @@ Found by: a harsher concurrency test than the one that passed.
 Symptom. A category that earned auto-resolve from real evidence would auto-resolve a mock-mode guess
 in that category.
 
-Cause. The gate checked the category's accumulated history, not whether this decision came from a real
+Cause. The gate checked the category's accumulated history and never whether this decision came from a real
 provider. Six consecutive mock runs crossed the 90% threshold with no LLM ever called.
 
 Fix. `narrator_provider != "mock"` on the auto-resolve path. Mock decisions are tracked as `mock_n`

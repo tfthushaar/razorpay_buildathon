@@ -2,15 +2,15 @@
 
 [Razorpay Recon](https://razorpay.com/newsroom/razorpay-pos-launches-industry-first-ai-powered-razorpay-recon-to-automate-reconciliation-for-businesses-boosting-financial-operations-efficiency-by-80/)
 (launched December 2024) is real, AI-powered, rule-based batch matching across 200M+ transactions/month
-— built for offline POS reconciliation at volume, not for narrating *why* one specific transaction
+— built for offline POS reconciliation at volume, rather than narrating *why* one specific transaction
 broke or auditing fee correctness per instrument.
 [Settlement Insights](https://razorpay.com/blog/agent-studio-ai-agents-by-razorpay/) (launched as
 part of Agent Studio, March 12, 2026) sends a daily WhatsApp settlement summary — genuinely useful,
-and genuinely a different job: a summary of what happened, not a causal explanation of *why* a
+and genuinely a different job: a summary of what happened, short of a causal explanation of *why* a
 specific transaction diverges or a fee correctness audit. Neither product classifies an exception's
 root cause with a tool-call trace, tracks its own per-category accuracy before trusting itself to
 auto-resolve, or separates GST-on-fee into an ITC-ready journal line. This system starts where those
-stop — at the moment a settlement needs to become an audited, ERP-ready set of books, not just a
+stop — at the moment a settlement needs to become an audited, ERP-ready set of books rather than a
 matched or summarized one. `POST /api/transactions/evaluate` is a plausible integration point for
 output either product already produces.
 

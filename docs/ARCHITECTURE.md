@@ -28,12 +28,12 @@ Layer 3   VERIFIER and PER-CAUSE CALIBRATION score what comes back.
 Two consequences follow.
 
 A case a rule could solve is taken by the rule, so it cannot sit inside a model's accuracy figure.
-That is structural, not a matter of discipline.
+The exclusion is structural, and nothing about it depends on my discipline.
 
-The baseline is computed rather than argued. With k valid explanations and no basis to prefer any,
+The baseline is computed. With k valid explanations and no basis to prefer any,
 blind choice scores exactly 1/k. `UNDER_DETERMINED` is the load-bearing half, because it cannot be
 answered with "your resolver isn't good enough yet". A stronger resolver finds more valid
-decompositions, not fewer.
+decompositions, never fewer.
 
 Nothing earlier was discarded. `check_batch_anomalies`, the k-sum solvers, the fee recomputation and
 the narration read all became candidate generators inside Layer 0. They were never the wrong code.
@@ -41,8 +41,8 @@ They were in the wrong position.
 
 ## What the model is asked for
 
-Not `{category, confidence}`. A label is what a lookup table produces. The model returns a
-decomposition: which causes, in what amounts, citing what evidence. Two deterministic checks apply
+A decomposition: which causes, in what amounts, citing what evidence. A label is what a lookup table
+produces, and it gives a verifier nothing to check. Two deterministic checks apply
 (`app/resolver/verifier.py`):
 
 - Arithmetic. The components must sum to the observed delta within tolerance.
@@ -53,15 +53,15 @@ decomposition: which causes, in what amounts, citing what evidence. Two determin
 A failed check returns the specific complaint for another attempt. Confidence stops being a number
 the model asserts about itself and becomes how many verification rounds the answer survived.
 
-Calibration moves to per-cause. A cause can lose autonomy without dragging four unrelated ones down.
-Decompositions also produce several judgements per transaction rather than one, which raises n faster:
-10/10 has a Wilson lower bound of 72.2%.
+Calibration moves to per-cause, so one cause can lose autonomy without dragging four unrelated ones
+down. Each decomposition also yields several judgements per transaction, which raises n faster: 10/10
+has a Wilson lower bound of 72.2%.
 
 ## Where each category is resolved
 
 | Category | Resolved by | Verified by |
 |---|---|---|
-| `clean_match`, `timing_lag`, `fee_deduction`, `partial_refund`, `currency_rounding` | Pass 1/2 matching engine, no LLM | arithmetic fact, not a statistical estimate |
+| `clean_match`, `timing_lag`, `fee_deduction`, `partial_refund`, `currency_rounding` | Pass 1/2 matching engine, no LLM | arithmetic fact, so no statistical estimate is needed |
 | `duplicate_refund`, `netting_trap` | rule and model both score 100% | Wilson lower bound over accumulated real decisions |
 | `genuine_error` | model, never auto-resolves by design | escalation is the correct resolution |
 | `multiway_netting_trap` | model only; `check_batch_anomalies` checks pairs, never combinations | `verify_group_sum` re-adds the numbers |
@@ -81,8 +81,8 @@ settlement report, the bank statement, and the merchant's ERP ledger
 merchant name in their own house style, and slip the value date across a weekend.
 
 `app/resolver/entity_resolution.py` is Layer 0 for that problem, emitting the same three statuses and
-the same 1/k baseline. It checks the residual argument itself. If under-determination only appeared in
-compound arithmetic, it would be fair to suspect the arithmetic was built to produce it.
+the same 1/k baseline. It also checks the residual argument itself: if under-determination only
+appeared in compound arithmetic, it would be fair to suspect the arithmetic was built to produce it.
 
 The hard case is the one every subscription business produces constantly: two payouts, same merchant,
 same amount, same day. Every structured field stops discriminating at once. Only the free-text
@@ -91,8 +91,8 @@ settlement cycle remains. Numbers: [RESULTS.md](RESULTS.md).
 ## Data model and pipeline
 
 Every transaction is a causal chain: `order → payment → fee → tax → refund(s) → settlement`. A
-mismatch is located at the hop that diverges (`app/chain/builder.py`), not reported as a row that
-failed to match. Field names mirror Razorpay's real API shapes (`entity` tag, `utr` on Settlement,
+mismatch is located at the hop that diverges (`app/chain/builder.py`) instead of surfacing as a row
+that failed to match. Field names mirror Razorpay's real API shapes (`entity` tag, `utr` on Settlement,
 `fee`/`tax`/`captured` on Payment). Amounts are in paise throughout.
 
 ```
@@ -103,14 +103,48 @@ generate → build_chains → matching engine (Pass 1/2) → [resolver → model
 Ground truth is threaded through for scoring only. It never reaches the matching engine, the resolver
 or the narrator, verified by scanning those module sources for any ground-truth reference.
 
-## Beyond reconciliation
+## Forecasting
 
-A second agentic loop answers free-text questions over a batch (`app/qa/`). One more model call
-proposes a named hypothesis instead of stopping at `genuine_error` (`app/narrator/discovery.py`). A
-forecaster predicts settlement date and net amount before a payment settles (`app/forecast/`). A
-fee-leak detector compares the charged fee against the merchant's contract, a check no
-reconciliation-only pipeline performs (`app/feeleak/`). An ERP journal export produces Tally XML with
-GST separated into its own ITC-eligible line (`app/erp/`).
+`app/forecast/predictor.py` predicts net amount and settlement date from an Order and a Payment,
+before any Settlement exists. It reuses the fee and SLA constants the rest of the project already
+tests against, so the prediction and the reconciliation agree on the merchant's contract by
+construction.
+
+Two layers sit around it, and both exist to keep the output falsifiable.
+
+`forecastability.py` decides what to decline. `predict_settlement` computes net as
+`captured - fee - tax`, which is exact for an ordinary transaction and wrong for five identifiable
+shapes: a partial capture, a refund in flight, an uncaptured payment, a non-positive net, and an SLA
+ceiling already past. Each is decidable from Order, Payment and Refund alone. None consults a
+Settlement, which would make the forecast a lookup.
+
+`calibrated_interval.py` decides how wide the date window should be. The default window is the rail's
+SLA tolerance, a policy boundary that states no confidence level and therefore cannot be checked
+against one. Passing a fitted model instead gives an empirical quantile of that rail's observed lag
+at a stated confidence, and `reliability_curve()` scores nominal against empirical coverage on
+batches the model was never fitted on. `predict_settlement` reports which source produced its
+interval and what level it claims, so a caller never has to infer it.
+
+Amount error is reported as five numbers (`backtest.ape_panel`): exact rate, median, mean, p95 and
+worst. A single mean was misleading on this data, where 83% of it came from five rows out of 1,795.
+
+## The Q&A agent
+
+`app/qa/` answers free-text questions over a completed batch through a tool loop. Four tools are
+scoped to one transaction, one date or the anomaly check; `summarise_batch` covers the aggregate
+questions a controller asks first, such as batch size, settled value, how many reconcile exactly and
+how many need review. Everything it reports comes from chain arithmetic and the deterministic
+matching engine, never from the generator's labels.
+
+The mock provider routes the same tools through a keyword list, which makes it a real baseline rather
+than a strawman, and a test asserts the held-out question bank contains none of that vocabulary.
+
+## Other loops
+
+One more model call proposes a named hypothesis instead of stopping at `genuine_error`
+(`app/narrator/discovery.py`). A fee-leak detector compares the charged fee against the merchant's
+contract, a check no reconciliation-only pipeline performs (`app/feeleak/`). An ERP journal export
+produces Tally XML with GST separated into its own ITC-eligible line (`app/erp/`).
 
 ## The Razorpay connector
 
