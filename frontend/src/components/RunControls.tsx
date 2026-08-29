@@ -29,6 +29,9 @@ export function RunControls({ onRun, loading, error }: Props) {
   // person who clicks Run. VITE_DEFAULT_PROVIDER sets it per environment; the deployed build sets
   // it to mock, which is deterministic, instant, and honest about being the zero-LLM path.
   const [provider, setProvider] = useState(import.meta.env.VITE_DEFAULT_PROVIDER ?? "ollama");
+  // Whether this build is running somewhere a local model can exist. The deployed build sets
+  // VITE_DEFAULT_PROVIDER because its host cannot; that same signal drives the labels below.
+  const hostCanRunOllama = (import.meta.env.VITE_DEFAULT_PROVIDER ?? "ollama") === "ollama";
   const [resetHistory, setResetHistory] = useState(false);
   const [enableDiscovery, setEnableDiscovery] = useState(false);
   const [enableMultiwayNetting, setEnableMultiwayNetting] = useState(false);
@@ -81,9 +84,20 @@ export function RunControls({ onRun, loading, error }: Props) {
         </label>
         <label>
           Narrator provider
+          {/* The labels have to follow the environment, not just the default. On the deployed build
+              the host has no GPU and no local model, so ollama cannot run there at all -- leaving it
+              marked "recommended" would send the first person who clicks straight into a failure. */}
           <select value={provider} onChange={(e) => setProvider(e.target.value)}>
-            <option value="ollama">ollama (local qwen2.5:7b, zero cost, zero rate limit) — recommended</option>
-            <option value="mock">mock (zero-cost, deterministic, no LLM calls)</option>
+            <option value="ollama" disabled={!hostCanRunOllama}>
+              {hostCanRunOllama
+                ? "ollama (local qwen2.5:7b, zero cost, zero rate limit) — recommended"
+                : "ollama — needs a local install, unavailable on the hosted demo"}
+            </option>
+            <option value="mock">
+              {hostCanRunOllama
+                ? "mock (zero-cost, deterministic, no LLM calls)"
+                : "mock (zero-cost, deterministic, no LLM calls) — recommended here"}
+            </option>
             <option value="groq">groq (gpt-oss-20b, needs GROQ_API_KEY, rate-limited)</option>
           </select>
         </label>
