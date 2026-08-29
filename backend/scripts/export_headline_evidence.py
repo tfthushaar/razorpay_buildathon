@@ -57,10 +57,11 @@ def main() -> None:
 
     # --- card 1: where AI belongs -------------------------------------------------------------
     seen, held = reading["conditions"]["seen"], reading["conditions"]["held_out"]
-    readers = [
-        ("best rule I could write", "keyword_rule", True),
-        ("qwen2.5:7b-instruct", "qwen2.5:7b-instruct", False),
-        ("qwen2.5:14b-instruct", "qwen2.5:14b-instruct", False),
+    # Derived from the evidence rather than hardcoded, so adding a model to the experiment shows up
+    # on the front page without anyone remembering to edit this list. The rule always leads, since
+    # every model column is read against it.
+    readers = [("best rule I could write", "keyword_rule", True)] + [
+        (key.split("/")[-1], key, False) for key in seen if key != "keyword_rule"
     ]
     card_reading = {
         "rows": [

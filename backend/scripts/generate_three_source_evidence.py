@@ -32,6 +32,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from app.calibration.significance import compare_paired, robustness_p  # noqa: E402
 from app.calibration.wilson import wilson_score_interval  # noqa: E402
 from app.data_gen.three_source import generate_three_source_batch  # noqa: E402
+from app.narrator.groq_preflight import GroqBudgetError, check_groq_budget  # noqa: E402
 from app.resolver.cycle_reader import model_cycle_agrees  # noqa: E402
 from app.resolver.entity_resolution import match_all  # noqa: E402
 
@@ -102,6 +103,18 @@ def main() -> None:
     ap.add_argument("--groq-model", default=None, help="add a hosted column, e.g. openai/gpt-oss-20b")
     ap.add_argument("--out", default=None)
     args = ap.parse_args()
+
+    if args.groq_model:
+        # Roughly 250 distinct (cycle, description) pairs per condition after caching, two conditions.
+        try:
+            budget = check_groq_budget(estimated_calls=500, model=args.groq_model)
+            print(
+                f"groq preflight ok: ~{budget['estimated_tokens']:,} tokens needed, "
+                f"{budget['tokens_per_minute_remaining']:,} tokens/min headroom",
+                flush=True,
+            )
+        except GroqBudgetError as e:
+            raise SystemExit(f"Refusing to start: {e}")
 
     conditions = {}
     for label, held_out in (("seen_phrasing", False), ("held_out_phrasing", True)):

@@ -38,6 +38,7 @@ from app.data_gen.generate import SyntheticDataGenerator  # noqa: E402
 from app.data_gen.schemas import SyntheticBatch  # noqa: E402
 from app.narrator.attribution import _READER_CAUSES, READER_SYSTEM_PROMPT, _strip_fences  # noqa: E402
 from app.calibration.wilson import wilson_score_interval  # noqa: E402
+from app.narrator.groq_preflight import GroqBudgetError, check_groq_budget  # noqa: E402
 from app.resolver.keyword_baseline import read_advice  # noqa: E402
 
 CAUSES = list(_READER_CAUSES)
@@ -175,6 +176,19 @@ def main() -> None:
     ap.add_argument("--groq-model", default=None, help="add a hosted column, e.g. openai/gpt-oss-20b")
     ap.add_argument("--out", default=None)
     args = ap.parse_args()
+
+    if args.groq_model:
+        # Two conditions x n cases. Stop at the start if the daily budget cannot finish the run,
+        # rather than filling a column with retry-exhausted failures that read as a model result.
+        try:
+            budget = check_groq_budget(estimated_calls=2 * args.n, model=args.groq_model)
+            print(
+                f"groq preflight ok: ~{budget['estimated_tokens']:,} tokens needed, "
+                f"{budget['tokens_per_minute_remaining']:,} tokens/min headroom",
+                flush=True,
+            )
+        except GroqBudgetError as e:
+            raise SystemExit(f"Refusing to start: {e}")
 
     from ollama import Client
 
