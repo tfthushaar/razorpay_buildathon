@@ -1,0 +1,615 @@
+{
+ "run_id": "cc0b0939-9a27-482a-9d2b-1e3e4b8c5942",
+ "seed": 42,
+ "threshold": 0.9,
+ "provider": "mock",
+ "total_transactions": 30,
+ "total_amount": 35605128,
+ "amount_reconciled": 34787316,
+ "escalated_count": 4,
+ "calibration": {
+  "threshold": 0.9,
+  "categories": [
+   {
+    "category": "duplicate_refund",
+    "n": 0,
+    "correct": 0,
+    "accuracy": 0.0,
+    "ci_lower": 0.0,
+    "ci_upper": 1.0,
+    "decision": "escalate",
+    "reason": "no real-provider decisions yet for this category (mock_n=1) \u2014 mock-mode never counts toward auto-resolve",
+    "amount_total": 104506,
+    "distinct_amount_total": 0,
+    "amount_at_risk": 0,
+    "mock_n": 1,
+    "distinct_transaction_count": 0,
+    "ewma_accuracy": 0.0,
+    "drift_alert": false
+   },
+   {
+    "category": "genuine_error",
+    "n": 0,
+    "correct": 0,
+    "accuracy": 0.0,
+    "ci_lower": 0.0,
+    "ci_upper": 1.0,
+    "decision": "escalate",
+    "reason": "escalation is the correct resolution for this category by definition, regardless of measured accuracy",
+    "amount_total": 59118,
+    "distinct_amount_total": 0,
+    "amount_at_risk": 0,
+    "mock_n": 1,
+    "distinct_transaction_count": 0,
+    "ewma_accuracy": 0.0,
+    "drift_alert": false
+   },
+   {
+    "category": "netting_trap",
+    "n": 0,
+    "correct": 0,
+    "accuracy": 0.0,
+    "ci_lower": 0.0,
+    "ci_upper": 1.0,
+    "decision": "escalate",
+    "reason": "no real-provider decisions yet for this category (mock_n=2) \u2014 mock-mode never counts toward auto-resolve",
+    "amount_total": 654188,
+    "distinct_amount_total": 0,
+    "amount_at_risk": 0,
+    "mock_n": 2,
+    "distinct_transaction_count": 0,
+    "ewma_accuracy": 0.0,
+    "drift_alert": false
+   }
+  ]
+ },
+ "escalations": [
+  {
+   "transaction_id": "order_e091f4f87fd7",
+   "category": "netting_trap",
+   "confidence": 0.85,
+   "reasoning": "This transaction is off by 15000; transaction order_b778eb498e65 in the same settlement batch is off by the exact opposite amount. Nets clean at the batch level, but each transaction is individually wrong.",
+   "amount": 425088,
+   "priority_score": 63763.20000000001,
+   "provider": "mock"
+  },
+  {
+   "transaction_id": "order_9b0b633d084d",
+   "category": "genuine_error",
+   "confidence": 0.3,
+   "reasoning": "Settlement differs from the computed post-fee/refund amount by -20528. Neither the duplicate-refund registry nor the pairwise batch-netting check explains it, and timing is within normal variance either way. This check only ever compares one other transaction at a time \u2014 it cannot search for a discrepancy that only cancels across three or more transactions together, so a genuine multiway netting pattern would also land here, misclassified. Flagging for review rather than guessing.",
+   "amount": 59118,
+   "priority_score": 41382.6,
+   "provider": "mock"
+  },
+  {
+   "transaction_id": "order_b778eb498e65",
+   "category": "netting_trap",
+   "confidence": 0.85,
+   "reasoning": "This transaction is off by -15000; transaction order_e091f4f87fd7 in the same settlement batch is off by the exact opposite amount. Nets clean at the batch level, but each transaction is individually wrong.",
+   "amount": 229100,
+   "priority_score": 34365.00000000001,
+   "provider": "mock"
+  },
+  {
+   "transaction_id": "order_9c885e1de382",
+   "category": "duplicate_refund",
+   "confidence": 0.9,
+   "reasoning": "Settlement shortfall of 69797 exactly matches a refund already on record for this payment \u2014 looks double-applied, not a second legitimate refund.",
+   "amount": 104506,
+   "priority_score": 10450.599999999999,
+   "provider": "mock"
+  }
+ ],
+ "baseline_clean_count": 20,
+ "baseline_false_negative_timing_lag": 2,
+ "baseline_false_positive_rounding": 2,
+ "deterministic_only_resolved_count": 26,
+ "deterministic_only_amount_reconciled": 34787316,
+ "stress": {
+  "total": 10,
+  "deterministic_correct": 0,
+  "narrated_total": 10,
+  "narrated_correctly_handled": 10,
+  "wrongly_auto_resolved": 0
+ },
+ "fee_leak_report": {
+  "findings": [
+   {
+    "transaction_id": "order_01604c60725c",
+    "rail": "upi",
+    "pattern": "gst_wrong_base",
+    "pattern_label": "GST appears to have been computed on the gross transaction amount instead of the gateway fee",
+    "contracted_fee": 15000,
+    "actual_fee": 15000,
+    "fee_variance": 0,
+    "contracted_gst": 2700,
+    "actual_gst": 900000,
+    "gst_variance": 897300,
+    "total_impact": 897300,
+    "dispute_template": "Re: Fee discrepancy on transaction order_01604c60725c (upi). GST appears to have been computed on the gross transaction amount instead of the gateway fee. Contracted-vs-actual variance: Rs.8,973.00. Requesting review and credit against the contracted rate card for this instrument."
+   },
+   {
+    "transaction_id": "order_f316ac21e4ce",
+    "rail": "upi",
+    "pattern": "gst_wrong_base",
+    "pattern_label": "GST appears to have been computed on the gross transaction amount instead of the gateway fee",
+    "contracted_fee": 7500,
+    "actual_fee": 7500,
+    "fee_variance": 0,
+    "contracted_gst": 1350,
+    "actual_gst": 450000,
+    "gst_variance": 448650,
+    "total_impact": 448650,
+    "dispute_template": "Re: Fee discrepancy on transaction order_f316ac21e4ce (upi). GST appears to have been computed on the gross transaction amount instead of the gateway fee. Contracted-vs-actual variance: Rs.4,486.50. Requesting review and credit against the contracted rate card for this instrument."
+   },
+   {
+    "transaction_id": "order_164391cb4a9c",
+    "rail": "upi",
+    "pattern": "blended_rate_overcharge",
+    "pattern_label": "Fee deducted at a rate inconsistent with the contracted rate for upi (a flat/blended rate appears to have been applied instead)",
+    "contracted_fee": 15000,
+    "actual_fee": 100000,
+    "fee_variance": 85000,
+    "contracted_gst": 18000,
+    "actual_gst": 18000,
+    "gst_variance": 0,
+    "total_impact": 85000,
+    "dispute_template": "Re: Fee discrepancy on transaction order_164391cb4a9c (upi). Fee deducted at a rate inconsistent with the contracted rate for upi (a flat/blended rate appears to have been applied instead). Contracted-vs-actual variance: Rs.850.00. Requesting review and credit against the contracted rate card for this instrument."
+   },
+   {
+    "transaction_id": "order_1259ce4afd9a",
+    "rail": "upi",
+    "pattern": "gst_wrong_base",
+    "pattern_label": "GST appears to have been computed on the gross transaction amount instead of the gateway fee",
+    "contracted_fee": 750,
+    "actual_fee": 750,
+    "fee_variance": 0,
+    "contracted_gst": 135,
+    "actual_gst": 45000,
+    "gst_variance": 44865,
+    "total_impact": 44865,
+    "dispute_template": "Re: Fee discrepancy on transaction order_1259ce4afd9a (upi). GST appears to have been computed on the gross transaction amount instead of the gateway fee. Contracted-vs-actual variance: Rs.448.65. Requesting review and credit against the contracted rate card for this instrument."
+   },
+   {
+    "transaction_id": "order_fca72eb0ae11",
+    "rail": "upi",
+    "pattern": "gst_wrong_base",
+    "pattern_label": "GST appears to have been computed on the gross transaction amount instead of the gateway fee",
+    "contracted_fee": 750,
+    "actual_fee": 750,
+    "fee_variance": 0,
+    "contracted_gst": 135,
+    "actual_gst": 45000,
+    "gst_variance": 44865,
+    "total_impact": 44865,
+    "dispute_template": "Re: Fee discrepancy on transaction order_fca72eb0ae11 (upi). GST appears to have been computed on the gross transaction amount instead of the gateway fee. Contracted-vs-actual variance: Rs.448.65. Requesting review and credit against the contracted rate card for this instrument."
+   },
+   {
+    "transaction_id": "order_20805beedb22",
+    "rail": "upi",
+    "pattern": "blended_rate_overcharge",
+    "pattern_label": "Fee deducted at a rate inconsistent with the contracted rate for upi (a flat/blended rate appears to have been applied instead)",
+    "contracted_fee": 7500,
+    "actual_fee": 50000,
+    "fee_variance": 42500,
+    "contracted_gst": 9000,
+    "actual_gst": 9000,
+    "gst_variance": 0,
+    "total_impact": 42500,
+    "dispute_template": "Re: Fee discrepancy on transaction order_20805beedb22 (upi). Fee deducted at a rate inconsistent with the contracted rate for upi (a flat/blended rate appears to have been applied instead). Contracted-vs-actual variance: Rs.425.00. Requesting review and credit against the contracted rate card for this instrument."
+   },
+   {
+    "transaction_id": "order_b30df6df3ead",
+    "rail": "card",
+    "pattern": "gst_wrong_base",
+    "pattern_label": "GST appears to have been computed on the gross transaction amount instead of the gateway fee",
+    "contracted_fee": 3000,
+    "actual_fee": 3000,
+    "fee_variance": 0,
+    "contracted_gst": 540,
+    "actual_gst": 27000,
+    "gst_variance": 26460,
+    "total_impact": 26460,
+    "dispute_template": "Re: Fee discrepancy on transaction order_b30df6df3ead (card). GST appears to have been computed on the gross transaction amount instead of the gateway fee. Contracted-vs-actual variance: Rs.264.60. Requesting review and credit against the contracted rate card for this instrument."
+   },
+   {
+    "transaction_id": "order_d0fa04ec0c66",
+    "rail": "card",
+    "pattern": "gst_wrong_rate",
+    "pattern_label": "GST correctly based on the gateway fee but computed at 0% instead of the 18% rate that applies to payment gateway services",
+    "contracted_fee": 100000,
+    "actual_fee": 100000,
+    "fee_variance": 0,
+    "contracted_gst": 18000,
+    "actual_gst": 0,
+    "gst_variance": -18000,
+    "total_impact": -18000,
+    "dispute_template": "Re: Fee discrepancy on transaction order_d0fa04ec0c66 (card). GST correctly based on the gateway fee but computed at 0% instead of the 18% rate that applies to payment gateway services. Contracted-vs-actual variance: Rs.-180.00. Requesting review and credit against the contracted rate card for this instrument."
+   },
+   {
+    "transaction_id": "order_3cd898872191",
+    "rail": "netbanking",
+    "pattern": "gst_wrong_base",
+    "pattern_label": "GST appears to have been computed on the gross transaction amount instead of the gateway fee",
+    "contracted_fee": 1000,
+    "actual_fee": 1000,
+    "fee_variance": 0,
+    "contracted_gst": 180,
+    "actual_gst": 18000,
+    "gst_variance": 17820,
+    "total_impact": 17820,
+    "dispute_template": "Re: Fee discrepancy on transaction order_3cd898872191 (netbanking). GST appears to have been computed on the gross transaction amount instead of the gateway fee. Contracted-vs-actual variance: Rs.178.20. Requesting review and credit against the contracted rate card for this instrument."
+   },
+   {
+    "transaction_id": "order_1ec132f29e5d",
+    "rail": "upi",
+    "pattern": "gst_wrong_base",
+    "pattern_label": "GST appears to have been computed on the gross transaction amount instead of the gateway fee",
+    "contracted_fee": 150,
+    "actual_fee": 150,
+    "fee_variance": 0,
+    "contracted_gst": 27,
+    "actual_gst": 9000,
+    "gst_variance": 8973,
+    "total_impact": 8973,
+    "dispute_template": "Re: Fee discrepancy on transaction order_1ec132f29e5d (upi). GST appears to have been computed on the gross transaction amount instead of the gateway fee. Contracted-vs-actual variance: Rs.89.73. Requesting review and credit against the contracted rate card for this instrument."
+   },
+   {
+    "transaction_id": "order_6bac4cdff10c",
+    "rail": "netbanking",
+    "pattern": "blended_rate_overcharge",
+    "pattern_label": "Fee deducted at a rate inconsistent with the contracted rate for netbanking (a flat/blended rate appears to have been applied instead)",
+    "contracted_fee": 7500,
+    "actual_fee": 15000,
+    "fee_variance": 7500,
+    "contracted_gst": 2700,
+    "actual_gst": 2700,
+    "gst_variance": 0,
+    "total_impact": 7500,
+    "dispute_template": "Re: Fee discrepancy on transaction order_6bac4cdff10c (netbanking). Fee deducted at a rate inconsistent with the contracted rate for netbanking (a flat/blended rate appears to have been applied instead). Contracted-vs-actual variance: Rs.75.00. Requesting review and credit against the contracted rate card for this instrument."
+   },
+   {
+    "transaction_id": "order_cd778d116833",
+    "rail": "upi",
+    "pattern": "blended_rate_overcharge",
+    "pattern_label": "Fee deducted at a rate inconsistent with the contracted rate for upi (a flat/blended rate appears to have been applied instead)",
+    "contracted_fee": 1260,
+    "actual_fee": 8400,
+    "fee_variance": 7140,
+    "contracted_gst": 1512,
+    "actual_gst": 1512,
+    "gst_variance": 0,
+    "total_impact": 7140,
+    "dispute_template": "Re: Fee discrepancy on transaction order_cd778d116833 (upi). Fee deducted at a rate inconsistent with the contracted rate for upi (a flat/blended rate appears to have been applied instead). Contracted-vs-actual variance: Rs.71.40. Requesting review and credit against the contracted rate card for this instrument."
+   },
+   {
+    "transaction_id": "order_9806d6abc66b",
+    "rail": "card",
+    "pattern": "gst_wrong_rate",
+    "pattern_label": "GST correctly based on the gateway fee but computed at 0% instead of the 18% rate that applies to payment gateway services",
+    "contracted_fee": 24000,
+    "actual_fee": 24000,
+    "fee_variance": 0,
+    "contracted_gst": 4320,
+    "actual_gst": 0,
+    "gst_variance": -4320,
+    "total_impact": -4320,
+    "dispute_template": "Re: Fee discrepancy on transaction order_9806d6abc66b (card). GST correctly based on the gateway fee but computed at 0% instead of the 18% rate that applies to payment gateway services. Contracted-vs-actual variance: Rs.-43.20. Requesting review and credit against the contracted rate card for this instrument."
+   },
+   {
+    "transaction_id": "order_c6fba73bb048",
+    "rail": "card",
+    "pattern": "gst_wrong_rate",
+    "pattern_label": "GST correctly based on the gateway fee but computed at 0% instead of the 18% rate that applies to payment gateway services",
+    "contracted_fee": 24000,
+    "actual_fee": 24000,
+    "fee_variance": 0,
+    "contracted_gst": 4320,
+    "actual_gst": 0,
+    "gst_variance": -4320,
+    "total_impact": -4320,
+    "dispute_template": "Re: Fee discrepancy on transaction order_c6fba73bb048 (card). GST correctly based on the gateway fee but computed at 0% instead of the 18% rate that applies to payment gateway services. Contracted-vs-actual variance: Rs.-43.20. Requesting review and credit against the contracted rate card for this instrument."
+   },
+   {
+    "transaction_id": "order_d7a203604f60",
+    "rail": "netbanking",
+    "pattern": "blended_rate_overcharge",
+    "pattern_label": "Fee deducted at a rate inconsistent with the contracted rate for netbanking (a flat/blended rate appears to have been applied instead)",
+    "contracted_fee": 4200,
+    "actual_fee": 8400,
+    "fee_variance": 4200,
+    "contracted_gst": 1512,
+    "actual_gst": 1512,
+    "gst_variance": 0,
+    "total_impact": 4200,
+    "dispute_template": "Re: Fee discrepancy on transaction order_d7a203604f60 (netbanking). Fee deducted at a rate inconsistent with the contracted rate for netbanking (a flat/blended rate appears to have been applied instead). Contracted-vs-actual variance: Rs.42.00. Requesting review and credit against the contracted rate card for this instrument."
+   },
+   {
+    "transaction_id": "order_ba88a73479dc",
+    "rail": "upi",
+    "pattern": "blended_rate_overcharge",
+    "pattern_label": "Fee deducted at a rate inconsistent with the contracted rate for upi (a flat/blended rate appears to have been applied instead)",
+    "contracted_fee": 450,
+    "actual_fee": 3000,
+    "fee_variance": 2550,
+    "contracted_gst": 540,
+    "actual_gst": 540,
+    "gst_variance": 0,
+    "total_impact": 2550,
+    "dispute_template": "Re: Fee discrepancy on transaction order_ba88a73479dc (upi). Fee deducted at a rate inconsistent with the contracted rate for upi (a flat/blended rate appears to have been applied instead). Contracted-vs-actual variance: Rs.25.50. Requesting review and credit against the contracted rate card for this instrument."
+   },
+   {
+    "transaction_id": "order_f6ad9504fcf8",
+    "rail": "card",
+    "pattern": "gst_wrong_rate",
+    "pattern_label": "GST correctly based on the gateway fee but computed at 0% instead of the 18% rate that applies to payment gateway services",
+    "contracted_fee": 8400,
+    "actual_fee": 8400,
+    "fee_variance": 0,
+    "contracted_gst": 1512,
+    "actual_gst": 0,
+    "gst_variance": -1512,
+    "total_impact": -1512,
+    "dispute_template": "Re: Fee discrepancy on transaction order_f6ad9504fcf8 (card). GST correctly based on the gateway fee but computed at 0% instead of the 18% rate that applies to payment gateway services. Contracted-vs-actual variance: Rs.-15.12. Requesting review and credit against the contracted rate card for this instrument."
+   },
+   {
+    "transaction_id": "order_5d9aae1e0901",
+    "rail": "upi",
+    "pattern": "blended_rate_overcharge",
+    "pattern_label": "Fee deducted at a rate inconsistent with the contracted rate for upi (a flat/blended rate appears to have been applied instead)",
+    "contracted_fee": 150,
+    "actual_fee": 1000,
+    "fee_variance": 850,
+    "contracted_gst": 180,
+    "actual_gst": 180,
+    "gst_variance": 0,
+    "total_impact": 850,
+    "dispute_template": "Re: Fee discrepancy on transaction order_5d9aae1e0901 (upi). Fee deducted at a rate inconsistent with the contracted rate for upi (a flat/blended rate appears to have been applied instead). Contracted-vs-actual variance: Rs.8.50. Requesting review and credit against the contracted rate card for this instrument."
+   },
+   {
+    "transaction_id": "order_9cb969b50e4e",
+    "rail": "card",
+    "pattern": "gst_wrong_rate",
+    "pattern_label": "GST correctly based on the gateway fee but computed at 0% instead of the 18% rate that applies to payment gateway services",
+    "contracted_fee": 3000,
+    "actual_fee": 3000,
+    "fee_variance": 0,
+    "contracted_gst": 540,
+    "actual_gst": 0,
+    "gst_variance": -540,
+    "total_impact": -540,
+    "dispute_template": "Re: Fee discrepancy on transaction order_9cb969b50e4e (card). GST correctly based on the gateway fee but computed at 0% instead of the 18% rate that applies to payment gateway services. Contracted-vs-actual variance: Rs.-5.40. Requesting review and credit against the contracted rate card for this instrument."
+   },
+   {
+    "transaction_id": "order_b0714ef13334",
+    "rail": "card",
+    "pattern": "gst_wrong_rate",
+    "pattern_label": "GST correctly based on the gateway fee but computed at 0% instead of the 18% rate that applies to payment gateway services",
+    "contracted_fee": 3000,
+    "actual_fee": 3000,
+    "fee_variance": 0,
+    "contracted_gst": 540,
+    "actual_gst": 0,
+    "gst_variance": -540,
+    "total_impact": -540,
+    "dispute_template": "Re: Fee discrepancy on transaction order_b0714ef13334 (card). GST correctly based on the gateway fee but computed at 0% instead of the 18% rate that applies to payment gateway services. Contracted-vs-actual variance: Rs.-5.40. Requesting review and credit against the contracted rate card for this instrument."
+   }
+  ],
+  "total_fee_recovery": 149740,
+  "total_gst_correction": 1518165,
+  "by_pattern": {
+   "gst_wrong_base": 7,
+   "blended_rate_overcharge": 7,
+   "gst_wrong_rate": 6
+  }
+ },
+ "total_itc_separated": 62543,
+ "elapsed_seconds": 0.046999999991385266,
+ "narrated_count": 4,
+ "category_proposals": [],
+ "residual": {
+  "tolerance": 10,
+  "closed_before_stage": 26,
+  "layer0_resolved": 0,
+  "under_determined": 4,
+  "unmatched": 0,
+  "model_calls": 4,
+  "model_verified": 4,
+  "cases": [
+   {
+    "transaction_id": "order_9b0b633d084d",
+    "status": "UNDER_DETERMINED",
+    "observed_delta": -20528,
+    "ambiguity": 38,
+    "chance_baseline": 0.02631578947368421,
+    "candidate_pool_size": 31,
+    "reached_model": true,
+    "provider": "mock",
+    "verified": true,
+    "verify_rounds": 1,
+    "components": [
+     {
+      "cause": "gst_on_fee_mismatch",
+      "amount": -30,
+      "evidence_ref": "gst:0.28",
+      "why": "GST on fee computed at 28% instead of 18%"
+     },
+     {
+      "cause": "duplicate_refund",
+      "amount": -20000,
+      "evidence_ref": "refund:rfnd_d4bce8f8233a",
+      "why": "refund rfnd_d4bce8f8233a applied a SECOND time (already deducted upstream)"
+     },
+     {
+      "cause": "tds_deduction",
+      "amount": -500,
+      "evidence_ref": "tds:0.0050",
+      "why": "TDS withheld at 0.50% of captured amount"
+     }
+    ],
+    "reasoning": "Keyword/negation read of the remittance advice selected 1 of 38 arithmetically valid decompositions (3 tied on advice agreement, broken by fewest components).",
+    "parsimony_choice": [
+     {
+      "cause": "gst_on_fee_mismatch",
+      "amount": -30,
+      "evidence_ref": "gst:0.28",
+      "why": "GST on fee computed at 28% instead of 18%"
+     },
+     {
+      "cause": "duplicate_refund",
+      "amount": -20000,
+      "evidence_ref": "refund:rfnd_d4bce8f8233a",
+      "why": "refund rfnd_d4bce8f8233a applied a SECOND time (already deducted upstream)"
+     },
+     {
+      "cause": "rolling_reserve",
+      "amount": -500,
+      "evidence_ref": "reserve:0.0050",
+      "why": "rolling reserve withheld at 0.50% of captured amount"
+     }
+    ],
+    "keyword_choice": [
+     {
+      "cause": "gst_on_fee_mismatch",
+      "amount": -30,
+      "evidence_ref": "gst:0.28",
+      "why": "GST on fee computed at 28% instead of 18%"
+     },
+     {
+      "cause": "duplicate_refund",
+      "amount": -20000,
+      "evidence_ref": "refund:rfnd_d4bce8f8233a",
+      "why": "refund rfnd_d4bce8f8233a applied a SECOND time (already deducted upstream)"
+     },
+     {
+      "cause": "tds_deduction",
+      "amount": -500,
+      "evidence_ref": "tds:0.0050",
+      "why": "TDS withheld at 0.50% of captured amount"
+     }
+    ],
+    "keyword_ties": 3
+   },
+   {
+    "transaction_id": "order_b778eb498e65",
+    "status": "UNDER_DETERMINED",
+    "observed_delta": -15000,
+    "ambiguity": 17,
+    "chance_baseline": 0.058823529411764705,
+    "candidate_pool_size": 30,
+    "reached_model": true,
+    "provider": "mock",
+    "verified": true,
+    "verify_rounds": 1,
+    "components": [
+     {
+      "cause": "netting_adjustment",
+      "amount": -15000,
+      "evidence_ref": "txn:order_e091f4f87fd7",
+      "why": "netted against order_e091f4f87fd7 (delta 15000)"
+     }
+    ],
+    "reasoning": "Keyword/negation read of the remittance advice selected 1 of 17 arithmetically valid decompositions (17 tied on advice agreement, broken by fewest components).",
+    "parsimony_choice": [
+     {
+      "cause": "netting_adjustment",
+      "amount": -15000,
+      "evidence_ref": "txn:order_e091f4f87fd7",
+      "why": "netted against order_e091f4f87fd7 (delta 15000)"
+     }
+    ],
+    "keyword_choice": [
+     {
+      "cause": "netting_adjustment",
+      "amount": -15000,
+      "evidence_ref": "txn:order_e091f4f87fd7",
+      "why": "netted against order_e091f4f87fd7 (delta 15000)"
+     }
+    ],
+    "keyword_ties": 17
+   },
+   {
+    "transaction_id": "order_e091f4f87fd7",
+    "status": "UNDER_DETERMINED",
+    "observed_delta": 15000,
+    "ambiguity": 10,
+    "chance_baseline": 0.1,
+    "candidate_pool_size": 30,
+    "reached_model": true,
+    "provider": "mock",
+    "verified": true,
+    "verify_rounds": 1,
+    "components": [
+     {
+      "cause": "netting_adjustment",
+      "amount": 15000,
+      "evidence_ref": "txn:order_b778eb498e65",
+      "why": "netted against order_b778eb498e65 (delta -15000)"
+     }
+    ],
+    "reasoning": "Keyword/negation read of the remittance advice selected 1 of 10 arithmetically valid decompositions (10 tied on advice agreement, broken by fewest components).",
+    "parsimony_choice": [
+     {
+      "cause": "netting_adjustment",
+      "amount": 15000,
+      "evidence_ref": "txn:order_b778eb498e65",
+      "why": "netted against order_b778eb498e65 (delta -15000)"
+     }
+    ],
+    "keyword_choice": [
+     {
+      "cause": "netting_adjustment",
+      "amount": 15000,
+      "evidence_ref": "txn:order_b778eb498e65",
+      "why": "netted against order_b778eb498e65 (delta -15000)"
+     }
+    ],
+    "keyword_ties": 10
+   },
+   {
+    "transaction_id": "order_9c885e1de382",
+    "status": "UNDER_DETERMINED",
+    "observed_delta": -69797,
+    "ambiguity": 20,
+    "chance_baseline": 0.05,
+    "candidate_pool_size": 31,
+    "reached_model": true,
+    "provider": "mock",
+    "verified": true,
+    "verify_rounds": 1,
+    "components": [
+     {
+      "cause": "partial_refund",
+      "amount": -69797,
+      "evidence_ref": "refund:rfnd_db9051fe1e06",
+      "why": "refund rfnd_db9051fe1e06 applied against this settlement"
+     }
+    ],
+    "reasoning": "Keyword/negation read of the remittance advice selected 1 of 20 arithmetically valid decompositions (20 tied on advice agreement, broken by fewest components).",
+    "parsimony_choice": [
+     {
+      "cause": "duplicate_refund",
+      "amount": -69797,
+      "evidence_ref": "refund:rfnd_db9051fe1e06",
+      "why": "refund rfnd_db9051fe1e06 applied a SECOND time (already deducted upstream)"
+     }
+    ],
+    "keyword_choice": [
+     {
+      "cause": "partial_refund",
+      "amount": -69797,
+      "evidence_ref": "refund:rfnd_db9051fe1e06",
+      "why": "refund rfnd_db9051fe1e06 applied against this settlement"
+     }
+    ],
+    "keyword_ties": 20
+   }
+  ],
+  "total": 4,
+  "deterministic_share": 0.8666666666666667,
+  "layer0_share_of_exceptions": 0.0,
+  "mean_chance_baseline": 0.05878482972136223
+ },
+ "transactions_per_second": 638.2978724574206
+}

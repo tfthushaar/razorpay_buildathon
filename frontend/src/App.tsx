@@ -17,11 +17,17 @@ import { SettlementQA } from "./components/SettlementQA";
 import { RevocationDrill } from "./components/RevocationDrill";
 import { BreakItPanel } from "./components/BreakItPanel";
 import { GuidedTour } from "./components/GuidedTour";
-import { SectionHeading } from "./components/SectionHeading";
+import { HeroFindings } from "./components/HeroFindings";
+import sampleRun from "./evidence/sample-run.json";
 import "./App.css";
 
 function App() {
-  const [result, setResult] = useState<BatchRunResult | null>(null);
+  // Seeded with a committed sample run rather than null. Every panel used to be gated behind a live
+  // result, so a cold backend or an unclicked page showed a header and a form. The sample is a real
+  // run (seed 42, mock provider) committed to the repo, labelled as such until a live run replaces
+  // it, so the page is fully legible before anyone clicks and with the backend down.
+  const [result, setResult] = useState<BatchRunResult>(sampleRun as unknown as BatchRunResult);
+  const [isSample, setIsSample] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -50,6 +56,7 @@ function App() {
     try {
       const run = await runBatch(req);
       setResult(run);
+      setIsSample(false);
       setRefreshKey((k) => k + 1);
       setBackendUnreachable(false);
     } catch (err) {
@@ -66,7 +73,7 @@ function App() {
     }
   };
 
-  const showStale = loading && result !== null;
+  const showStale = loading;
 
   return (
     <div className="app">
@@ -88,9 +95,11 @@ function App() {
         </div>
       </header>
 
+      <HeroFindings />
+
       <RunControls onRun={handleRun} loading={loading} error={error} />
 
-      {result && (
+      {(
         <div className="stale-wrap" data-stale={showStale ? "true" : "false"}>
           {showStale && (
             <div className="stale-banner">
@@ -98,16 +107,19 @@ function App() {
               Running a new batch — showing the previous run's results until it lands
             </div>
           )}
+          {isSample && (
+            <div className="sample-banner">
+              Showing a committed sample run (seed 42, mock provider) so this page works with the backend cold. Click
+              <strong> Run batch </strong> for a live one.
+            </div>
+          )}
           <SummaryTiles result={result} refreshKey={refreshKey} />
 
-          {/* Ordering is the analyst's, not the build's. What lands on someone's desk comes first:
-              the queue of exceptions they have to work, then the money nobody else is looking for.
-              The evidence a reviewer wants sits below that, and the developer tools sit below THAT.
-              A raw-JSON textarea used to be the second thing on this page, above every result. */}
-          <SectionHeading
-            title="Your queue"
-            subtitle="What this batch needs a human for, and what it found that reconciliation never looks at."
-          />
+          {/* Weighted, not flat. The residual funnel is the architecture, the queue with its tool
+              trace open is the work product, the drill is the safety property, the fee leak is the
+              money. Everything below "Also built" is evidence of range and is closed by default, so
+              it costs no scroll depth against the things that carry the argument. */}
+          {result.residual && <ResidualPanel residual={result.residual} />}
           <EscalationQueue
             escalations={result.escalations}
             runId={result.run_id}
@@ -118,66 +130,31 @@ function App() {
             liveAutoResolveCategories={liveAutoResolveCategories}
             categoryProposals={result.category_proposals}
           />
-          <FeeLeakAnalysis result={result} />
-
-          <SectionHeading
-            title="How much of this it is allowed to do alone"
-            subtitle="Autonomy is earned per category against a Wilson lower bound, and revoked the moment recent decisions regress."
-          />
-          <CalibrationPanel initialReport={result.calibration} refreshKey={refreshKey} onReportChange={setLiveCalibration} />
-          {result.residual && <ResidualPanel residual={result.residual} />}
-
-          <SectionHeading
-            title="Evidence it works"
-            subtitle="Measured against a naive baseline and an all-traps stress batch, neither of which the system gets to choose."
-          />
-          <div className="two-column">
-            <BaselineComparison result={result} />
-            <StressScorecard stress={result.stress} />
-          </div>
-
-          <SectionHeading
-            title="Looking forward, and out to the books"
-            subtitle="What is due to settle, and the journal that carries it into the merchant's accounting system."
-          />
-          <ForecastPanel refreshKey={refreshKey} />
-          <ErpExport result={result} />
-
-          <SectionHeading
-            title="Try to break it"
-            subtitle="Everything below is for probing the system rather than using it. Hand-craft a scenario, force a revocation, ask questions, read the audit trail."
-          />
-          <BreakItPanel />
           <RevocationDrill />
-          <SettlementQA key={refreshKey} />
-          <AuditLogView runId={result.run_id} refreshKey={refreshKey} />
+          <FeeLeakAnalysis result={result} />
+          <CalibrationPanel initialReport={result.calibration} refreshKey={refreshKey} onReportChange={setLiveCalibration} />
+
+          <details className="also-built">
+            <summary>Also built</summary>
+            <p className="also-built-note">
+              Range rather than argument: a naive-baseline comparison, an all-traps stress batch, a forward settlement
+              forecaster, an ERP journal export, a free-text Q&amp;A agent over the batch, a hand-crafted scenario
+              submitter, and the full audit trail.
+            </p>
+            <div className="two-column">
+              <BaselineComparison result={result} />
+              <StressScorecard stress={result.stress} />
+            </div>
+            <ForecastPanel refreshKey={refreshKey} />
+            <ErpExport result={result} />
+            <BreakItPanel />
+            <SettlementQA key={refreshKey} />
+            <AuditLogView runId={result.run_id} refreshKey={refreshKey} />
+          </details>
         </div>
       )}
 
-      {!result && loading && (
-        <>
-          <div className="skeleton-tiles">
-            {Array.from({ length: 5 }).map((_, i) => (
-              <div key={i} className="skeleton-block skeleton-tile" />
-            ))}
-          </div>
-          <div className="skeleton-block skeleton-panel" />
-          <div className="skeleton-block skeleton-panel" />
-        </>
-      )}
-
-      {!result && !loading && (
-        <div className="empty-state-card">
-          <div className="empty-state-card-icon" aria-hidden="true">↑</div>
-          <div className="empty-state-card-title">Nothing run yet</div>
-          <p className="empty-state-card-sub">
-            Click <strong>Run batch</strong> above to generate a settlement batch and see match rate, calibration, and
-            the exception queue — mock runs finish instantly, no cost, no network calls.
-          </p>
-        </div>
-      )}
-
-      <GuidedTour hasEscalations={!!result && result.escalations.length > 0} resolveSignal={resolveSignal} />
+      <GuidedTour hasEscalations={result.escalations.length > 0} resolveSignal={resolveSignal} />
     </div>
   );
 }

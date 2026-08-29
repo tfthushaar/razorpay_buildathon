@@ -285,3 +285,167 @@ table {
 .show-all-toggle {
   margin-top: 0.75rem;
 }
+
+/* --- Hero: the argument, above the fold ------------------------------------------------------
+   Audience is payments engineers, so this reads as an internal ops console rather than a product
+   page. Dense over airy. Numbers get the largest type, labels the smallest. One accent, used only
+   for the model row so the eye finds it across all three cards. Muted red appears exactly twice on
+   this page: the denial-as-confirmation rate, and revoked autonomy. If it showed up anywhere else it
+   would stop meaning anything. No gradients, no illustration, no icons, no card shadows. */
+.hero {
+  margin: 0 0 2rem;
+  font-variant-numeric: tabular-nums;
+}
+.hero-lede {
+  max-width: 76ch;
+  margin-bottom: 1.1rem;
+}
+.hero-lede h2 {
+  margin: 0 0 0.4rem;
+  font-size: 1.3rem;
+  line-height: 1.3;
+  letter-spacing: -0.015em;
+}
+.hero-lede p {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.65;
+  opacity: 0.78;
+}
+
+.hero-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(21rem, 1fr));
+  gap: 1px;
+  background: var(--border, #d9d9e0);
+  border: 1px solid var(--border, #d9d9e0);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.hero-card {
+  background: var(--panel, #fff);
+  padding: 1.05rem 1.15rem 1.15rem;
+  display: flex;
+  flex-direction: column;
+}
+.hero-card h3 {
+  margin: 0;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  opacity: 0.55;
+}
+.hero-card-sub {
+  margin: 0.3rem 0 0.8rem;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  opacity: 0.7;
+}
+
+.hero-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+.hero-table th {
+  font-size: 0.63rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  opacity: 0.5;
+  text-align: right;
+  padding: 0 0 0.35rem 0.5rem;
+  line-height: 1.25;
+  vertical-align: bottom;
+}
+.hero-table th:first-child { text-align: left; }
+.hero-table td {
+  padding: 0.32rem 0 0.32rem 0.5rem;
+  border-top: 1px solid var(--border-soft, #eeeef3);
+  font-size: 0.9rem;
+}
+.hero-row-label {
+  font-size: 0.78rem !important;
+  opacity: 0.85;
+  padding-left: 0 !important;
+}
+.hero-table .num { text-align: right; font-variant-numeric: tabular-nums; }
+.hero-table .strong { font-weight: 650; font-size: 1.02rem; }
+.hero-table tr.is-model .hero-row-label { color: #3b3bd4; font-weight: 600; }
+.hero-table tr.is-model .strong { color: #3b3bd4; }
+.hero-table tr.is-rule .hero-row-label { opacity: 0.95; }
+
+.hero-delta { font-size: 0.78rem; opacity: 0.6; }
+.hero-delta-severe { opacity: 0.9; font-weight: 600; }
+
+.hero-punch {
+  margin: 0.85rem 0 0.4rem;
+  font-size: 0.92rem;
+  line-height: 1.5;
+  font-weight: 500;
+}
+.hero-danger {
+  color: #a4262c;
+  font-weight: 700;
+  font-size: 1.35rem;
+  font-variant-numeric: tabular-nums;
+}
+.hero-foot {
+  margin: 0;
+  font-size: 0.74rem;
+  line-height: 1.55;
+  opacity: 0.62;
+  margin-top: auto;
+  padding-top: 0.5rem;
+}
+.hero-foot .mono, .hero-punch .mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.72rem;
+}
+
+.hero-close {
+  margin: 0.9rem 0 0;
+  font-size: 0.86rem;
+  line-height: 1.6;
+  opacity: 0.8;
+}
+.hero-close .num {
+  font-weight: 650;
+  opacity: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+/* "Also built" — evidence of range, not the argument. Closed by default so it costs no scroll. */
+.also-built { margin-top: 2rem; }
+.also-built > summary {
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 1.05rem;
+  padding: 0.6rem 0;
+  border-top: 2px solid var(--border, #e2e2e8);
+  user-select: none;
+}
+.also-built > summary:hover { color: #3b3bd4; }
+.also-built-note {
+  margin: 0.2rem 0 0.6rem;
+  font-size: 0.84rem;
+  opacity: 0.7;
+  max-width: 70ch;
+}
+
+/* The page ships with a committed sample run so it is legible with the backend cold. Say so, plainly
+   and once, rather than letting a reader mistake it for a live result. */
+.sample-banner {
+  margin: 0 0 0.9rem;
+  padding: 0.55rem 0.85rem;
+  border: 1px solid #d8c88a;
+  border-left: 3px solid #b7942e;
+  background: #fdf9ec;
+  border-radius: 4px;
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+.hero-table tr.is-floor td { opacity: 0.55; font-size: 0.82rem; }
+.hero-table tr.is-floor .num { font-weight: 400; }

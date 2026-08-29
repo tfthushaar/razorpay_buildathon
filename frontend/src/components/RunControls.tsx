@@ -23,11 +23,12 @@ export function RunControls({ onRun, loading, error }: Props) {
   // number here.
   const [mainN, setMainN] = useState(30);
   const [stressN, setStressN] = useState(10);
-  // Default to the real, recommended provider, not the zero-LLM path -- a first run with no
-  // changes made should show the AI actually reasoning, not the rule-only fallback. Falls back
-  // safely (a clear "local call failed" escalation reason, not a crash) if Ollama isn't running
-  // yet; mock is still one click away in the dropdown for anyone who wants the zero-setup path.
-  const [provider, setProvider] = useState("ollama");
+  // Locally, default to the real provider so a first run shows the model reasoning rather than the
+  // rule-only path. In a deployed build that is wrong: the hosted backend has no GPU and no local
+  // model, so "ollama" is the one default guaranteed to fail or silently degrade for the first
+  // person who clicks Run. VITE_DEFAULT_PROVIDER sets it per environment; the deployed build sets
+  // it to mock, which is deterministic, instant, and honest about being the zero-LLM path.
+  const [provider, setProvider] = useState(import.meta.env.VITE_DEFAULT_PROVIDER ?? "ollama");
   const [resetHistory, setResetHistory] = useState(false);
   const [enableDiscovery, setEnableDiscovery] = useState(false);
   const [enableMultiwayNetting, setEnableMultiwayNetting] = useState(false);
