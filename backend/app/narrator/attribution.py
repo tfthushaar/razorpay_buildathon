@@ -556,6 +556,19 @@ def attribute_reader(
     if not options:
         components: list[CauseCandidate] = []
     else:
+        # Identical scoring to the keyword baseline -- advice agreement first, fewest components as
+        # the tie-break -- so the ONLY difference between this column and that one is whether a regex
+        # or a model read the sentence.
+        #
+        # Worth recording that I tried to improve this and then reverted it. Having measured that plain
+        # parsimony (31.7%) beats every reader (20.0-26.7%) on held-out phrasing, the obvious move is
+        # to promote parsimony from tie-break to a weighted first-class term. It very likely does score
+        # better. But applying it HERE and not to the keyword baseline would mean the two columns no
+        # longer differ only in the reading step, and any gain would be unattributable between "the
+        # model reads better" and "parsimony was weighted higher". That would destroy the one control
+        # that makes this comparison worth anything, to buy a nicer number. Applying it to both columns
+        # is a legitimate future change; applying it to one is not, and a post-hoc weighting is not
+        # worth trading the control for either way.
         scored = [(score_decomposition(d, asserted), -len(d.components), i) for i, d in enumerate(options)]
         best = max(scored)
         components = list(options[best[2]].components)

@@ -364,8 +364,8 @@ have been broken code calling a URL that 404s.
 
 **Fix:** Checked the claim against Razorpay's real API docs before writing any connector code,
 flagged it, and waited for real test credentials rather than shipping unverified integration code.
-Independently re-derived in the next audit round, from scratch: same verdict, same two broken
-endpoints.
+I re-checked it from scratch a day later, deliberately not looking at my earlier notes: same verdict,
+same two broken endpoints.
 
 **Prevented:** No test — caught before any code existed to test.
 `app/connectors/razorpay_sandbox.py` was only written once real credentials existed.

@@ -140,6 +140,11 @@ All three work on a genuinely fresh clone. Full reproduction notes: [RESULTS.md]
   banks. It's a real test of the rule, not a test against real bank text.
 - On familiar phrasing the best rule I could write still beats the local model on the residual. The
   model's advantage here is specifically generalisation and failure mode, not raw accuracy.
+- Three-source entity resolution is a controlled comparison on synthetic bank text whose corruption
+  mix I chose — not a production benchmark — and it runs from its own evidence script and tests, not
+  from the shipped batch loop.
+- Cascade routing is built, measured, and doesn't work: I could not construct an escalation signal
+  that correlates with correctness, so it ships as a measured negative rather than tuned or withdrawn.
 - The real Razorpay webhook receiver verifies and parses; it can't reconcile a settlement-only event
   on its own — the order/payment/ledger side lives in the merchant's own separate integration.
 
