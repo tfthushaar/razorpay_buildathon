@@ -7,6 +7,7 @@ else is cheap to recompute from a batch run, consistent with the rest of the sys
 posture (see BUILD_LOG.md, [[feedback-build-autonomy-and-cost]]).
 """
 
+import json
 import threading
 from dataclasses import dataclass, field
 from datetime import date, datetime, timezone
@@ -14,7 +15,7 @@ from pathlib import Path
 from typing import Literal
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, Header, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field, model_validator
 
@@ -42,6 +43,7 @@ from app.narrator.agent import narrate
 from app.narrator.tools import build_tool_context
 from app.qa.agent import QAAnswer, answer_question
 from app.qa.tools import build_settled_at_index
+from app.webhooks.razorpay import ParsedSettlementEvent, WebhookParseError, WebhookSignatureError, parse_settlement_processed_event, verify_razorpay_signature
 from app.pipeline import BatchRunResult, _final_decision, run_batch
 
 DATA_DIR = Path(__file__).resolve().parents[1] / "data"
@@ -594,6 +596,59 @@ def api_evaluate_transactions(scenario: TransactionScenario) -> EvaluateResponse
         )
     except Exception as e:
         raise HTTPException(422, f"Could not evaluate this scenario ({type(e).__name__}: {e}); check the submitted records for consistency.")
+
+
+class WebhookReceivedResponse(BaseModel):
+    verified: bool
+    parsed: ParsedSettlementEvent
+    note: str
+
+
+@app.post("/api/webhooks/razorpay")
+async def api_razorpay_webhook(request: Request, x_razorpay_signature: str | None = Header(default=None)) -> WebhookReceivedResponse:
+    """A real Razorpay webhook receiver -- the gap LIMITATIONS.md names directly: /api/transactions/
+    evaluate is a real, tested integration point, but nothing previously verified an actual incoming
+    webhook's signature or parsed its real event shape (see app/webhooks/razorpay.py for both,
+    verified against Razorpay's own current docs, not guessed).
+
+    Reads the RAW body (never `await request.json()` first -- re-serializing changes byte-for-byte
+    content and silently breaks signature verification, exactly the mistake Razorpay's own docs warn
+    against). Requires RAZORPAY_WEBHOOK_SECRET in the environment; refuses to skip verification if
+    it's unset rather than silently trusting an unverified payload -- a webhook endpoint with no way
+    to check who sent it is not a safe default to ship.
+
+    Parses and verifies the real event; does not attempt to reconstruct a full causal chain from a
+    settlement-only payload (see the module docstring for why that boundary is real, not a shortcut)
+    -- a real merchant integration would take the parsed settlement here and feed it, alongside the
+    order/payment/ledger data it already has from its own separate integration, into the existing
+    /api/transactions/evaluate pipeline."""
+    webhook_secret = os.environ.get("RAZORPAY_WEBHOOK_SECRET")
+    if not webhook_secret:
+        raise HTTPException(500, "RAZORPAY_WEBHOOK_SECRET is not configured -- refusing to accept an unverifiable webhook")
+    if not x_razorpay_signature:
+        raise HTTPException(401, "missing X-Razorpay-Signature header")
+
+    raw_body = await request.body()
+    try:
+        verify_razorpay_signature(raw_body, x_razorpay_signature, webhook_secret)
+    except WebhookSignatureError as e:
+        raise HTTPException(401, str(e))
+
+    try:
+        payload = json.loads(raw_body)
+        parsed = parse_settlement_processed_event(payload)
+    except (json.JSONDecodeError, WebhookParseError) as e:
+        raise HTTPException(422, f"could not parse webhook payload ({type(e).__name__}: {e})")
+
+    return WebhookReceivedResponse(
+        verified=True,
+        parsed=parsed,
+        note=(
+            "Signature verified and event parsed. This settlement leg alone can't be reconciled -- "
+            "feed it, alongside this order's already-known payment/ledger data, into "
+            "POST /api/transactions/evaluate to run it through the real pipeline."
+        ),
+    )
 
 
 @app.api_route("/api/health", methods=["GET", "HEAD"])

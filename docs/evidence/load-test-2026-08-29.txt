@@ -1,0 +1,22 @@
+Real load test against a live, running server (not TestClient) -- reproduce with:
+  cd backend && .venv/Scripts/python.exe -m uvicorn app.main:app --port 8000   # terminal 1
+  python scripts/load_test.py                                                  # terminal 2
+
+POST /api/run, seed=42, main_n=30, stress_n=10, provider=mock, 3 requests per worker at each
+concurrency level.
+
+concurrency | requests | succeeded | errors |  mean_s |   p95_s |   max_s |  wall_s
+          1 |        3 |         3 |      0 |   2.157 |   2.146 |   2.179 |   6.472
+          4 |       12 |        12 |      0 |   2.433 |   2.457 |   2.466 |   7.342
+          8 |       24 |        24 |      0 |   2.726 |   2.880 |   2.917 |   8.366
+         16 |       48 |        48 |      0 |   3.481 |   3.833 |   3.854 |  10.934
+         32 |       96 |        96 |      0 |   4.750 |   5.667 |   5.787 |  15.467
+
+Real finding: 100% success rate at every concurrency level tested, 1 through 32 concurrent
+requests, zero errors. Mean latency degrades gracefully, not catastrophically -- roughly 2.2x
+higher at 32x the concurrency (2.157s -> 4.750s), not an exponential or cliff-edge failure. This
+doesn't mean single-instance SQLite scales indefinitely -- it means the specific claim "this
+architecture would fall over under any real concurrent load" isn't supported by what was actually
+measured, up to the range tested here. Worker-pool narration and a move to Postgres remain real,
+legitimate next steps for load well beyond this range, but are deferred as genuinely unmeasured-as-
+necessary rather than built speculatively against a problem not shown to exist yet at this scale.
