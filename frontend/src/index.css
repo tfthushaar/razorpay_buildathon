@@ -449,3 +449,69 @@ table {
 
 .hero-table tr.is-floor td { opacity: 0.55; font-size: 0.82rem; }
 .hero-table tr.is-floor .num { font-weight: 400; }
+
+/* --- Page navigation -------------------------------------------------------------------------
+   Five views instead of one 8,000px scroll. Tabs carry both a label and the question the page
+   answers, because "Autonomy" alone does not tell a first-time reader what they will find. */
+.app-nav {
+  display: flex;
+  gap: 0;
+  margin: 0 0 1.5rem;
+  border-bottom: 2px solid var(--border, #e2e2e8);
+  overflow-x: auto;
+}
+.app-nav-tab {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  padding: 0.6rem 1.1rem 0.65rem;
+  text-decoration: none;
+  color: inherit;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  white-space: nowrap;
+  transition: background 0.12s ease;
+}
+.app-nav-tab:hover { background: var(--panel-alt, #f6f6fa); }
+.app-nav-tab.is-active { border-bottom-color: #3b3bd4; }
+.app-nav-label { font-size: 0.94rem; font-weight: 600; letter-spacing: -0.005em; }
+.app-nav-tab.is-active .app-nav-label { color: #3b3bd4; }
+.app-nav-hint { font-size: 0.72rem; opacity: 0.55; }
+
+/* Which run the numbers on this page belong to, for pages that do not own the controls. */
+.run-context {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  padding: 0.5rem 0.8rem;
+  margin-bottom: 1rem;
+  border: 1px solid var(--border, #e2e2e8);
+  border-radius: 4px;
+  background: var(--panel-alt, #fafafc);
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+}
+.run-context.is-sample { border-color: #d8c88a; background: #fdf9ec; }
+.run-context-facts { opacity: 0.8; }
+.run-context-sep { opacity: 0.35; margin: 0 0.5rem; }
+.run-context-change {
+  background: none;
+  border: none;
+  color: #3b3bd4;
+  font-weight: 600;
+  font-size: 0.8rem;
+  cursor: pointer;
+  padding: 0;
+}
+.run-context-change:disabled { opacity: 0.5; cursor: default; }
+
+.page-cta {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-top: 1.4rem;
+}
+.page-cta span { font-size: 0.82rem; opacity: 0.65; }

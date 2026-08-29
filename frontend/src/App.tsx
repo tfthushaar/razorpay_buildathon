@@ -18,6 +18,11 @@ import { RevocationDrill } from "./components/RevocationDrill";
 import { BreakItPanel } from "./components/BreakItPanel";
 import { GuidedTour } from "./components/GuidedTour";
 import { HeroFindings } from "./components/HeroFindings";
+import { AppNav } from "./components/AppNav";
+import { RunContextStrip } from "./components/RunContextStrip";
+import { PAGE_IDS, DEFAULT_PAGE } from "./pages";
+import type { PageId } from "./pages";
+import { useHashRoute } from "./useHashRoute";
 import sampleRun from "./evidence/sample-run.json";
 import "./App.css";
 
@@ -34,6 +39,7 @@ function App() {
   const [liveCalibration, setLiveCalibration] = useState<CalibrationReport | null>(null);
   const [backendUnreachable, setBackendUnreachable] = useState(false);
   const [resolveSignal, setResolveSignal] = useState(0);
+  const [page, navigate] = useHashRoute<PageId>(DEFAULT_PAGE, PAGE_IDS);
 
   // Proactive health check on load, not just reactive failure on the first user action -- without
   // this, a stopped backend is invisible until someone clicks "Run batch" and gets a generic
@@ -95,64 +101,90 @@ function App() {
         </div>
       </header>
 
-      <HeroFindings />
+      <AppNav page={page} onNavigate={navigate} />
 
-      <RunControls onRun={handleRun} loading={loading} error={error} />
+      <div className="stale-wrap" data-stale={showStale ? "true" : "false"}>
+        {showStale && (
+          <div className="stale-banner">
+            <span className="stale-banner-dot" aria-hidden="true" />
+            Running a new batch — showing the previous run's results until it lands
+          </div>
+        )}
 
-      {(
-        <div className="stale-wrap" data-stale={showStale ? "true" : "false"}>
-          {showStale && (
-            <div className="stale-banner">
-              <span className="stale-banner-dot" aria-hidden="true" />
-              Running a new batch — showing the previous run's results until it lands
+        {page === "findings" && (
+          <>
+            <HeroFindings />
+            <div className="page-cta">
+              <button type="button" onClick={() => navigate("reconcile")}>
+                See it run on a batch →
+              </button>
+              <span>
+                Everything above is measured, committed, and rendered without touching the backend.
+              </span>
             </div>
-          )}
-          {isSample && (
-            <div className="sample-banner">
-              Showing a committed sample run (seed 42, mock provider) so this page works with the backend cold. Click
-              <strong> Run batch </strong> for a live one.
-            </div>
-          )}
-          <SummaryTiles result={result} refreshKey={refreshKey} />
+          </>
+        )}
 
-          {/* Weighted, not flat. The residual funnel is the architecture, the queue with its tool
-              trace open is the work product, the drill is the safety property, the fee leak is the
-              money. Everything below "Also built" is evidence of range and is closed by default, so
-              it costs no scroll depth against the things that carry the argument. */}
-          {result.residual && <ResidualPanel residual={result.residual} />}
-          <EscalationQueue
-            escalations={result.escalations}
-            runId={result.run_id}
-            onResolved={() => {
-              setRefreshKey((k) => k + 1);
-              setResolveSignal((s) => s + 1);
-            }}
-            liveAutoResolveCategories={liveAutoResolveCategories}
-            categoryProposals={result.category_proposals}
+        {page !== "findings" && (
+          <RunContextStrip
+            result={result}
+            isSample={isSample}
+            loading={loading}
+            onGoToControls={() => navigate("reconcile")}
           />
-          <RevocationDrill />
-          <FeeLeakAnalysis result={result} />
-          <CalibrationPanel initialReport={result.calibration} refreshKey={refreshKey} onReportChange={setLiveCalibration} />
+        )}
 
-          <details className="also-built">
-            <summary>Also built</summary>
-            <p className="also-built-note">
-              Range rather than argument: a naive-baseline comparison, an all-traps stress batch, a forward settlement
-              forecaster, an ERP journal export, a free-text Q&amp;A agent over the batch, a hand-crafted scenario
-              submitter, and the full audit trail.
-            </p>
+        {page === "reconcile" && (
+          <>
+            <RunControls onRun={handleRun} loading={loading} error={error} />
+            {isSample && (
+              <div className="sample-banner">
+                Showing a committed sample run (seed 42, mock provider) so this page works with the backend cold. Click
+                <strong> Run batch </strong> for a live one.
+              </div>
+            )}
+            <SummaryTiles result={result} refreshKey={refreshKey} />
+            <EscalationQueue
+              escalations={result.escalations}
+              runId={result.run_id}
+              onResolved={() => {
+                setRefreshKey((k) => k + 1);
+                setResolveSignal((s) => s + 1);
+              }}
+              liveAutoResolveCategories={liveAutoResolveCategories}
+              categoryProposals={result.category_proposals}
+            />
+            <FeeLeakAnalysis result={result} />
+          </>
+        )}
+
+        {page === "autonomy" && (
+          <>
+            {result.residual && <ResidualPanel residual={result.residual} />}
+            <CalibrationPanel initialReport={result.calibration} refreshKey={refreshKey} onReportChange={setLiveCalibration} />
+            <RevocationDrill />
+          </>
+        )}
+
+        {page === "evidence" && (
+          <>
             <div className="two-column">
               <BaselineComparison result={result} />
               <StressScorecard stress={result.stress} />
             </div>
             <ForecastPanel refreshKey={refreshKey} />
             <ErpExport result={result} />
+          </>
+        )}
+
+        {page === "probe" && (
+          <>
             <BreakItPanel />
             <SettlementQA key={refreshKey} />
             <AuditLogView runId={result.run_id} refreshKey={refreshKey} />
-          </details>
-        </div>
-      )}
+          </>
+        )}
+      </div>
 
       <GuidedTour hasEscalations={result.escalations.length > 0} resolveSignal={resolveSignal} />
     </div>
