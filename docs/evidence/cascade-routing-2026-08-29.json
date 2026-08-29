@@ -1,0 +1,2268 @@
+{
+  "generated_on": "2026-08-29",
+  "seed": 42,
+  "n": 60,
+  "phrasing": "held_out",
+  "tiers": [
+    "qwen2.5:7b-instruct",
+    "qwen2.5:14b-instruct"
+  ],
+  "residual_n": 60,
+  "end_to_end_correct": 12,
+  "end_to_end_accuracy": 0.2,
+  "total_seconds": 142.722,
+  "per_tier": {
+    "keyword_rule": {
+      "absorbed": 6,
+      "share": 0.1,
+      "correct": 0,
+      "accuracy": 0.0,
+      "total_seconds": 0.0,
+      "seconds_per_resolved": null
+    },
+    "qwen2.5:7b-instruct": {
+      "absorbed": 54,
+      "share": 0.9,
+      "correct": 12,
+      "accuracy": 0.2222,
+      "total_seconds": 142.722,
+      "seconds_per_resolved": 2.643
+    },
+    "qwen2.5:14b-instruct": {
+      "absorbed": 0,
+      "share": 0.0,
+      "correct": 0,
+      "accuracy": null,
+      "total_seconds": 0,
+      "seconds_per_resolved": null
+    },
+    "human": {
+      "absorbed": 0,
+      "share": 0.0,
+      "correct": 0,
+      "accuracy": null,
+      "total_seconds": 0,
+      "seconds_per_resolved": null
+    }
+  },
+  "per_case": [
+    {
+      "transaction_id": "order_21b8901398bb",
+      "k": 104,
+      "final_tier": "qwen2.5:7b-instruct",
+      "correct": false,
+      "total_seconds": 8.515,
+      "tiers_tried": [
+        {
+          "tier": "keyword_rule",
+          "resolved_here": false,
+          "components": [],
+          "seconds": 0.0,
+          "reason": "the advice left 4 options equally agreeing, so any answer here is a parsimony guess"
+        },
+        {
+          "tier": "qwen2.5:7b-instruct",
+          "resolved_here": true,
+          "components": [
+            {
+              "cause": "tds_deduction",
+              "amount": -500,
+              "evidence_ref": "tds:0.0100"
+            },
+            {
+              "cause": "promotional_waiver",
+              "amount": 1180,
+              "evidence_ref": "narration:stl_b35c0dc61e9b"
+            }
+          ],
+          "seconds": 8.514999999984866,
+          "reason": "verified"
+        }
+      ]
+    },
+    {
+      "transaction_id": "order_1ecc5420bbfc",
+      "k": 7,
+      "final_tier": "qwen2.5:7b-instruct",
+      "correct": false,
+      "total_seconds": 1.687,
+      "tiers_tried": [
+        {
+          "tier": "keyword_rule",
+          "resolved_here": false,
+          "components": [],
+          "seconds": 0.0,
+          "reason": "the advice left 6 options equally agreeing, so any answer here is a parsimony guess"
+        },
+        {
+          "tier": "qwen2.5:7b-instruct",
+          "resolved_here": true,
+          "components": [
+            {
+              "cause": "fee_rate_mismatch",
+              "amount": 2500,
+              "evidence_ref": "fee_schedule:upi@0.0025"
+            },
+            {
+              "cause": "fx_rounding",
+              "amount": -2,
+              "evidence_ref": "fx:INR"
+            }
+          ],
+          "seconds": 1.687000000005355,
+          "reason": "verified"
+        }
+      ]
+    },
+    {
+      "transaction_id": "order_a801c367de20",
+      "k": 12,
+      "final_tier": "qwen2.5:7b-instruct",
+      "correct": false,
+      "total_seconds": 1.672,
+      "tiers_tried": [
+        {
+          "tier": "keyword_rule",
+          "resolved_here": false,
+          "components": [],
+          "seconds": 0.0,
+          "reason": "the advice left 3 options equally agreeing, so any answer here is a parsimony guess"
+        },
+        {
+          "tier": "qwen2.5:7b-instruct",
+          "resolved_here": true,
+          "components": [
+            {
+              "cause": "fee_rate_mismatch",
+              "amount": 12500,
+              "evidence_ref": "fee_schedule:netbanking@0.0050"
+            },
+            {
+              "cause": "gst_on_fee_mismatch",
+              "amount": 4500,
+              "evidence_ref": "gst:0.00"
+            },
+            {
+              "cause": "tds_deduction",
+              "amount": -12500,
+              "evidence_ref": "tds:0.0050"
+            },
+            {
+              "cause": "promotional_waiver",
+              "amount": 29500,
+              "evidence_ref": "narration:stl_8825134784fc"
+            }
+          ],
+          "seconds": 1.6719999999913853,
+          "reason": "verified"
+        }
+      ]
+    },
+    {
+      "transaction_id": "order_601ee8d9224e",
+      "k": 20,
+      "final_tier": "qwen2.5:7b-instruct",
+      "correct": true,
+      "total_seconds": 1.703,
+      "tiers_tried": [
+        {
+          "tier": "keyword_rule",
+          "resolved_here": false,
+          "components": [],
+          "seconds": 0.0,
+          "reason": "the advice left 6 options equally agreeing, so any answer here is a parsimony guess"
+        },
+        {
+          "tier": "qwen2.5:7b-instruct",
+          "resolved_here": true,
+          "components": [
+            {
+              "cause": "gst_on_fee_mismatch",
+              "amount": 90,
+              "evidence_ref": "gst:0.12"
+            },
+            {
+              "cause": "duplicate_refund",
+              "amount": -45000,
+              "evidence_ref": "refund:rfnd_dd3d74c3035d"
+            }
+          ],
+          "seconds": 1.7030000000086147,
+          "reason": "verified"
+        }
+      ]
+    },
+    {
+      "transaction_id": "order_b662bedec3cb",
+      "k": 7,
+      "final_tier": "qwen2.5:7b-instruct",
+      "correct": true,
+      "total_seconds": 1.672,
+      "tiers_tried": [
+        {
+          "tier": "keyword_rule",
+          "resolved_here": false,
+          "components": [],
+          "seconds": 0.0,
+          "reason": "the advice left 7 options equally agreeing, so any answer here is a parsimony guess"
+        },
+        {
+          "tier": "qwen2.5:7b-instruct",
+          "resolved_here": true,
+          "components": [
+            {
+              "cause": "tds_deduction",
+              "amount": -24000,
+              "evidence_ref": "tds:0.0200"
+            },
+            {
+              "cause": "rolling_reserve",
+              "amount": -24000,
+              "evidence_ref": "reserve:0.0200"
+            },
+            {
+              "cause": "promotional_waiver",
+              "amount": 4248,
+              "evidence_ref": "narration:stl_46ed8bce7476"
+            }
+          ],
+          "seconds": 1.672000000020489,
+          "reason": "verified"
+        }
+      ]
+    },
+    {
+      "transaction_id": "order_1f003d9371f7",
+      "k": 57,
+      "final_tier": "qwen2.5:7b-instruct",
+      "correct": false,
+      "total_seconds": 1.703,
+      "tiers_tried": [
+        {
+          "tier": "keyword_rule",
+          "resolved_here": false,
+          "components": [],
+          "seconds": 0.0,
+          "reason": "the advice left 29 options equally agreeing, so any answer here is a parsimony guess"
+        },
+        {
+          "tier": "qwen2.5:7b-instruct",
+          "resolved_here": true,
+          "components": [
+            {
+              "cause": "fee_rate_mismatch",
+              "amount": 550,
+              "evidence_ref": "fee_schedule:card@0.0090"
+            },
+            {
+              "cause": "tds_deduction",
+              "amount": -250,
+              "evidence_ref": "tds:0.0050"
+            },
+            {
+              "cause": "rolling_reserve",
+              "amount": -1000,
+              "evidence_ref": "reserve:0.0200"
+            },
+            {
+              "cause": "fx_rounding",
+              "amount": -3,
+              "evidence_ref": "fx:INR"
+            }
+          ],
+          "seconds": 1.7030000000086147,
+          "reason": "verified"
+        }
+      ]
+    },
+    {
+      "transaction_id": "order_9c9fd454b200",
+      "k": 28,
+      "final_tier": "qwen2.5:7b-instruct",
+      "correct": false,
+      "total_seconds": 1.687,
+      "tiers_tried": [
+        {
+          "tier": "keyword_rule",
+          "resolved_here": false,
+          "components": [],
+          "seconds": 0.0,
+          "reason": "the advice left 12 options equally agreeing, so any answer here is a parsimony guess"
+        },
+        {
+          "tier": "qwen2.5:7b-instruct",
+          "resolved_here": true,
+          "components": [
+            {
+              "cause": "gst_on_fee_mismatch",
+              "amount": 97,
+              "evidence_ref": "gst:0.05"
+            },
+            {
+              "cause": "tds_deduction",
+              "amount": -250,
+              "evidence_ref": "tds:0.0010"
+            },
+            {
+              "cause": "rolling_reserve",
+              "amount": -1250,
+              "evidence_ref": "reserve:0.0050"
+            }
+          ],
+          "seconds": 1.687000000005355,
+          "reason": "verified"
+        }
+      ]
+    },
+    {
+      "transaction_id": "order_c7ae29a7155a",
+      "k": 30,
+      "final_tier": "keyword_rule",
+      "correct": false,
+      "total_seconds": 0.0,
+      "tiers_tried": [
+        {
+          "tier": "keyword_rule",
+          "resolved_here": true,
+          "components": [
+            {
+              "cause": "duplicate_refund",
+              "amount": -105000,
+              "evidence_ref": "refund:rfnd_7b1f932881fe"
+            },
+            {
+              "cause": "tds_deduction",
+              "amount": -420,
+              "evidence_ref": "tds:0.0010"
+            },
+            {
+              "cause": "rolling_reserve",
+              "amount": -8400,
+              "evidence_ref": "reserve:0.0200"
+            },
+            {
+              "cause": "promotional_waiver",
+              "amount": 9912,
+              "evidence_ref": "narration:stl_75c6edf36d65"
+            }
+          ],
+          "seconds": 0.0,
+          "reason": "the advice picked a unique winner among 30 valid explanations"
+        }
+      ]
+    },
+    {
+      "transaction_id": "order_ae7893a431fc",
+      "k": 42,
+      "final_tier": "qwen2.5:7b-instruct",
+      "correct": false,
+      "total_seconds": 2.828,
+      "tiers_tried": [
+        {
+          "tier": "keyword_rule",
+          "resolved_here": false,
+          "components": [],
+          "seconds": 0.0,
+          "reason": "the advice left 6 options equally agreeing, so any answer here is a parsimony guess"
+        },
+        {
+          "tier": "qwen2.5:7b-instruct",
+          "resolved_here": true,
+          "components": [
+            {
+              "cause": "duplicate_refund",
+              "amount": -112500,
+              "evidence_ref": "refund:rfnd_e7481ff4fb74"
+            },
+            {
+              "cause": "tds_deduction",
+              "amount": -15000,
+              "evidence_ref": "tds:0.0200"
+            },
+            {
+              "cause": "fx_rounding",
+              "amount": 2,
+              "evidence_ref": "fx:INR"
+            }
+          ],
+          "seconds": 2.8280000000086147,
+          "reason": "verified"
+        }
+      ]
+    },
+    {
+      "transaction_id": "order_100f13865fb8",
+      "k": 17,
+      "final_tier": "keyword_rule",
+      "correct": false,
+      "total_seconds": 0.0,
+      "tiers_tried": [
+        {
+          "tier": "keyword_rule",
+          "resolved_here": true,
+          "components": [
+            {
+              "cause": "fee_rate_mismatch",
+              "amount": 40000,
+              "evidence_ref": "fee_schedule:card@0.0040"
+            },
+            {
+              "cause": "gst_on_fee_mismatch",
+              "amount": 3000,
+              "evidence_ref": "gst:0.12"
+            },
+            {
+              "cause": "tds_deduction",
+              "amount": -50000,
+              "evidence_ref": "tds:0.0200"
+            },
+            {
+              "cause": "promotional_waiver",
+              "amount": 59000,
+              "evidence_ref": "narration:stl_c3520b8b7c81"
+            }
+          ],
+          "seconds": 0.0,
+          "reason": "the advice picked a unique winner among 17 valid explanations"
+        }
+      ]
+    },
+    {
+      "transaction_id": "order_dacb37357616",
+      "k": 28,
+      "final_tier": "qwen2.5:7b-instruct",
+      "correct": false,
+      "total_seconds": 2.235,
+      "tiers_tried": [
+        {
+          "tier": "keyword_rule",
+          "resolved_here": false,
+          "components": [],
+          "seconds": 0.0,
+          "reason": "the advice left 14 options equally agreeing, so any answer here is a parsimony guess"
+        },
+        {
+          "tier": "qwen2.5:7b-instruct",
+          "resolved_here": true,
+          "components": [
+            {
+              "cause": "partial_refund",
+              "amount": -300000,
+              "evidence_ref": "refund:rfnd_1827d5814368"
+            },
+            {
+              "cause": "tds_deduction",
+              "amount": -6000,
+              "evidence_ref": "tds:0.0050"
+            }
+          ],
+          "seconds": 2.23499999998603,
+          "reason": "verified"
+        }
+      ]
+    },
+    {
+      "transaction_id": "order_56b671566a46",
+      "k": 14,
+      "final_tier": "qwen2.5:7b-instruct",
+      "correct": false,
+      "total_seconds": 2.297,
+      "tiers_tried": [
+        {
+          "tier": "keyword_rule",
+          "resolved_here": false,
+          "components": [],
+          "seconds": 0.0,
+          "reason": "the advice left 6 options equally agreeing, so any answer here is a parsimony guess"
+        },
+        {
+          "tier": "qwen2.5:7b-instruct",
+          "resolved_here": true,
+          "components": [
+            {
+              "cause": "gst_on_fee_mismatch",
+              "amount": 13000,
+              "evidence_ref": "gst:0.05"
+            },
+            {
+              "cause": "promotional_waiver",
+              "amount": 118000,
+              "evidence_ref": "narration:stl_d1dd9878ce7c"
+            }
+          ],
+          "seconds": 2.2969999999913853,
+          "reason": "verified"
+        }
+      ]
+    },
+    {
+      "transaction_id": "order_df921ae4aa2b",
+      "k": 42,
+      "final_tier": "qwen2.5:7b-instruct",
+      "correct": false,
+      "total_seconds": 2.641,
+      "tiers_tried": [
+        {
+          "tier": "keyword_rule",
+          "resolved_here": false,
+          "components": [],
+          "seconds": 0.0,
+          "reason": "the advice left 11 options equally agreeing, so any answer here is a parsimony guess"
+        },
+        {
+          "tier": "qwen2.5:7b-instruct",
+          "resolved_here": true,
+          "components": [
+            {
+              "cause": "fee_rate_mismatch",
+              "amount": 600,
+              "evidence_ref": "fee_schedule:upi@0.0025"
+            },
+            {
+              "cause": "duplicate_refund",
+              "amount": -180000,
+              "evidence_ref": "refund:rfnd_ae9922b9eb05"
+            },
+            {
+              "cause": "tds_deduction",
+              "amount": -6000,
+              "evidence_ref": "tds:0.0050"
+            }
+          ],
+          "seconds": 2.6410000000032596,
+          "reason": "verified"
+        }
+      ]
+    },
+    {
+      "transaction_id": "order_814406c71e90",
+      "k": 29,
+      "final_tier": "qwen2.5:7b-instruct",
+      "correct": true,
+      "total_seconds": 2.156,
+      "tiers_tried": [
+        {
+          "tier": "keyword_rule",
+          "resolved_here": false,
+          "components": [],
+          "seconds": 0.0,
+          "reason": "the advice left 13 options equally agreeing, so any answer here is a parsimony guess"
+        },
+        {
+          "tier": "qwen2.5:7b-instruct",
+          "resolved_here": true,
+          "components": [
+            {
+              "cause": "fee_rate_mismatch",
+              "amount": 75,
+              "evidence_ref": "fee_schedule:upi@0.0025"
+            },
+            {
+              "cause": "duplicate_refund",
+              "amount": -37500,
+              "evidence_ref": "refund:rfnd_255adaf722bf"
+            },
+            {
+              "cause": "promotional_waiver",
+              "amount": 531,
+              "evidence_ref": "narration:stl_77e8cb19d851"
+            }
+          ],
+          "seconds": 2.1559999999881256,
+          "reason": "verified"
+        }
+      ]
+    },
+    {
+      "transaction_id": "order_0275712554f0",
+      "k": 43,
+      "final_tier": "qwen2.5:7b-instruct",
+      "correct": false,
+      "total_seconds": 2.657,
+      "tiers_tried": [
+        {
+          "tier": "keyword_rule",
+          "resolved_here": false,
+          "components": [],
+          "seconds": 0.0,
+          "reason": "the advice left 26 options equally agreeing, so any answer here is a parsimony guess"
+        },
+        {
+          "tier": "qwen2.5:7b-instruct",
+          "resolved_here": true,
+          "components": [
+            {
+              "cause": "fee_rate_mismatch",
+              "amount": 8250,
+              "evidence_ref": "fee_schedule:card@0.0090"
+            },
+            {
+              "cause": "tds_deduction",
+              "amount": -3750,
+              "evidence_ref": "tds:0.0050"
+            }
+          ],
+          "seconds": 2.6570000000065193,
+          "reason": "verified"
+        }
+      ]
+    },
+    {
+      "transaction_id": "order_fc43990e8a43",
+      "k": 33,
+      "final_tier": "qwen2.5:7b-instruct",
+      "correct": true,
+      "total_seconds": 2.36,
+      "tiers_tried": [
+        {
+          "tier": "keyword_rule",
+          "resolved_here": false,
+          "components": [],
+          "seconds": 0.0,
+          "reason": "the advice left 2 options equally agreeing, so any answer here is a parsimony guess"
+        },
+        {
+          "tier": "qwen2.5:7b-instruct",
+          "resolved_here": true,
+          "components": [
+            {
+              "cause": "fee_rate_mismatch",
+              "amount": 750,
+              "evidence_ref": "fee_schedule:card@0.0050"
+            },
+            {
+              "cause": "promotional_waiver",
+              "amount": 1180,
+              "evidence_ref": "narration:stl_8f3507ea78d6"
+            }
+          ],
+          "seconds": 2.360000000015134,
+          "reason": "verified"
+        }
+      ]
+    },
+    {
+      "transaction_id": "order_798592fb45d8",
+      "k": 14,
+      "final_tier": "qwen2.5:7b-instruct",
+      "correct": false,
+      "total_seconds": 2.219,
+      "tiers_tried": [
+        {
+          "tier": "keyword_rule",
+          "resolved_here": false,
+          "components": [],
+          "seconds": 0.0,
+          "reason": "the advice left 6 options equally agreeing, so any answer here is a parsimony guess"
+        },
+        {
+          "tier": "qwen2.5:7b-instruct",
+          "resolved_here": true,
+          "components": [
+            {
+              "cause": "gst_on_fee_mismatch",
+              "amount": 81,
+              "evidence_ref": "gst:0.00"
+            },
+            {
+              "cause": "promotional_waiver",
+              "amount": 531,
+              "evidence_ref": "narration:stl_e55cbab93383"
+            }
+          ],
+          "seconds": 2.2190000000118744,
+          "reason": "verified"
+        }
+      ]
+    },
+    {
+      "transaction_id": "order_41b30e33157a",
+      "k": 35,
+      "final_tier": "qwen2.5:7b-instruct",
+      "correct": true,
+      "total_seconds": 2.578,
+      "tiers_tried": [
+        {
+          "tier": "keyword_rule",
+          "resolved_here": false,
+          "components": [],
+          "seconds": 0.0,
+          "reason": "the advice left 21 options equally agreeing, so any answer here is a parsimony guess"
+        },
+        {
+          "tier": "qwen2.5:7b-instruct",
+          "resolved_here": true,
+          "components": [
+            {
+              "cause": "fee_rate_mismatch",
+              "amount": -2500,
+              "evidence_ref": "fee_schedule:upi@0.0035"
+            },
+            {
+              "cause": "tds_deduction",
+              "amount": -50000,
+              "evidence_ref": "tds:0.0100"
+            }
+          ],
+          "seconds": 2.5780000000086147,
+          "reason": "verified"
+        }
+      ]
+    },
+    {
+      "transaction_id": "order_9c885e1de382",
+      "k": 14,
+      "final_tier": "qwen2.5:7b-instruct",
+      "correct": true,
+      "total_seconds": 2.265,
+      "tiers_tried": [
+        {
+          "tier": "keyword_rule",
+          "resolved_here": false,
+          "components": [],
+          "seconds": 0.0,
+          "reason": "the advice left 14 options equally agreeing, so any answer here is a parsimony guess"
+        },
+        {
+          "tier": "qwen2.5:7b-instruct",
+          "resolved_here": true,
+          "components": [
+            {
+              "cause": "fee_rate_mismatch",
+              "amount": 4550,
+              "evidence_ref": "fee_schedule:card@0.0018"
+            },
+            {
+              "cause": "rolling_reserve",
+              "amount": -12500,
+              "evidence_ref": "reserve:0.0500"
+            }
+          ],
+          "seconds": 2.26500000001397,
+          "reason": "verified"
+        }
+      ]
+    },
+    {
+      "transaction_id": "order_a542a340feea",
+      "k": 14,
+      "final_tier": "qwen2.5:7b-instruct",
+      "correct": false,
+      "total_seconds": 2.844,
+      "tiers_tried": [
+        {
+          "tier": "keyword_rule",
+          "resolved_here": false,
+          "components": [],
+          "seconds": 0.0,
+          "reason": "the advice left 6 options equally agreeing, so any answer here is a parsimony guess"
+        },
+        {
+          "tier": "qwen2.5:7b-instruct",
+          "resolved_here": true,
+          "components": [
+            {
+              "cause": "gst_on_fee_mismatch",
+              "amount": 293,
+              "evidence_ref": "gst:0.05"
+            },
+            {
+              "cause": "partial_refund",
+              "amount": -112500,
+              "evidence_ref": "refund:rfnd_ed1b34a9d3cb"
+            }
+          ],
+          "seconds": 2.8439999999827705,
+          "reason": "verified"
+        }
+      ]
+    },
+    {
+      "transaction_id": "order_0859a9770808",
+      "k": 12,
+      "final_tier": "qwen2.5:7b-instruct",
+      "correct": false,
+      "total_seconds": 2.344,
+      "tiers_tried": [
+        {
+          "tier": "keyword_rule",
+          "resolved_here": false,
+          "components": [],
+          "seconds": 0.0,
+          "reason": "the advice left 4 options equally agreeing, so any answer here is a parsimony guess"
+        },
+        {
+          "tier": "qwen2.5:7b-instruct",
+          "resolved_here": true,
+          "components": [
+            {
+              "cause": "fx_rounding",
+              "amount": 2,
+              "evidence_ref": "fx:INR"
+            },
+            {
+              "cause": "promotional_waiver",
+              "amount": 885,
+              "evidence_ref": "narration:stl_032dde499da8"
+            }
+          ],
+          "seconds": 2.3440000000118744,
+          "reason": "verified"
+        }
+      ]
+    },
+    {
+      "transaction_id": "order_12bab5104542",
+      "k": 24,
+      "final_tier": "qwen2.5:7b-instruct",
+      "correct": true,
+      "total_seconds": 2.578,
+      "tiers_tried": [
+        {
+          "tier": "keyword_rule",
+          "resolved_here": false,
+          "components": [],
+          "seconds": 0.0,
+          "reason": "the advice left 3 options equally agreeing, so any answer here is a parsimony guess"
+        },
+        {
+          "tier": "qwen2.5:7b-instruct",
+          "resolved_here": true,
+          "components": [
+            {
+              "cause": "gst_on_fee_mismatch",
+              "amount": -840,
+              "evidence_ref": "gst:0.28"
+            },
+            {
+              "cause": "tds_deduction",
+              "amount": -4200,
+              "evidence_ref": "tds:0.0100"
+            }
+          ],
+          "seconds": 2.5780000000086147,
+          "reason": "verified"
+        }
+      ]
+    },
+    {
+      "transaction_id": "order_1ca5a0fa6cf6",
+      "k": 14,
+      "final_tier": "qwen2.5:7b-instruct",
+      "correct": true,
+      "total_seconds": 2.265,
+      "tiers_tried": [
+        {
+          "tier": "keyword_rule",
+          "resolved_here": false,
+          "components": [],
+          "seconds": 0.0,
+          "reason": "the advice left 12 options equally agreeing, so any answer here is a parsimony guess"
+        },
+        {
+          "tier": "qwen2.5:7b-instruct",
+          "resolved_here": true,
+          "components": [
+            {
+              "cause": "gst_on_fee_mismatch",
+              "amount": -1500,
+              "evidence_ref": "gst:0.28"
+            },
+            {
+              "cause": "tds_deduction",
+              "amount": -50000,
+              "evidence_ref": "tds:0.0100"
+            },
+            {
+              "cause": "rolling_reserve",
+              "amount": -25000,
+              "evidence_ref": "reserve:0.0050"
+            }
+          ],
+          "seconds": 2.26500000001397,
+          "reason": "verified"
+        }
+      ]
+    },
+    {
+      "transaction_id": "order_8ee2242d9df7",
+      "k": 36,
+      "final_tier": "keyword_rule",
+      "correct": false,
+      "total_seconds": 0.0,
+      "tiers_tried": [
+        {
+          "tier": "keyword_rule",
+          "resolved_here": true,
+          "components": [
+            {
+              "cause": "fee_rate_mismatch",
+              "amount": 18600,
+              "evidence_ref": "fee_schedule:card@0.0045"
+            },
+            {
+              "cause": "gst_on_fee_mismatch",
+              "amount": -2400,
+              "evidence_ref": "gst:0.28"
+            },
+            {
+              "cause": "tds_deduction",
+              "amount": -1200,
+              "evidence_ref": "tds:0.0010"
+            },
+            {
+              "cause": "rolling_reserve",
+              "amount": -24000,
+              "evidence_ref": "reserve:0.0200"
+            }
+          ],
+          "seconds": 0.0,
+          "reason": "the advice picked a unique winner among 36 valid explanations"
+        }
+      ]
+    },
+    {
+      "transaction_id": "order_dd1fabdc6fd7",
+      "k": 14,
+      "final_tier": "qwen2.5:7b-instruct",
+      "correct": false,
+      "total_seconds": 2.875,
+      "tiers_tried": [
+        {
+          "tier": "keyword_rule",
+          "resolved_here": false,
+          "components": [],
+          "seconds": 0.0,
+          "reason": "the advice left 12 options equally agreeing, so any answer here is a parsimony guess"
+        },
+        {
+          "tier": "qwen2.5:7b-instruct",
+          "resolved_here": true,
+          "components": [
+            {
+              "cause": "partial_refund",
+              "amount": -625000,
+              "evidence_ref": "refund:rfnd_45e264b3ab07"
+            },
+            {
+              "cause": "promotional_waiver",
+              "amount": 8850,
+              "evidence_ref": "narration:stl_a26ad11c96f5"
+            }
+          ],
+          "seconds": 2.875,
+          "reason": "verified"
+        }
+      ]
+    },
+    {
+      "transaction_id": "order_d6827f1903ef",
+      "k": 21,
+      "final_tier": "qwen2.5:7b-instruct",
+      "correct": false,
+      "total_seconds": 2.391,
+      "tiers_tried": [
+        {
+          "tier": "keyword_rule",
+          "resolved_here": false,
+          "components": [],
+          "seconds": 0.0,
+          "reason": "the advice left 6 options equally agreeing, so any answer here is a parsimony guess"
+        },
+        {
+          "tier": "qwen2.5:7b-instruct",
+          "resolved_here": true,
+          "components": [
+            {
+              "cause": "fee_rate_mismatch",
+              "amount": 4875,
+              "evidence_ref": "fee_schedule:netbanking@0.0035"
+            },
+            {
+              "cause": "fx_rounding",
+              "amount": 2,
+              "evidence_ref": "fx:INR"
+            },
+            {
+              "cause": "promotional_waiver",
+              "amount": 8850,
+              "evidence_ref": "narration:stl_b9175795419b"
+            }
+          ],
+          "seconds": 2.3910000000032596,
+          "reason": "verified"
+        }
+      ]
+    },
+    {
+      "transaction_id": "order_4d5803949797",
+      "k": 16,
+      "final_tier": "keyword_rule",
+      "correct": false,
+      "total_seconds": 0.0,
+      "tiers_tried": [
+        {
+          "tier": "keyword_rule",
+          "resolved_here": true,
+          "components": [
+            {
+              "cause": "fee_rate_mismatch",
+              "amount": 7800,
+              "evidence_ref": "fee_schedule:netbanking@0.0035"
+            },
+            {
+              "cause": "gst_on_fee_mismatch",
+              "amount": 720,
+              "evidence_ref": "gst:0.12"
+            },
+            {
+              "cause": "duplicate_refund",
+              "amount": -360000,
+              "evidence_ref": "refund:rfnd_b5f112d196f3"
+            },
+            {
+              "cause": "tds_deduction",
+              "amount": -1200,
+              "evidence_ref": "tds:0.0010"
+            }
+          ],
+          "seconds": 0.0,
+          "reason": "the advice picked a unique winner among 16 valid explanations"
+        }
+      ]
+    },
+    {
+      "transaction_id": "order_65e47299a7e7",
+      "k": 42,
+      "final_tier": "qwen2.5:7b-instruct",
+      "correct": false,
+      "total_seconds": 2.063,
+      "tiers_tried": [
+        {
+          "tier": "keyword_rule",
+          "resolved_here": false,
+          "components": [],
+          "seconds": 0.0,
+          "reason": "the advice left 22 options equally agreeing, so any answer here is a parsimony guess"
+        },
+        {
+          "tier": "qwen2.5:7b-instruct",
+          "resolved_here": true,
+          "components": [
+            {
+              "cause": "fee_rate_mismatch",
+              "amount": 40000,
+              "evidence_ref": "fee_schedule:card@0.0040"
+            },
+            {
+              "cause": "tds_deduction",
+              "amount": -25000,
+              "evidence_ref": "tds:0.0100"
+            },
+            {
+              "cause": "rolling_reserve",
+              "amount": -25000,
+              "evidence_ref": "reserve:0.0100"
+            }
+          ],
+          "seconds": 2.062999999994645,
+          "reason": "verified"
+        }
+      ]
+    },
+    {
+      "transaction_id": "order_ec3924b2bff6",
+      "k": 16,
+      "final_tier": "qwen2.5:7b-instruct",
+      "correct": false,
+      "total_seconds": 2.204,
+      "tiers_tried": [
+        {
+          "tier": "keyword_rule",
+          "resolved_here": false,
+          "components": [],
+          "seconds": 0.0,
+          "reason": "the advice left 7 options equally agreeing, so any answer here is a parsimony guess"
+        },
+        {
+          "tier": "qwen2.5:7b-instruct",
+          "resolved_here": true,
+          "components": [
+            {
+              "cause": "fee_rate_mismatch",
+              "amount": 2730,
+              "evidence_ref": "fee_schedule:card@0.0018"
+            },
+            {
+              "cause": "partial_refund",
+              "amount": -45000,
+              "evidence_ref": "refund:rfnd_7626e56dc9c3"
+            },
+            {
+              "cause": "fx_rounding",
+              "amount": 3,
+              "evidence_ref": "fx:INR"
+            },
+            {
+              "cause": "promotional_waiver",
+              "amount": 3540,
+              "evidence_ref": "narration:stl_05f68e8a4168"
+            }
+          ],
+          "seconds": 2.2039999999979045,
+          "reason": "verified"
+        }
+      ]
+    },
+    {
+      "transaction_id": "order_ca158f98dd68",
+      "k": 30,
+      "final_tier": "qwen2.5:7b-instruct",
+      "correct": false,
+      "total_seconds": 2.61,
+      "tiers_tried": [
+        {
+          "tier": "keyword_rule",
+          "resolved_here": false,
+          "components": [],
+          "seconds": 0.0,
+          "reason": "the advice left 15 options equally agreeing, so any answer here is a parsimony guess"
+        },
+        {
+          "tier": "qwen2.5:7b-instruct",
+          "resolved_here": true,
+          "components": [
+            {
+              "cause": "fee_rate_mismatch",
+              "amount": -1260,
+              "evidence_ref": "fee_schedule:upi@0.0060"
+            },
+            {
+              "cause": "partial_refund",
+              "amount": -126000,
+              "evidence_ref": "refund:rfnd_8d8e0b9c1299"
+            },
+            {
+              "cause": "tds_deduction",
+              "amount": -420,
+              "evidence_ref": "tds:0.0010"
+            },
+            {
+              "cause": "promotional_waiver",
+              "amount": 1487,
+              "evidence_ref": "narration:stl_ee0d447b1d2f"
+            }
+          ],
+          "seconds": 2.60999999998603,
+          "reason": "verified"
+        }
+      ]
+    },
+    {
+      "transaction_id": "order_d8a10592d952",
+      "k": 14,
+      "final_tier": "qwen2.5:7b-instruct",
+      "correct": false,
+      "total_seconds": 2.265,
+      "tiers_tried": [
+        {
+          "tier": "keyword_rule",
+          "resolved_here": false,
+          "components": [],
+          "seconds": 0.0,
+          "reason": "the advice left 7 options equally agreeing, so any answer here is a parsimony guess"
+        },
+        {
+          "tier": "qwen2.5:7b-instruct",
+          "resolved_here": true,
+          "components": [
+            {
+              "cause": "gst_on_fee_mismatch",
+              "amount": 135,
+              "evidence_ref": "gst:0.12"
+            },
+            {
+              "cause": "partial_refund",
+              "amount": -225000,
+              "evidence_ref": "refund:rfnd_ed7348990ffd"
+            }
+          ],
+          "seconds": 2.26500000001397,
+          "reason": "verified"
+        }
+      ]
+    },
+    {
+      "transaction_id": "order_0a99731a86d2",
+      "k": 15,
+      "final_tier": "qwen2.5:7b-instruct",
+      "correct": true,
+      "total_seconds": 2.687,
+      "tiers_tried": [
+        {
+          "tier": "keyword_rule",
+          "resolved_here": false,
+          "components": [],
+          "seconds": 0.0,
+          "reason": "the advice left 15 options equally agreeing, so any answer here is a parsimony guess"
+        },
+        {
+          "tier": "qwen2.5:7b-instruct",
+          "resolved_here": true,
+          "components": [
+            {
+              "cause": "gst_on_fee_mismatch",
+              "amount": -126,
+              "evidence_ref": "gst:0.28"
+            },
+            {
+              "cause": "rolling_reserve",
+              "amount": -21000,
+              "evidence_ref": "reserve:0.0500"
+            }
+          ],
+          "seconds": 2.687000000005355,
+          "reason": "verified"
+        }
+      ]
+    },
+    {
+      "transaction_id": "order_72ba4aa492d1",
+      "k": 35,
+      "final_tier": "qwen2.5:7b-instruct",
+      "correct": true,
+      "total_seconds": 4.641,
+      "tiers_tried": [
+        {
+          "tier": "keyword_rule",
+          "resolved_here": false,
+          "components": [],
+          "seconds": 0.0,
+          "reason": "the advice left 18 options equally agreeing, so any answer here is a parsimony guess"
+        },
+        {
+          "tier": "qwen2.5:7b-instruct",
+          "resolved_here": true,
+          "components": [
+            {
+              "cause": "fee_rate_mismatch",
+              "amount": 600,
+              "evidence_ref": "fee_schedule:upi@0.0025"
+            },
+            {
+              "cause": "rolling_reserve",
+              "amount": -24000,
+              "evidence_ref": "reserve:0.0200"
+            }
+          ],
+          "seconds": 4.64100000000326,
+          "reason": "verified"
+        }
+      ]
+    },
+    {
+      "transaction_id": "order_b1a35a6d8f0a",
+      "k": 22,
+      "final_tier": "qwen2.5:7b-instruct",
+      "correct": false,
+      "total_seconds": 2.687,
+      "tiers_tried": [
+        {
+          "tier": "keyword_rule",
+          "resolved_here": false,
+          "components": [],
+          "seconds": 0.0,
+          "reason": "the advice left 22 options equally agreeing, so any answer here is a parsimony guess"
+        },
+        {
+          "tier": "qwen2.5:7b-instruct",
+          "resolved_here": true,
+          "components": [
+            {
+              "cause": "fee_rate_mismatch",
+              "amount": 9375,
+              "evidence_ref": "fee_schedule:card@0.0075"
+            },
+            {
+              "cause": "tds_deduction",
+              "amount": -750,
+              "evidence_ref": "tds:0.0010"
+            },
+            {
+              "cause": "promotional_waiver",
+              "amount": 17700,
+              "evidence_ref": "narration:stl_5c9b571a05ac"
+            }
+          ],
+          "seconds": 2.687000000005355,
+          "reason": "verified"
+        }
+      ]
+    },
+    {
+      "transaction_id": "order_0ed78e29b269",
+      "k": 21,
+      "final_tier": "qwen2.5:7b-instruct",
+      "correct": false,
+      "total_seconds": 2.594,
+      "tiers_tried": [
+        {
+          "tier": "keyword_rule",
+          "resolved_here": false,
+          "components": [],
+          "seconds": 0.0,
+          "reason": "the advice left 6 options equally agreeing, so any answer here is a parsimony guess"
+        },
+        {
+          "tier": "qwen2.5:7b-instruct",
+          "resolved_here": true,
+          "components": [
+            {
+              "cause": "rolling_reserve",
+              "amount": -50000,
+              "evidence_ref": "reserve:0.0200"
+            },
+            {
+              "cause": "fx_rounding",
+              "amount": -1,
+              "evidence_ref": "fx:INR"
+            }
+          ],
+          "seconds": 2.5939999999827705,
+          "reason": "verified"
+        }
+      ]
+    },
+    {
+      "transaction_id": "order_f1fb10442d07",
+      "k": 20,
+      "final_tier": "qwen2.5:7b-instruct",
+      "correct": false,
+      "total_seconds": 3.704,
+      "tiers_tried": [
+        {
+          "tier": "keyword_rule",
+          "resolved_here": false,
+          "components": [],
+          "seconds": 0.0,
+          "reason": "the advice left 3 options equally agreeing, so any answer here is a parsimony guess"
+        },
+        {
+          "tier": "qwen2.5:7b-instruct",
+          "resolved_here": true,
+          "components": [
+            {
+              "cause": "partial_refund",
+              "amount": -62500,
+              "evidence_ref": "refund:rfnd_3c8fdf0a7e99"
+            }
+          ],
+          "seconds": 3.7039999999979045,
+          "reason": "verified"
+        }
+      ]
+    },
+    {
+      "transaction_id": "order_2aecb5f88109",
+      "k": 56,
+      "final_tier": "qwen2.5:7b-instruct",
+      "correct": false,
+      "total_seconds": 3.61,
+      "tiers_tried": [
+        {
+          "tier": "keyword_rule",
+          "resolved_here": false,
+          "components": [],
+          "seconds": 0.0,
+          "reason": "the advice left 12 options equally agreeing, so any answer here is a parsimony guess"
+        },
+        {
+          "tier": "qwen2.5:7b-instruct",
+          "resolved_here": true,
+          "components": [
+            {
+              "cause": "fee_rate_mismatch",
+              "amount": -7200,
+              "evidence_ref": "fee_schedule:upi@0.0090"
+            },
+            {
+              "cause": "partial_refund",
+              "amount": -360000,
+              "evidence_ref": "refund:rfnd_f5a341375ab2"
+            }
+          ],
+          "seconds": 3.60999999998603,
+          "reason": "verified"
+        }
+      ]
+    },
+    {
+      "transaction_id": "order_8c6ee0a1fa4b",
+      "k": 21,
+      "final_tier": "qwen2.5:7b-instruct",
+      "correct": false,
+      "total_seconds": 3.984,
+      "tiers_tried": [
+        {
+          "tier": "keyword_rule",
+          "resolved_here": false,
+          "components": [],
+          "seconds": 0.0,
+          "reason": "the advice left 6 options equally agreeing, so any answer here is a parsimony guess"
+        },
+        {
+          "tier": "qwen2.5:7b-instruct",
+          "resolved_here": true,
+          "components": [
+            {
+              "cause": "gst_on_fee_mismatch",
+              "amount": 45,
+              "evidence_ref": "gst:0.12"
+            },
+            {
+              "cause": "fx_rounding",
+              "amount": -1,
+              "evidence_ref": "fx:INR"
+            },
+            {
+              "cause": "promotional_waiver",
+              "amount": 885,
+              "evidence_ref": "narration:stl_9773629c982a"
+            }
+          ],
+          "seconds": 3.9839999999967404,
+          "reason": "verified"
+        }
+      ]
+    },
+    {
+      "transaction_id": "order_83cc69bcb127",
+      "k": 28,
+      "final_tier": "qwen2.5:7b-instruct",
+      "correct": false,
+      "total_seconds": 2.39,
+      "tiers_tried": [
+        {
+          "tier": "keyword_rule",
+          "resolved_here": false,
+          "components": [],
+          "seconds": 0.0,
+          "reason": "the advice left 12 options equally agreeing, so any answer here is a parsimony guess"
+        },
+        {
+          "tier": "qwen2.5:7b-instruct",
+          "resolved_here": true,
+          "components": [
+            {
+              "cause": "fee_rate_mismatch",
+              "amount": -1200,
+              "evidence_ref": "fee_schedule:upi@0.0040"
+            },
+            {
+              "cause": "partial_refund",
+              "amount": -360000,
+              "evidence_ref": "refund:rfnd_287f9c62d13c"
+            },
+            {
+              "cause": "rolling_reserve",
+              "amount": -60000,
+              "evidence_ref": "reserve:0.0500"
+            }
+          ],
+          "seconds": 2.39000000001397,
+          "reason": "verified"
+        }
+      ]
+    },
+    {
+      "transaction_id": "order_848c476735ca",
+      "k": 46,
+      "final_tier": "keyword_rule",
+      "correct": false,
+      "total_seconds": 0.0,
+      "tiers_tried": [
+        {
+          "tier": "keyword_rule",
+          "resolved_here": true,
+          "components": [
+            {
+              "cause": "fee_rate_mismatch",
+              "amount": -1260,
+              "evidence_ref": "fee_schedule:upi@0.0060"
+            },
+            {
+              "cause": "duplicate_refund",
+              "amount": -84000,
+              "evidence_ref": "refund:rfnd_fae73bd33392"
+            },
+            {
+              "cause": "tds_deduction",
+              "amount": -2100,
+              "evidence_ref": "tds:0.0050"
+            },
+            {
+              "cause": "promotional_waiver",
+              "amount": 1487,
+              "evidence_ref": "narration:stl_286f05dc7185"
+            }
+          ],
+          "seconds": 0.0,
+          "reason": "the advice picked a unique winner among 46 valid explanations"
+        }
+      ]
+    },
+    {
+      "transaction_id": "order_f2c27fd8bc48",
+      "k": 30,
+      "final_tier": "qwen2.5:7b-instruct",
+      "correct": false,
+      "total_seconds": 2.25,
+      "tiers_tried": [
+        {
+          "tier": "keyword_rule",
+          "resolved_here": false,
+          "components": [],
+          "seconds": 0.0,
+          "reason": "the advice left 12 options equally agreeing, so any answer here is a parsimony guess"
+        },
+        {
+          "tier": "qwen2.5:7b-instruct",
+          "resolved_here": true,
+          "components": [
+            {
+              "cause": "gst_on_fee_mismatch",
+              "amount": -2400,
+              "evidence_ref": "gst:0.28"
+            },
+            {
+              "cause": "partial_refund",
+              "amount": -360000,
+              "evidence_ref": "refund:rfnd_e64a22c5a9d1"
+            },
+            {
+              "cause": "rolling_reserve",
+              "amount": -12000,
+              "evidence_ref": "reserve:0.0100"
+            },
+            {
+              "cause": "fx_rounding",
+              "amount": -1,
+              "evidence_ref": "fx:INR"
+            }
+          ],
+          "seconds": 2.25,
+          "reason": "verified"
+        }
+      ]
+    },
+    {
+      "transaction_id": "order_5440dd570ef7",
+      "k": 42,
+      "final_tier": "qwen2.5:7b-instruct",
+      "correct": false,
+      "total_seconds": 2.922,
+      "tiers_tried": [
+        {
+          "tier": "keyword_rule",
+          "resolved_here": false,
+          "components": [],
+          "seconds": 0.0,
+          "reason": "the advice left 7 options equally agreeing, so any answer here is a parsimony guess"
+        },
+        {
+          "tier": "qwen2.5:7b-instruct",
+          "resolved_here": true,
+          "components": [
+            {
+              "cause": "duplicate_refund",
+              "amount": -75000,
+              "evidence_ref": "refund:rfnd_312177b752f0"
+            },
+            {
+              "cause": "rolling_reserve",
+              "amount": -5000,
+              "evidence_ref": "reserve:0.0200"
+            }
+          ],
+          "seconds": 2.9219999999913853,
+          "reason": "verified"
+        }
+      ]
+    },
+    {
+      "transaction_id": "order_5281758a5eb0",
+      "k": 18,
+      "final_tier": "keyword_rule",
+      "correct": false,
+      "total_seconds": 0.0,
+      "tiers_tried": [
+        {
+          "tier": "keyword_rule",
+          "resolved_here": true,
+          "components": [
+            {
+              "cause": "fee_rate_mismatch",
+              "amount": 9375,
+              "evidence_ref": "fee_schedule:card@0.0075"
+            },
+            {
+              "cause": "tds_deduction",
+              "amount": -15000,
+              "evidence_ref": "tds:0.0200"
+            },
+            {
+              "cause": "rolling_reserve",
+              "amount": -15000,
+              "evidence_ref": "reserve:0.0200"
+            },
+            {
+              "cause": "promotional_waiver",
+              "amount": 17700,
+              "evidence_ref": "narration:stl_4591e37e1c08"
+            }
+          ],
+          "seconds": 0.0,
+          "reason": "the advice picked a unique winner among 18 valid explanations"
+        }
+      ]
+    },
+    {
+      "transaction_id": "order_2652f755f55c",
+      "k": 7,
+      "final_tier": "qwen2.5:7b-instruct",
+      "correct": false,
+      "total_seconds": 2.312,
+      "tiers_tried": [
+        {
+          "tier": "keyword_rule",
+          "resolved_here": false,
+          "components": [],
+          "seconds": 0.0,
+          "reason": "the advice left 7 options equally agreeing, so any answer here is a parsimony guess"
+        },
+        {
+          "tier": "qwen2.5:7b-instruct",
+          "resolved_here": true,
+          "components": [
+            {
+              "cause": "promotional_waiver",
+              "amount": 4248,
+              "evidence_ref": "narration:stl_6ce5e6e1cbde"
+            }
+          ],
+          "seconds": 2.312000000005355,
+          "reason": "verified"
+        }
+      ]
+    },
+    {
+      "transaction_id": "order_3698f8346a91",
+      "k": 16,
+      "final_tier": "qwen2.5:7b-instruct",
+      "correct": true,
+      "total_seconds": 2.75,
+      "tiers_tried": [
+        {
+          "tier": "keyword_rule",
+          "resolved_here": false,
+          "components": [],
+          "seconds": 0.0,
+          "reason": "the advice left 7 options equally agreeing, so any answer here is a parsimony guess"
+        },
+        {
+          "tier": "qwen2.5:7b-instruct",
+          "resolved_here": true,
+          "components": [
+            {
+              "cause": "duplicate_refund",
+              "amount": -37500,
+              "evidence_ref": "refund:rfnd_b170383847b2"
+            },
+            {
+              "cause": "promotional_waiver",
+              "amount": 531,
+              "evidence_ref": "narration:stl_0e47b0a54ff4"
+            }
+          ],
+          "seconds": 2.75,
+          "reason": "verified"
+        }
+      ]
+    },
+    {
+      "transaction_id": "order_b82ff2ee58f1",
+      "k": 14,
+      "final_tier": "qwen2.5:7b-instruct",
+      "correct": false,
+      "total_seconds": 2.328,
+      "tiers_tried": [
+        {
+          "tier": "keyword_rule",
+          "resolved_here": false,
+          "components": [],
+          "seconds": 0.0,
+          "reason": "the advice left 13 options equally agreeing, so any answer here is a parsimony guess"
+        },
+        {
+          "tier": "qwen2.5:7b-instruct",
+          "resolved_here": true,
+          "components": [
+            {
+              "cause": "gst_on_fee_mismatch",
+              "amount": 300,
+              "evidence_ref": "gst:0.12"
+            },
+            {
+              "cause": "fx_rounding",
+              "amount": -2,
+              "evidence_ref": "fx:INR"
+            }
+          ],
+          "seconds": 2.327999999979511,
+          "reason": "verified"
+        }
+      ]
+    },
+    {
+      "transaction_id": "order_9e86507eee15",
+      "k": 7,
+      "final_tier": "qwen2.5:7b-instruct",
+      "correct": false,
+      "total_seconds": 2.297,
+      "tiers_tried": [
+        {
+          "tier": "keyword_rule",
+          "resolved_here": false,
+          "components": [],
+          "seconds": 0.0,
+          "reason": "the advice left 7 options equally agreeing, so any answer here is a parsimony guess"
+        },
+        {
+          "tier": "qwen2.5:7b-instruct",
+          "resolved_here": true,
+          "components": [
+            {
+              "cause": "gst_on_fee_mismatch",
+              "amount": -1500,
+              "evidence_ref": "gst:0.28"
+            }
+          ],
+          "seconds": 2.2969999999913853,
+          "reason": "verified"
+        }
+      ]
+    },
+    {
+      "transaction_id": "order_58f5298a729b",
+      "k": 48,
+      "final_tier": "qwen2.5:7b-instruct",
+      "correct": false,
+      "total_seconds": 2.938,
+      "tiers_tried": [
+        {
+          "tier": "keyword_rule",
+          "resolved_here": false,
+          "components": [],
+          "seconds": 0.0,
+          "reason": "the advice left 3 options equally agreeing, so any answer here is a parsimony guess"
+        },
+        {
+          "tier": "qwen2.5:7b-instruct",
+          "resolved_here": true,
+          "components": [
+            {
+              "cause": "partial_refund",
+              "amount": -84000,
+              "evidence_ref": "refund:rfnd_3de770227de7"
+            },
+            {
+              "cause": "tds_deduction",
+              "amount": -420,
+              "evidence_ref": "tds:0.0010"
+            },
+            {
+              "cause": "rolling_reserve",
+              "amount": -8400,
+              "evidence_ref": "reserve:0.0200"
+            }
+          ],
+          "seconds": 2.937999999994645,
+          "reason": "verified"
+        }
+      ]
+    },
+    {
+      "transaction_id": "order_348ca421f818",
+      "k": 42,
+      "final_tier": "qwen2.5:7b-instruct",
+      "correct": false,
+      "total_seconds": 2.157,
+      "tiers_tried": [
+        {
+          "tier": "keyword_rule",
+          "resolved_here": false,
+          "components": [],
+          "seconds": 0.0,
+          "reason": "the advice left 6 options equally agreeing, so any answer here is a parsimony guess"
+        },
+        {
+          "tier": "qwen2.5:7b-instruct",
+          "resolved_here": true,
+          "components": [
+            {
+              "cause": "partial_refund",
+              "amount": -126000,
+              "evidence_ref": "refund:rfnd_91cb14ac7f2e"
+            },
+            {
+              "cause": "tds_deduction",
+              "amount": -2100,
+              "evidence_ref": "tds:0.0050"
+            },
+            {
+              "cause": "rolling_reserve",
+              "amount": -2100,
+              "evidence_ref": "reserve:0.0050"
+            }
+          ],
+          "seconds": 2.1570000000065193,
+          "reason": "verified"
+        }
+      ]
+    },
+    {
+      "transaction_id": "order_93a59e4f6f51",
+      "k": 2,
+      "final_tier": "qwen2.5:7b-instruct",
+      "correct": false,
+      "total_seconds": 2.25,
+      "tiers_tried": [
+        {
+          "tier": "keyword_rule",
+          "resolved_here": false,
+          "components": [],
+          "seconds": 0.0,
+          "reason": "the advice left 2 options equally agreeing, so any answer here is a parsimony guess"
+        },
+        {
+          "tier": "qwen2.5:7b-instruct",
+          "resolved_here": true,
+          "components": [
+            {
+              "cause": "gst_on_fee_mismatch",
+              "amount": 900,
+              "evidence_ref": "gst:0.12"
+            },
+            {
+              "cause": "tds_deduction",
+              "amount": -50000,
+              "evidence_ref": "tds:0.0100"
+            },
+            {
+              "cause": "rolling_reserve",
+              "amount": -100000,
+              "evidence_ref": "reserve:0.0200"
+            },
+            {
+              "cause": "promotional_waiver",
+              "amount": 17700,
+              "evidence_ref": "narration:stl_7bb4e900759f"
+            }
+          ],
+          "seconds": 2.25,
+          "reason": "verified"
+        }
+      ]
+    },
+    {
+      "transaction_id": "order_b94c4a99a4b0",
+      "k": 13,
+      "final_tier": "qwen2.5:7b-instruct",
+      "correct": true,
+      "total_seconds": 2.843,
+      "tiers_tried": [
+        {
+          "tier": "keyword_rule",
+          "resolved_here": false,
+          "components": [],
+          "seconds": 0.0,
+          "reason": "the advice left 11 options equally agreeing, so any answer here is a parsimony guess"
+        },
+        {
+          "tier": "qwen2.5:7b-instruct",
+          "resolved_here": true,
+          "components": [
+            {
+              "cause": "fee_rate_mismatch",
+              "amount": -1890,
+              "evidence_ref": "fee_schedule:upi@0.0075"
+            },
+            {
+              "cause": "gst_on_fee_mismatch",
+              "amount": -126,
+              "evidence_ref": "gst:0.28"
+            },
+            {
+              "cause": "rolling_reserve",
+              "amount": -21000,
+              "evidence_ref": "reserve:0.0500"
+            }
+          ],
+          "seconds": 2.8429999999934807,
+          "reason": "verified"
+        }
+      ]
+    },
+    {
+      "transaction_id": "order_e9feb47eae46",
+      "k": 46,
+      "final_tier": "qwen2.5:7b-instruct",
+      "correct": false,
+      "total_seconds": 2.36,
+      "tiers_tried": [
+        {
+          "tier": "keyword_rule",
+          "resolved_here": false,
+          "components": [],
+          "seconds": 0.0,
+          "reason": "the advice left 11 options equally agreeing, so any answer here is a parsimony guess"
+        },
+        {
+          "tier": "qwen2.5:7b-instruct",
+          "resolved_here": true,
+          "components": [
+            {
+              "cause": "tds_deduction",
+              "amount": -150,
+              "evidence_ref": "tds:0.0010"
+            },
+            {
+              "cause": "fx_rounding",
+              "amount": -2,
+              "evidence_ref": "fx:INR"
+            }
+          ],
+          "seconds": 2.35999999998603,
+          "reason": "verified"
+        }
+      ]
+    },
+    {
+      "transaction_id": "order_b63a8fd8b31b",
+      "k": 34,
+      "final_tier": "qwen2.5:7b-instruct",
+      "correct": false,
+      "total_seconds": 2.454,
+      "tiers_tried": [
+        {
+          "tier": "keyword_rule",
+          "resolved_here": false,
+          "components": [],
+          "seconds": 0.0,
+          "reason": "the advice left 6 options equally agreeing, so any answer here is a parsimony guess"
+        },
+        {
+          "tier": "qwen2.5:7b-instruct",
+          "resolved_here": true,
+          "components": [
+            {
+              "cause": "fee_rate_mismatch",
+              "amount": -375,
+              "evidence_ref": "fee_schedule:upi@0.0035"
+            },
+            {
+              "cause": "partial_refund",
+              "amount": -150000,
+              "evidence_ref": "refund:rfnd_c95126b87e01"
+            },
+            {
+              "cause": "tds_deduction",
+              "amount": -7500,
+              "evidence_ref": "tds:0.0100"
+            },
+            {
+              "cause": "fx_rounding",
+              "amount": -2,
+              "evidence_ref": "fx:INR"
+            }
+          ],
+          "seconds": 2.4539999999979045,
+          "reason": "verified"
+        }
+      ]
+    },
+    {
+      "transaction_id": "order_13796be31336",
+      "k": 67,
+      "final_tier": "qwen2.5:7b-instruct",
+      "correct": false,
+      "total_seconds": 4.469,
+      "tiers_tried": [
+        {
+          "tier": "keyword_rule",
+          "resolved_here": false,
+          "components": [],
+          "seconds": 0.0,
+          "reason": "the advice left 2 options equally agreeing, so any answer here is a parsimony guess"
+        },
+        {
+          "tier": "qwen2.5:7b-instruct",
+          "resolved_here": true,
+          "components": [
+            {
+              "cause": "gst_on_fee_mismatch",
+              "amount": -8973,
+              "evidence_ref": "gst:0.18"
+            },
+            {
+              "cause": "rolling_reserve",
+              "amount": -1000,
+              "evidence_ref": "reserve:0.0200"
+            },
+            {
+              "cause": "promotional_waiver",
+              "amount": 177,
+              "evidence_ref": "narration:stl_d6c57ad1e506"
+            }
+          ],
+          "seconds": 4.4689999999827705,
+          "reason": "verified"
+        }
+      ]
+    },
+    {
+      "transaction_id": "order_e860578d78de",
+      "k": 7,
+      "final_tier": "qwen2.5:7b-instruct",
+      "correct": false,
+      "total_seconds": 2.328,
+      "tiers_tried": [
+        {
+          "tier": "keyword_rule",
+          "resolved_here": false,
+          "components": [],
+          "seconds": 0.0,
+          "reason": "the advice left 6 options equally agreeing, so any answer here is a parsimony guess"
+        },
+        {
+          "tier": "qwen2.5:7b-instruct",
+          "resolved_here": true,
+          "components": [
+            {
+              "cause": "tds_deduction",
+              "amount": -5000,
+              "evidence_ref": "tds:0.0200"
+            },
+            {
+              "cause": "rolling_reserve",
+              "amount": -12500,
+              "evidence_ref": "reserve:0.0500"
+            }
+          ],
+          "seconds": 2.3280000000086147,
+          "reason": "verified"
+        }
+      ]
+    },
+    {
+      "transaction_id": "order_e5170a109355",
+      "k": 30,
+      "final_tier": "qwen2.5:7b-instruct",
+      "correct": false,
+      "total_seconds": 2.782,
+      "tiers_tried": [
+        {
+          "tier": "keyword_rule",
+          "resolved_here": false,
+          "components": [],
+          "seconds": 0.0,
+          "reason": "the advice left 8 options equally agreeing, so any answer here is a parsimony guess"
+        },
+        {
+          "tier": "qwen2.5:7b-instruct",
+          "resolved_here": true,
+          "components": [
+            {
+              "cause": "fee_rate_mismatch",
+              "amount": 1050,
+              "evidence_ref": "fee_schedule:netbanking@0.0030"
+            },
+            {
+              "cause": "partial_refund",
+              "amount": -37500,
+              "evidence_ref": "refund:rfnd_4783eb672beb"
+            },
+            {
+              "cause": "tds_deduction",
+              "amount": -1500,
+              "evidence_ref": "tds:0.0100"
+            }
+          ],
+          "seconds": 2.7820000000065193,
+          "reason": "verified"
+        }
+      ]
+    },
+    {
+      "transaction_id": "order_5af04a13ac92",
+      "k": 11,
+      "final_tier": "qwen2.5:7b-instruct",
+      "correct": false,
+      "total_seconds": 2.359,
+      "tiers_tried": [
+        {
+          "tier": "keyword_rule",
+          "resolved_here": false,
+          "components": [],
+          "seconds": 0.0,
+          "reason": "the advice left 4 options equally agreeing, so any answer here is a parsimony guess"
+        },
+        {
+          "tier": "qwen2.5:7b-instruct",
+          "resolved_here": true,
+          "components": [
+            {
+              "cause": "fee_rate_mismatch",
+              "amount": 13125,
+              "evidence_ref": "fee_schedule:card@0.0025"
+            },
+            {
+              "cause": "rolling_reserve",
+              "amount": -37500,
+              "evidence_ref": "reserve:0.0500"
+            },
+            {
+              "cause": "promotional_waiver",
+              "amount": 17700,
+              "evidence_ref": "narration:stl_cc01c80141ac"
+            }
+          ],
+          "seconds": 2.3589999999967404,
+          "reason": "verified"
+        }
+      ]
+    },
+    {
+      "transaction_id": "order_b597f256331f",
+      "k": 64,
+      "final_tier": "qwen2.5:7b-instruct",
+      "correct": false,
+      "total_seconds": 2.265,
+      "tiers_tried": [
+        {
+          "tier": "keyword_rule",
+          "resolved_here": false,
+          "components": [],
+          "seconds": 0.0,
+          "reason": "the advice left 32 options equally agreeing, so any answer here is a parsimony guess"
+        },
+        {
+          "tier": "qwen2.5:7b-instruct",
+          "resolved_here": true,
+          "components": [
+            {
+              "cause": "fee_rate_mismatch",
+              "amount": 650,
+              "evidence_ref": "fee_schedule:netbanking@0.0035"
+            },
+            {
+              "cause": "partial_refund",
+              "amount": -30000,
+              "evidence_ref": "refund:rfnd_7a12691ef1f5"
+            },
+            {
+              "cause": "tds_deduction",
+              "amount": -500,
+              "evidence_ref": "tds:0.0050"
+            }
+          ],
+          "seconds": 2.26500000001397,
+          "reason": "verified"
+        }
+      ]
+    },
+    {
+      "transaction_id": "order_46c978878204",
+      "k": 34,
+      "final_tier": "qwen2.5:7b-instruct",
+      "correct": false,
+      "total_seconds": 2.547,
+      "tiers_tried": [
+        {
+          "tier": "keyword_rule",
+          "resolved_here": false,
+          "components": [],
+          "seconds": 0.0,
+          "reason": "the advice left 15 options equally agreeing, so any answer here is a parsimony guess"
+        },
+        {
+          "tier": "qwen2.5:7b-instruct",
+          "resolved_here": true,
+          "components": [
+            {
+              "cause": "fee_rate_mismatch",
+              "amount": 150,
+              "evidence_ref": "fee_schedule:netbanking@0.0090"
+            },
+            {
+              "cause": "partial_refund",
+              "amount": -22500,
+              "evidence_ref": "refund:rfnd_5057d9e4b9f6"
+            },
+            {
+              "cause": "rolling_reserve",
+              "amount": -3000,
+              "evidence_ref": "reserve:0.0200"
+            },
+            {
+              "cause": "fx_rounding",
+              "amount": -2,
+              "evidence_ref": "fx:INR"
+            }
+          ],
+          "seconds": 2.547000000020489,
+          "reason": "verified"
+        }
+      ]
+    },
+    {
+      "transaction_id": "order_496133d786a0",
+      "k": 11,
+      "final_tier": "qwen2.5:7b-instruct",
+      "correct": false,
+      "total_seconds": 2.5,
+      "tiers_tried": [
+        {
+          "tier": "keyword_rule",
+          "resolved_here": false,
+          "components": [],
+          "seconds": 0.0,
+          "reason": "the advice left 6 options equally agreeing, so any answer here is a parsimony guess"
+        },
+        {
+          "tier": "qwen2.5:7b-instruct",
+          "resolved_here": true,
+          "components": [
+            {
+              "cause": "fee_rate_mismatch",
+              "amount": 4620,
+              "evidence_ref": "fee_schedule:card@0.0090"
+            },
+            {
+              "cause": "gst_on_fee_mismatch",
+              "amount": 1512,
+              "evidence_ref": "gst:0.00"
+            },
+            {
+              "cause": "promotional_waiver",
+              "amount": 9912,
+              "evidence_ref": "narration:stl_1346d08b1873"
+            }
+          ],
+          "seconds": 2.5,
+          "reason": "verified"
+        }
+      ]
+    }
+  ]
+}

@@ -1,8 +1,100 @@
 # What broke, and how it was fixed
 
-Fifteen incidents, chosen from a much longer chronological journal ([`BUILD_LOG.md`](../BUILD_LOG.md))
+Nineteen incidents, chosen from a much longer chronological journal ([`BUILD_LOG.md`](../BUILD_LOG.md))
 as the ones that actually changed how the system works, or how it was built. Same fixed format
 throughout, so this stays scannable instead of becoming a second wall of text.
+
+### Published evidence described three algorithms while only ever running one
+
+**Symptom:** The timing table for the optimal multi-way netting solver reported
+`optimal_algorithm: "2-sum-hash"` on every single row, at every batch size from 100 to 5,000. I had
+written and tested three k-sum paths and published a table that claimed to compare them.
+
+**Root cause:** `build_scale_case(group_size=N)` counts the **target transaction itself**, so my
+`group_size=3` sweep meant only *two* other transactions had to cancel — a 2-sum, every time. The
+3-sum and 4-sum paths were correct, tested, and never once exercised by the evidence describing them.
+
+**Fix:** Sweep `group_size` 3/4/5 so all three run, and count separately when a coincidental
+*smaller* group cancels before the true one. The corrected frontier is far worse than what I had
+published: at a genuine four-member group the strongest rule I could write is unreliable by
+**n=200**, not n=1,500. The same re-run corrected an `n=500` cell of 29/30 = **96.7%** that I had
+published inside a blanket "100% across 30 seeds up to n=1000".
+
+**Prevented:** the sweep now records `algorithm_used` and `true_group_members` per row, so a table
+that silently exercises one code path can't be read as comparing three.
+
+---
+
+### I built a cascade on an escalation signal that can never fire
+
+**Symptom:** Cascade routing (free rule → 7b → 14b → human) scored 20.0% end to end on held-out
+phrasing — worse than free parsimony at 31.7%, and exactly equal to just running 7b on everything. The
+14b tier absorbed zero cases. Tier 0 absorbed six and got none of them right.
+
+**Root cause:** Two, both in gates I designed before seeing any numbers. The model tiers escalate on
+*verification failure* — but in choice mode the model selects from options Layer 0 has already
+validated, so a chosen option is arithmetically valid **by construction** and `verified` is always
+true. The gate could not fire. Separately, tier 0's gate asked "did the advice pick a unique winner",
+which measures whether the text *discriminated*, not whether the reading was *correct*. On familiar
+phrasing those coincide, which is why it looked sound; on unfamiliar phrasing the rule reads
+confidently and wrongly, and a wrong unique reading sails straight through.
+
+**Fix:** None that works, and that is the finding. A cascade needs a signal correlated with
+correctness. Self-reported confidence is uninformative (measured earlier here, and the reason
+`_confidence_from_verification` discards it), verification is trivially satisfied, and tie count
+measures the wrong quantity. The module ships as measured with this result in
+[RESULTS.md](RESULTS.md) rather than tuned until the table improved.
+
+**Prevented:** `test_cascade_tier0_absorbs_only_when_the_advice_actually_discriminated` asserts the
+tie gate does *something* rather than absorbing everything — it did not, and could not, catch that
+the thing it does is not the thing that matters.
+
+---
+
+### The resolver's candidate pool looked full of plausible numbers and never contained the true ones
+
+**Symptom:** The new decomposition resolver produced large, sensible-looking candidate pools and
+plenty of arithmetically valid answers. Reading them, nothing was obviously wrong.
+
+**Root cause:** Every percentage-derived candidate (fee, TDS, rolling reserve) was computed off
+`chain.hops[1].actual`, which is the **post-fee** amount, not the captured amount. Each candidate was
+individually plausible; the set simply never contained the truth. No amount of looking at the pool
+would have shown this.
+
+**Fix:** Use `hops[0].actual`. What actually caught it was not inspection but a scoring question:
+*does the resolver recover a decomposition I know to be true?* It recovered 11 of 60. After the fix,
+60 of 60.
+
+**Prevented:** `test_layer0_recovers_the_true_decomposition` — a standing assertion, because
+"the model chose wrong" and "the right answer was never on the table" are indistinguishable without
+it, and every accuracy number on the residual depends on the difference.
+
+---
+
+### My prompt didn't implement my own architecture, and I blamed the model first
+
+**Symptom:** A live 7b run scored 0 of 6 on the residual. The failure messages showed it picking the
+right candidate and transcribing the amount with the sign flipped, so I changed the interface to
+select candidates by number. Still 0 of 6. Then it started picking a single candidate and stopping,
+never attempting to compose.
+
+**Root cause:** Two, and the second was mine. The sign flips were real — a fee charged *below* the
+contracted rate contributes *positively* to the delta, which is genuinely counterintuitive. But the
+deeper problem was that I handed the model the raw candidate pool, which asks it to solve subset-sum
+in its head. Layer 0 had **already solved that**. The whole architecture says the model's job is to
+choose among the resolver's valid answers, and my prompt didn't do that.
+
+**Fix:** Present the enumerated valid decompositions and ask for a choice. Verification went to
+59/59, because a chosen option is arithmetically valid by construction. A related self-inflicted
+problem surfaced immediately after: presenting them in parsimony order put the true answer at
+position 1 in 5 of 10 cases, so anything with a first-option bias scored well for reasons unrelated
+to reading. Options are now deterministically shuffled, and "pick the most parsimonious" became its
+own baseline column instead of a hidden advantage inside everyone else's score.
+
+**Prevented:** `test_present_options_removes_positional_advantage`,
+`test_candidate_selection_uses_the_pool_amount_not_a_retyped_one`.
+
+---
 
 ### The same unguarded-boundary pattern recurred five times across two subsystems, before either was closed structurally
 

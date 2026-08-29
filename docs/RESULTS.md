@@ -109,6 +109,189 @@ this task. The real-provider call earns autonomy here for reliability under cond
 faces (API failures, malformed tool arguments, a hallucinated id), not for resolving a case the rule
 genuinely couldn't.
 
+This happened three times — `netting_trap` fell to a 20-line rule, `multiway_netting_trap` to a hash
+table, `narration_explained` to a keyword scan. Three times is not bad luck, and the next two sections
+are what I did about it.
+
+## Why every category kept collapsing into a rule
+
+Settlement records are produced by deterministic processes, so their ground truth is arithmetically
+derivable. For any classification task posed over them, a rule exists that wins. A fourth category
+would have reproduced the pattern; the fix was to stop putting the model where a rule can stand.
+
+So the pipeline is inverted (`app/resolver/`). The deterministic resolver runs **first** and keeps
+everything it can explain on its own. What is left has exactly two shapes: `UNDER_DETERMINED` (it
+found ≥2 arithmetically valid explanations and has no basis to choose) and `UNMATCHED` (it found
+none). The model only ever sees those. That is a structural guarantee rather than a claim — a case a
+rule could solve was taken *by* the rule, so it cannot be inside a model's accuracy figure inflating
+it.
+
+`UNDER_DETERMINED` is the load-bearing half, because it is the one that cannot be answered with "your
+resolver just isn't good enough yet". A *stronger* resolver finds more valid decompositions, not
+fewer. And the baseline stops being rhetorical: with k valid answers and no basis to prefer any,
+blind choice scores exactly **1/k**.
+
+**The obvious objection is that I manufactured the ambiguity with a tolerance knob.** Measured
+directly, with the setting that is worst for the architecture — zero rounding noise, zero tolerance,
+exact integer arithmetic:
+
+| Rounding noise | Tolerance | Resolved | Under-determined | Unmatched | Median k | True answer recovered |
+|---|---|---|---|---|---|---|
+| 0 | 0 | 9 | **51** | 0 | 4 | 60/60 |
+| 0 | 10 | 0 | 60 | 0 | 28 | 60/60 |
+| 3 | 0 | 5 | 48 | 7 | 3 | 10/60 |
+| 3 | 10 | 1 | 59 | 0 | 22 | 60/60 |
+
+At exact match with no tolerance whatsoever, 51 of 60 compound cases are still under-determined.
+Compositionality is what makes this problem under-determined; the tolerance only amplifies it. This
+is a standing test (`test_compositionality_alone_makes_it_under_determined`), not a one-off.
+
+The `true answer recovered` column is the one that makes everything below meaningful. If the
+resolver's candidate set did not contain the truth, "the model chose wrong" and "the right answer was
+never on the table" would be indistinguishable. It is also how I found a real bug: percentage
+candidates were being computed off the post-fee hop instead of the captured amount, so the pool was
+full of plausible numbers that were never the true ones (11/60). It now recovers 60/60, and that is
+an assertion in the test suite rather than a note.
+
+Reproduce: `cd backend && python scripts/generate_residual_evidence.py`. Raw evidence:
+[`residual-architecture-2026-08-29.json`](evidence/residual-architecture-2026-08-29.json).
+
+## Does a model read settlement advice better than a regex? Measured on its own.
+
+This is the sharpest question in the whole design, so it is measured in isolation rather than inferred
+from end-to-end accuracy. The keyword baseline is two separable stages: read the remittance advice
+into assertions about what applied, then score every valid decomposition against them. Stage two is
+bookkeeping a rule does perfectly. Stage one is reading comprehension over messy, negated,
+tense-shifted bank text. Only stage one is compared here, against ground truth the generator records
+itself (`advice_mentions`).
+
+The rule is written to win: fragment splitting, cause keywords, and a 29-entry negation-cue list I
+assembled *with full sight of the generator's own phrasing*. That last part is the problem, and it is
+the same shared-author trap this project was already caught by once. So both conditions are reported:
+
+| Reader | Phrasing the rule's author saw | Held-out phrasing | Gap |
+|---|---|---|---|
+| best keyword rule I could write | **95.2%** | 61.7% | **−33.6 pts** |
+| `qwen2.5:7b-instruct` | 79.8% | 72.6% | −7.1 pts |
+| `qwen2.5:14b-instruct` | 86.9% | **81.7%** | −5.2 pts |
+
+(60 cases × 7 charge types = 420 judgements per cell.) Held-out phrasing keeps the cause-identifying
+vocabulary recognisable — TDS, RSV, GST, MDR still appear, so the rule cannot fail merely by not
+knowing a synonym — and changes only how *applied* versus *not applied* is expressed: abeyance,
+rescinded, held over, zero-rated, struck off, stood down, lapsed, contra. A test asserts the held-out
+bank contains none of the rule's own cues, or the gap would measure nothing.
+
+**On phrasing its author saw, the rule wins comfortably. On phrasing he didn't, the ordering inverts
+and the rule collapses.** Most of its apparent advantage was authorship rather than reading.
+
+And the accuracy gap understates it, because the two failure modes are not interchangeable:
+
+| Reader | Condition | Reads a denial as a confirmation | Misses a mention entirely |
+|---|---|---|---|
+| keyword rule | seen | 6 (1.4%) | 0 |
+| keyword rule | **held-out** | **161 (38.3%)** | 0 |
+| `qwen2.5:7b` | held-out | 15 (3.6%) | 69 |
+| `qwen2.5:14b` | held-out | 14 (3.3%) | 47 |
+
+On unfamiliar phrasing the rule asserts a charge the text explicitly *denies* in 38.3% of all
+judgements — roughly eleven times either model's rate (3.6% and 3.3%). In a system that files recovery claims
+against an acquirer, that is a false claim about money. The models' dominant error runs the other
+way: they miss the mention, which leaves the component unexplained and escalates the case. Wrong, but
+safe.
+
+This is also where a bigger model genuinely helps (14b > 7b in both conditions), which is the exact
+opposite of the tool-budget-constrained result further down — worth holding both, since "bigger is
+better" is true of one of these tasks and false of the other.
+
+Reproduce: `cd backend && python scripts/generate_reading_evidence.py`. Raw evidence:
+[`advice-reading-2026-08-29.json`](evidence/advice-reading-2026-08-29.json).
+
+## End to end on the residual — including the column that beats my own architecture
+
+The reading result above is about one isolated step. This is the whole task: pick the true
+decomposition out of Layer 0's valid ones. Every column chooses from the identical shuffled option
+list, so the comparison is symmetric.
+
+| Strategy | Seen phrasing | Held-out phrasing | Gap |
+|---|---|---|---|
+| chance (mean 1/k) — computed, not argued | 6.3% | 6.1% | — |
+| best keyword rule I could write | **42.4%** | 8.3% | **−34.0 pts** |
+| model, whole option list (`qwen2.5:7b`) | 5.1% | 5.0% | −0.1 pts |
+| model reader (`qwen2.5:7b`) | 25.4% | 20.0% | −5.4 pts |
+| model reader (`qwen2.5:14b`) | 35.6% | 26.7% | −8.9 pts |
+| **parsimony — free, and ignores the advice entirely** | 25.4% | **31.7%** | **+6.2 pts** |
+
+(59–60 under-determined cases per condition; the true answer was inside the 40-option window in every
+single one, so nothing here is capped by presentation.)
+
+Three things in that table, and the third is the one I like least:
+
+**The keyword rule collapses to near-chance.** 42.4% → 8.3%, against a 6.1% floor. On phrasing its
+author never anticipated, the strongest rule I could write is barely distinguishable from guessing.
+
+**Handing the model the whole option list doesn't work, and that was my bug, not the model's.** 5%
+either way — indistinguishable from chance. Layer 0 has already done the arithmetic; asking the model
+to re-derive a subset-sum over ~30 candidates is asking it to do the one thing it is worst at and the
+resolver is best at. Splitting the job so the model only *reads* and the deterministic scorer does the
+matching takes 7b from 5.1% to 25.4% on identical data. The weaker column is kept in the table rather
+than quietly dropped.
+
+**And the honest one: on held-out phrasing, the best strategy is a free heuristic that ignores the
+text entirely.** "Always take the fewest-component explanation" scores 31.7%, beating every reader
+including 14b at 26.7%. Reading the advice at 73–82% accuracy is *better than a broken rule* but not
+good enough to beat simply preferring the simplest explanation. Parsimony even improves on held-out
+phrasing (+6.2 pts), because it never depended on the text in the first place.
+
+That last row is a real limit on the argument this project makes, so it leads here rather than
+sitting in a footnote. The defensible claim is narrow: **a model reads this text better than a rule
+does, and fails far more safely — but on this end-to-end task, at these model sizes, reading does not
+yet pay for itself against a trivial structural prior.** Anyone hoping to find "the LLM beat the
+rules" in this repo will not find it.
+
+Reproduce: `cd backend && python scripts/generate_residual_evidence.py` (add
+`--providers ollama_reader --model qwen2.5:14b-instruct` for the 14b row). Raw evidence:
+[`residual-architecture-2026-08-29.json`](evidence/residual-architecture-2026-08-29.json),
+[`residual-architecture-14b-2026-08-29.json`](evidence/residual-architecture-14b-2026-08-29.json).
+
+## Cascade routing: built, measured, and it doesn't work — here's exactly why
+
+The obvious next move is a cascade: free rule → 7b → 14b → human, each tier handling only what the
+one below couldn't, reporting cost per *resolved* transaction rather than per call. I built it
+(`app/resolver/cascade.py`), designed the escalation gates before seeing any of the numbers above,
+and ran it on held-out phrasing:
+
+| Tier | Absorbed | Correct | Accuracy | Sec/resolved |
+|---|---|---|---|---|
+| keyword rule (free) | 6 | 0 | **0.0%** | ~0 |
+| `qwen2.5:7b-instruct` | 54 | 12 | 22.2% | 2.64s |
+| `qwen2.5:14b-instruct` | **0** | — | — | — |
+| escalate to human | 0 | — | — | — |
+
+**20.0% end to end**, at 2.38s per case. That is worse than free parsimony (31.7%) and exactly equal
+to just running the 7b reader on everything. The cascade added latency and bought nothing. Two
+specific mistakes, both mine, and both worth more than a tuned result would have been:
+
+**Tier 0 absorbed 6 cases and got 0 of them right.** Its gate was "did the advice pick a *unique*
+winner" — and on held-out phrasing the rule reads confidently and wrongly, so a wrong unique reading
+sails through. The tie count measures whether the text *discriminated*, not whether the reading was
+*correct*. On familiar phrasing those two coincide, which is why the gate looked sound when I wrote
+it; on unfamiliar phrasing they come apart completely.
+
+**Tier 2 never fired at all**, because tier 1 verified on every single case. In choice mode a chosen
+option is arithmetically valid *by construction*, so `verified` is always true and an
+escalate-on-verification-failure gate can never trigger. The verifier is the right safety mechanism
+and the wrong routing signal.
+
+Which leaves the real finding, stated plainly: **I could not construct a useful escalation signal for
+this task.** Self-reported confidence is uninformative (measured earlier in this project, and the
+reason `_confidence_from_verification` discards it). Verification is trivially satisfied in choice
+mode. Tie count measures the wrong thing. A cascade needs a signal that correlates with *correctness*,
+and none of the three cheap candidates does. The module ships as measured, with this result, rather
+than being tuned until the table looked better or quietly dropped for not working.
+
+Reproduce: `cd backend && python scripts/generate_cascade_evidence.py`. Raw evidence:
+[`cascade-routing-2026-08-29.json`](evidence/cascade-routing-2026-08-29.json).
+
 ## A task the rule provably can't do, shipped as a real product category
 
 `check_batch_anomalies` only checks pairs — a netting pattern spanning 3+ transactions, where no
@@ -167,19 +350,40 @@ Not a claim that a rule "could theoretically be extended" — real k-sum algorit
 two-pointer (O(n²)), 4-sum via meet-in-the-middle (O(n²)) — replacing brute force's O(n^k), correctness-
 checked against the brute-force solver on identical inputs before any speed claim was trusted.
 
-| n_total | Optimal solver | Brute force |
-|---|---|---|
-| 100 | 0.00002s | 0.0005s |
-| 500 | 0.00007s | 0.0213s |
-| 1,000 | 0.00006s | skipped — already shown impractical |
-| 5,000 | 0.00039s | skipped |
+The first version of this table was wrong in a way worth stating plainly, because it flattered the
+result. `build_scale_case`'s `group_size` counts the target transaction itself, so the sweep I ran
+(`group_size=3`) meant only **two** other transactions had to cancel — a 2-sum. Every row of the
+published timing table consequently read `2-sum-hash`: the 3-sum and 4-sum paths were built, tested,
+and never once exercised by the evidence that described them. The sweep now runs 3/4/5, so all three
+algorithms actually run.
 
-The real frontier isn't compute time, it's disambiguation. At this project's own delta range
-(±999,931 paise), the optimal solver reliably finds the TRUE constructed group up to `n_total=1000`
-(100% across 30 seeds), then degrades — 77% at 2,000, 53% at 3,000, 27% by 5,000 — because a
-spurious-but-genuinely-valid coincidental match becomes more likely than the real one (a
-birthday-paradox effect in a finite integer range, not a speed problem; every "wrong" answer still
-genuinely cancels the target, just isn't the one constructed).
+| True group | n_total | Algorithm used | Optimal | Brute force |
+|---|---|---|---|---|
+| 2 others | 500 | 2-sum-hash | 0.00006s | 0.0226s |
+| 2 others | 5,000 | 2-sum-hash | 0.00045s | skipped |
+| 3 others | 500 | 3-sum-two-pointer | 0.00056s | 1.5405s |
+| 4 others | 100 | 4-sum-meet-in-the-middle | 0.00146s | 0.4259s |
+
+Speed was never the frontier, and with all three paths running the real frontier is far closer in
+than what I published before. Disambiguation is the wall, and it arrives much earlier the larger the
+true group is:
+
+| True group | n=50 | n=100 | n=200 | n=500 | n=1,000 | n=1,500 | n=5,000 |
+|---|---|---|---|---|---|---|---|
+| 2 others | 100% | 100% | 100% | **96.7%** | 100% | 80% | 27% |
+| 3 others | 100% | 96.7% | 73% | 30% | 10% | 3% | 0% |
+| 4 others | 100% | 63% | **3%** | 0% | 0% | 0% | 0% |
+
+(30 seeds per cell.) The 96.7% cell is one I previously published inside a blanket "100% across 30
+seeds up to n_total=1000" — it is 29/30, and rounding it up into a neighbouring claim is exactly the
+kind of thing this file exists to not do.
+
+The mechanism is now measured rather than inferred. The solver stops at the first group that cancels,
+so a **coincidental smaller** group pre-empts the real one: at a 4-member true group and n=5,000 that
+happens on 30 of 30 seeds. Every "wrong" answer still genuinely cancels the target — it just isn't
+the constructed one. So the honest headline is not "this rule works up to n=1500", it is: at a
+genuinely multi-way group of four, the strongest rule I could write is already unreliable at **n=200**,
+which is a perfectly ordinary settlement batch.
 
 Reproduce: `python scripts/generate_multiway_netting_optimal_solver_evidence.py`. Raw evidence:
 [`multiway-netting-optimal-solver-2026-08-29.json`](evidence/multiway-netting-optimal-solver-2026-08-29.json).
@@ -307,7 +511,7 @@ Reproduce: `python scripts/generate_multiway_netting_evidence.py`.
 ## Verify it yourself
 
 ```bash
-cd backend && python -m pytest tests/ -v                                          # 280 tests
+cd backend && python -m pytest tests/ -v                                          # 318 tests
 python scripts/audit_calibration.py --db ../docs/evidence/verified_calibration_history.db
 python scripts/measure_mock_narrator_accuracy.py
 python scripts/measure_mock_narrator_accuracy_multiway.py

@@ -4205,6 +4205,82 @@ every real-provider claim throughout its build.
 
 ---
 
+## 2026-08-29 (V) — The residual architecture: I stopped adding categories and changed where the model sits
+
+- **The observation that started it.** Three categories in a row collapsed into rules I wrote
+  afterwards: `netting_trap` into a 20-line check, `multiway_netting_trap` into a hash table,
+  `narration_explained` into a keyword scan. I had been treating each as its own bad luck. It isn't.
+  Settlement records come out of deterministic processes, so their ground truth is arithmetically
+  derivable, so for any *classification* task I pose over them a rule exists that wins. Adding a
+  fourth category would have reproduced the pattern a fourth time.
+
+- **What I built instead.** `app/resolver/`: the deterministic resolver runs first and takes
+  everything it can, and the model works only on what's left, which has exactly two shapes —
+  `UNDER_DETERMINED` (≥2 arithmetically valid explanations, no basis to choose) and `UNMATCHED`
+  (none). The point of `UNDER_DETERMINED` is that it can't be answered with "your resolver isn't good
+  enough yet", because a *better* resolver finds more valid decompositions, not fewer. And it makes
+  the baseline computable instead of rhetorical: with k valid answers, blind choice is exactly 1/k.
+  Nothing already built got thrown away — `check_batch_anomalies`, the k-sum solvers, the fee
+  recomputation, the narration read all became candidate generators inside Layer 0. They were never
+  the wrong code, they were in the wrong position.
+
+- **What the model is asked for changed too.** Not a label — a label is precisely what a lookup table
+  produces — but a decomposition that must sum to the observed delta and cite real objects whose
+  actual properties support the amounts claimed. Both checks are deterministic, and a failure hands
+  back the specific complaint instead of a rejection, so "confidence" became *rounds of verification
+  survived* rather than a number the model asserts about itself.
+
+- **The objection I expected, tested first.** "You manufactured the ambiguity with a tolerance knob."
+  So I measured the setting that's worst for my own design: zero rounding noise, zero tolerance, exact
+  integer arithmetic. 51 of 60 compound cases are *still* under-determined, median 4 valid answers.
+  Compositionality does that, not the tolerance. It's a standing test now, not a one-off.
+
+- **Three things I got wrong, in order.** First, my resolver's candidate pool computed every
+  percentage off the post-fee hop instead of the captured amount. It looked completely fine — full of
+  plausible numbers — and simply never contained the true ones. Reading the pool would never have
+  caught it; asking "does this recover a decomposition I know is true?" caught it immediately (11/60,
+  then 60/60 after the fix). Second, I handed the model the raw candidate pool, which is asking it to
+  solve subset-sum in its head — Layer 0 had already solved that, and my own prompt wasn't
+  implementing my own architecture. 0/6 live until I fixed it. Third, once I did present the
+  enumerated options, I presented them in parsimony order, which put the true answer at position 1 in
+  5 of 10 cases. Anything with a first-option bias would have scored well for reasons that have
+  nothing to do with reading. Options are deterministically shuffled now, and "just pick the simplest
+  explanation" became its own baseline column rather than a hidden advantage inside everyone else's.
+
+- **The result I actually care about.** I wrote the strongest rule I could for reading bank remittance
+  advice — fragment splitting, cause keywords, a 29-entry negation-cue list assembled with full sight
+  of my own generator's phrasing. It reads at 95.2%, beating qwen2.5:7b (79.8%) and 14b (86.9%). Then
+  I wrote a second phrase bank expressing the same things in idiom the cue list has never seen —
+  abeyance, rescinded, held over, zero-rated, struck off, lapsed — keeping the domain vocabulary
+  recognisable so the rule couldn't fail on a missing synonym. The ordering inverts: rule 61.7%
+  (−33.6 pts), 7b 72.6% (−7.1), 14b 81.7% (−5.2). Most of the rule's advantage was authorship, not
+  reading.
+
+- **And the part that matters more than the accuracy.** On unfamiliar phrasing the rule reads a
+  *denial* as a *confirmation* 161 times in 420 judgements — 38.3%. It asserts charges the text
+  explicitly says were not applied. In a system that files recovery claims against an acquirer that's
+  a false claim about money. Both models sit near 3.4%, and their dominant error runs the other way:
+  they miss the mention, the component goes unexplained, the case escalates. Wrong, but safe. That
+  asymmetry is the real argument for where a model belongs here, and I'd rather have it than a
+  slightly better accuracy number.
+
+- **Honest caveat I want on the record.** My "held-out" bank is held out from the *parser*, not from
+  me — I wrote both. It's a real test of the rule and not a test against real bank text, and I've said
+  so in LIMITATIONS.md rather than letting the result read as broader than it is.
+
+- **Two published numbers I had to correct.** The optimal solver's timing table reported
+  `2-sum-hash` on every row at every size: `build_scale_case(group_size=N)` counts the target
+  transaction itself, so my `group_size=3` sweep meant only two others had to cancel. I'd built and
+  tested three k-sum paths and published a table that only ever ran one. Sweeping 3/4/5 gives a much
+  worse and much more honest frontier — at a genuine four-member group it's unreliable by n=200, not
+  n=1,500, because a coincidental smaller group cancels first. The same re-run turned up an n=500 cell
+  of 29/30 = 96.7% that I'd published inside a blanket "100% across 30 seeds up to n=1000".
+
+- **Status.** 316 tests passing (up from 280). Off by default behind `enable_compound_delta`, so every
+  evidence file measured before this exists stays valid.
+
+---
+
 ## On the audit rounds and the scores
 
 Roughly every few hours during the build, a deliberate adversarial pass ran over the project's own

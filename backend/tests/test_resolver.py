@@ -382,3 +382,42 @@ def test_advice_mentions_ground_truth_matches_the_text():
     for tid, chain in chains.items():
         if truth[tid].advice_mentions:
             assert chain.bank_narration
+
+
+# --- cascade routing -------------------------------------------------------------------------------
+
+
+def test_cascade_tier0_absorbs_only_when_the_advice_actually_discriminated():
+    """Tier 0 must hand a case up when it is choosing by parsimony rather than by anything it read.
+
+    This is the measurement that made a cascade worth building: the rule is not uniformly weak, it is
+    specifically weak where the advice does not discriminate -- and that is detectable in advance,
+    from the tie count, without asking a model anything."""
+    from app.resolver.cascade import route
+
+    _, chains, ctx, _ = compound_batch(n=25)
+    handed_up_with_ties = 0
+    for tid, chain in chains.items():
+        out = resolve(chain, ctx)
+        if out.status != "UNDER_DETERMINED":
+            continue
+        result = route(chain, ctx, out, model_tiers=())  # no model tiers: isolate tier 0's decision
+        tier0 = result.tiers_tried[0]
+        if tier0.resolved_here:
+            assert "unique winner" in tier0.reason
+        else:
+            handed_up_with_ties += 1
+            assert result.escalated_to_human
+    assert handed_up_with_ties > 0, "tier 0 absorbed everything -- the tie gate is not doing anything"
+
+
+def test_cascade_records_cost_for_every_tier_it_tried():
+    from app.resolver.cascade import route
+
+    _, chains, ctx, _ = compound_batch(n=15)
+    tid = next(t for t in chains if resolve(chains[t], ctx).status == "UNDER_DETERMINED")
+    out = resolve(chains[tid], ctx)
+    result = route(chains[tid], ctx, out, model_tiers=())
+    assert result.tiers_tried
+    assert result.total_seconds == round(sum(t.seconds for t in result.tiers_tried), 4)
+    assert result.final_tier in {"keyword_rule", "human"}

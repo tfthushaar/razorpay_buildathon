@@ -209,11 +209,17 @@ def main() -> None:
     ap.add_argument("--no-ollama", dest="with_ollama", action="store_false")
     ap.add_argument("--with-groq", action="store_true")
     ap.add_argument("--model", default=None)
+    # Override the provider set explicitly. The main use is measuring the reader path alone at a
+    # larger model without also paying for the slow whole-option-list path, which is already known to
+    # be the weaker of the two and does not need re-measuring at every model size.
+    ap.add_argument("--providers", default=None, help="comma-separated, e.g. 'ollama_reader'")
     ap.add_argument("--out", default=None)
     args = ap.parse_args()
 
     providers = []
-    if args.with_ollama:
+    if args.providers is not None:
+        providers = [p.strip() for p in args.providers.split(",") if p.strip()]
+    elif args.with_ollama:
         # BOTH shapes of the model column, because they answer different questions and the weaker one
         # is not dropped for being weaker. "ollama" hands the model the whole option list and asks it
         # to choose; "ollama_reader" has it read only the advice and lets the deterministic scorer do
@@ -232,16 +238,38 @@ def main() -> None:
             flush=True,
         )
 
-    print(f"\nBaselines on the residual (n={args.n}, providers={providers or ['none']})...", flush=True)
-    baselines = measure_baselines(args.seed, args.n, providers, args.model)
-    s = baselines["summary"]
-    print(f"  residual cases: {s['residual_n']}  (truth outside the {s['option_window']}-option window: {s['truth_outside_option_window']})")
-    print(f"  chance (mean 1/k):  {s['mean_chance_baseline'] * 100:.1f}%")
-    for name, col in s["columns"].items():
-        extra = ""
-        if "verified" in col:
-            extra = f"   verified={col['verified']}/{col['n']}  {col['mean_seconds_per_case']}s/case"
-        print(f"  {name:<10} {col['correct']:>4}/{col['n']:<4} = {col['accuracy'] * 100:5.1f}%{extra}")
+    # Both phrasing conditions, because the seen-phrasing row on its own is the one that flatters the
+    # keyword rule -- and the rule's cue list was written by the same person who wrote the phrases it
+    # parses. The held-out condition is the honest one; reporting only the first would be measuring
+    # authorship. See scripts/generate_reading_evidence.py for the same split on the reading step
+    # alone, isolated from everything downstream.
+    conditions = {}
+    for label, held_out in (("seen_phrasing", False), ("held_out_phrasing", True)):
+        print("", flush=True)
+        print(f"=== {label} -- baselines on the residual (n={args.n}, providers={providers or ['none']}) ===", flush=True)
+        baselines = measure_baselines(args.seed, args.n, providers, args.model, held_out=held_out)
+        conditions[label] = baselines
+        summary = baselines["summary"]
+        print(
+            f"  residual cases: {summary['residual_n']}  "
+            f"(truth outside the {summary['option_window']}-option window: {summary['truth_outside_option_window']})",
+            flush=True,
+        )
+        print(f"  {'chance (mean 1/k)':<16} {summary['mean_chance_baseline'] * 100:5.1f}%", flush=True)
+        for name, col in summary["columns"].items():
+            extra = ""
+            if "verified" in col:
+                extra = f"   verified={col['verified']}/{col['n']}  {col['mean_seconds_per_case']}s/case"
+            print(f"  {name:<16} {col['correct']:>4}/{col['n']:<4} = {col['accuracy'] * 100:5.1f}%{extra}", flush=True)
+
+    print("", flush=True)
+    print("=== generalisation gap on the end-to-end task (seen -> held-out) ===", flush=True)
+    gaps = {}
+    for name in conditions["seen_phrasing"]["summary"]["columns"]:
+        a = conditions["seen_phrasing"]["summary"]["columns"][name]["accuracy"]
+        b = conditions["held_out_phrasing"]["summary"]["columns"][name]["accuracy"]
+        gaps[name] = round(b - a, 4)
+        print(f"  {name:<16} {a * 100:5.1f}% -> {b * 100:5.1f}%   ({(b - a) * 100:+.1f} pts)", flush=True)
 
     payload = {
         "generated_on": date.today().isoformat(),
@@ -250,7 +278,8 @@ def main() -> None:
         "tolerance": DEFAULT_TOLERANCE_PAISE,
         "model": args.model,
         **layer0,
-        **baselines,
+        "conditions": conditions,
+        "generalisation_gap": gaps,
     }
     out_path = Path(args.out) if args.out else Path(__file__).resolve().parents[2] / "docs" / "evidence" / f"residual-architecture-{date.today().isoformat()}.json"
     out_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")

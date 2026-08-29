@@ -130,6 +130,63 @@ no LLM, reported side by side with the full system's own result.
 tool-call trace, and a link back to the source ledger/settlement rows, so a reviewer can click
 through and verify a decision instead of taking the narration on faith.
 
+## Why the categories kept collapsing, and the residual architecture
+
+Three categories in a row fell to rules written after the fact — `netting_trap` to a 20-line check,
+`multiway_netting_trap` to a hash table, `narration_explained` to a keyword scan. That is not bad luck
+three times. Settlement records are produced by deterministic processes, so their ground truth is
+arithmetically derivable, so for any *classification* task posed over them a rule exists that wins. A
+fourth category would have reproduced the pattern.
+
+`app/resolver/` inverts the relationship instead of adding one.
+
+```
+Layer 0  Deterministic resolver — the candidate pool (every cause that could have moved this
+         delta: contracted vs. plausible fee rates, real refunds on the payment, standard
+         TDS/reserve/GST rates, FX rounding, batch netting partners, a narration-asserted waiver)
+         and an exhaustive search for every subset that accounts for the observed delta.
+
+Layer 1  The residual, of exactly two kinds:
+           UNDER_DETERMINED  ≥2 arithmetically valid explanations, no basis to choose
+           UNMATCHED         none found
+
+Layer 2  The model works ONLY on Layer 1. It never sees a case Layer 0 resolved.
+
+Layer 3  A deterministic verifier checks what comes back, and calibration scores it per cause.
+```
+
+The consequence is structural rather than argued: a case the rule solved was taken *by* the rule, so
+it cannot sit inside a model's accuracy figure inflating it. `UNDER_DETERMINED` is the load-bearing
+half — it cannot be answered with "your resolver isn't good enough yet", because a *stronger*
+resolver finds more valid decompositions, not fewer — and it makes the baseline computable: with k
+valid answers, blind choice scores exactly **1/k**.
+
+Nothing built earlier is discarded by this. `check_batch_anomalies`, the k-sum solvers, the fee
+recomputation and the narration read all become candidate generators *inside* Layer 0 and run first,
+deterministically. They were never the wrong code; they were in the wrong position.
+
+**What the model is asked for changed with it.** Not `{category, confidence}` — a label is exactly
+what a lookup table produces — but a decomposition: which causes, in what amounts, citing what
+evidence. That is self-verifying in a way a label can never be (`app/resolver/verifier.py`): the
+components must sum to the observed delta, and every `evidence_ref` must resolve to a real object in
+the batch **whose actual properties support the amount claimed against it**. Citing a real refund
+belonging to a different payment fails. Citing a real refund for the wrong amount fails. A failed
+check hands back the specific complaint rather than a rejection, so confidence stops being a number
+the model asserts about itself and becomes *how many verification rounds this answer survived*.
+
+Calibration moves to per-cause (`app/calibration/cause_calibrator.py`), which is both the actionable
+trust unit — a cause can lose autonomy without dragging four unrelated ones down with it — and the
+fix for a real statistical weakness: a category seen ten times a batch has n=10, and 10/10 has a
+Wilson lower bound of 72.2%, nowhere near a 90% gate. Decompositions produce several judgements per
+transaction instead of one.
+
+Two design choices deliberately cut against making the numbers look good. `attribute_mock` is not a
+stub — it *is* the keyword baseline, the strongest rule I could write for this task, so the rule's
+column appears in every results table automatically rather than when I remember to run it. And the
+model and the rule get symmetric help: the rule's negation-cue list was written with full sight of
+the generator's phrasing, so the model's prompt carries the corresponding domain warning. Neither is
+given the answer. Numbers, including where the rule wins: [RESULTS.md](RESULTS.md).
+
 ## Where genuine judgment lives in the product
 
 On the original three categories, the deterministic rule already matches the LLM exactly (see
@@ -149,7 +206,13 @@ same task at real settlement-batch scale (hundreds of transactions) and finds tw
 modes, not a clean degradation curve — see [RESULTS.md](RESULTS.md). A third module
 (`app/narrator/multiway_netting_optimal_solver.py`) builds the strongest deterministic rule actually
 worth building for this task — real O(n)/O(n²) k-sum algorithms, not brute force — and finds the
-honest frontier is disambiguation at scale, not compute time.
+honest frontier is disambiguation, not compute time. Compute never becomes the limit (under 2ms at
+n=5,000); the solver stops at the first group that cancels, so a *coincidental* smaller group
+pre-empts the real one, and the larger the true group the sooner that happens. At a genuine
+four-member group it is already unreliable at n=200 — an ordinary settlement batch. An earlier version
+of this doc reported that frontier as n=1,000, measured with a `group_size` parameter that counts the
+target transaction itself and therefore only ever exercised the 2-sum path; see
+[WHAT_BROKE.md](WHAT_BROKE.md).
 
 **`narration_explained`.** A delta explained only by the settlement's own free-text remarks field
 (`Settlement.bank_narration`, new field, eight varied realistic templates) — never by any structured

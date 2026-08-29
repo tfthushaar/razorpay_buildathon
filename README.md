@@ -20,6 +20,8 @@ what it has measured itself accurate on.
 | Adversarial stress batch | 40/40 correctly handled, 0 wrongly auto-resolved | [raw output](docs/evidence/verified-ollama-run-2026-08-25.json) |
 | Auto-resolved with zero human review | ₹4,86,473.13, 59 distinct real cases | same command |
 | `multiway_netting_trap` — genuine judgment, real category | rule 0/42 (structural), Ollama 5/7, Groq 6/7 | `python scripts/generate_multiway_netting_trap_production_evidence.py` |
+| Reading bank advice, held-out phrasing | best rule 61.7% (−33.6 pts), `qwen2.5:14b` 81.7% (−5.2) — and the rule reads a denial as a confirmation 38.3% of the time | `python scripts/generate_reading_evidence.py` |
+| Strongest rule's real frontier | at a genuine 4-member netting group it's unreliable by **n=200**, not n=1,500 | `python scripts/generate_multiway_netting_optimal_solver_evidence.py` |
 
 Full numbers, every claim in this file: [RESULTS.md](docs/RESULTS.md).
 
@@ -41,27 +43,62 @@ amount before a payment settles. Detail: [ARCHITECTURE.md](docs/ARCHITECTURE.md)
 
 ## Where the LLM sits, including where it doesn't
 
-85% of a batch resolves deterministically, zero LLM calls. The three original categories the model
-is reserved for aren't ambiguous to the tools that gather evidence for them: a 20-line rule with zero
-LLM calls scores 100.0% across 519 real cases, matching the real narrator on that task. There, the
-LLM earns its place on reliability under conditions the rule never faces (API failures, malformed
-tool arguments, a hallucinated id), not on resolving a case the rule genuinely couldn't.
+85% of a batch resolves deterministically, zero LLM calls. And for a long stretch of this build, every
+category I added for the model to handle eventually fell to a rule I wrote afterwards — `netting_trap`
+to a 20-line check, `multiway_netting_trap` to a hash table, `narration_explained` to a keyword scan.
+Three times is not bad luck. Settlement records come from deterministic processes, so their ground
+truth is arithmetically derivable, so for any classification task posed over them a rule exists that
+wins.
 
-`multiway_netting_trap` is the case the rule genuinely can't resolve — a netting pattern across 3+
-transactions, invisible to a pairwise-only detector by construction — and it's now a real, shipped,
-calibration-gated category, not a side experiment: `mock` fails structurally (0/42, confirmed), real
-providers solve most of it on real generated batches (Ollama 5/7, Groq 6/7). A separate, harder test
-at real settlement-batch scale (500-800 transactions) finds the honest edges of that — two different
-failure modes on two different providers, a magnitude pre-filter that doesn't cleanly fix either, and
-a larger local model that does *worse*, not better, once the task gets tool-budget-constrained. A
-second category, `narration_explained`, requires reading a messy free-text field no rule can parse at
-any scale — mock 0/64, Ollama a clean 10/10, no tool-design tension to fight. Full numbers, every
-raw evidence file: [RESULTS.md](docs/RESULTS.md).
+So the pipeline is inverted now. The deterministic resolver runs **first** and keeps everything it can
+explain on its own; the model only ever sees what's left, which has two shapes: the resolver found
+**two or more equally valid explanations** and has no basis to choose, or it found **none**. That's a
+structural guarantee, not a claim — a case a rule could solve was taken by the rule, so it can't be
+inside a model's accuracy number inflating it. With k valid explanations, blind choice scores exactly
+1/k, so the baseline is computed rather than argued.
+
+The obvious objection is that I manufactured the ambiguity with a tolerance knob. At **zero** rounding
+noise and **zero** tolerance — exact integer arithmetic — 51 of 60 compound cases are still
+under-determined. Compositionality does that, not the tolerance.
+
+The model's output changed with it: not a label (precisely what a lookup table produces) but a
+decomposition that must sum to the observed delta and cite real objects whose properties support the
+amounts claimed. Both are deterministic checks, and a failed check hands back the specific complaint
+for another attempt — so confidence becomes *survived n verification rounds* instead of a number the
+model asserts about itself.
+
+**The result that settles where AI belongs here.** I wrote the strongest rule I could for reading bank
+remittance advice — fragment splitting, cause keywords, a 29-entry negation-cue list assembled with
+full sight of the generator's own phrasing. It reads at **95.2%**, beating `qwen2.5:7b` (79.8%) and
+`14b` (86.9%). Then I tested on held-out phrasing the cue list has never seen, keeping the domain
+vocabulary recognisable so it couldn't fail on a missing synonym:
+
+| Reader | Phrasing its author saw | Held-out phrasing | Gap |
+|---|---|---|---|
+| best rule I could write | **95.2%** | 61.7% | **−33.6 pts** |
+| `qwen2.5:7b-instruct` | 79.8% | 72.6% | −7.1 pts |
+| `qwen2.5:14b-instruct` | 86.9% | **81.7%** | −5.2 pts |
+
+The ordering inverts. Most of the rule's advantage was authorship, not reading. And the accuracy gap
+understates it: on unfamiliar phrasing the rule reads a **denial as a confirmation** in 38.3% of
+judgements — asserting charges the text explicitly says were *not* applied, which in a system that
+files recovery claims is a false claim about money. Both models sit at 3.3–3.6%, and their dominant
+error runs the safe way (missing a mention, so the case escalates).
+
+**And the result that cuts against all of this.** End-to-end on the residual, the strategy that wins
+on held-out phrasing is a free heuristic that ignores the advice entirely — "always take the
+fewest-component explanation" scores **31.7%**, beating the 14b reader at 26.7% and burying the
+collapsed keyword rule at 8.3%. Reading this text at 73–82% accuracy is better than a broken rule and
+still not good enough to beat a trivial structural prior. So the claim I'll actually defend is narrow:
+*a model reads this text better than a rule does and fails far more safely, but on this end-to-end
+task, at these model sizes, reading doesn't yet pay for itself.* Anyone looking for "the LLM beat the
+rules" in this repo won't find it. Full numbers, every raw evidence file:
+[RESULTS.md](docs/RESULTS.md).
 
 ## Verify it yourself
 
 ```bash
-cd backend && python -m pytest tests/ -v                 # 280 tests
+cd backend && python -m pytest tests/ -v                 # 318 tests
 python scripts/audit_calibration.py --db ../docs/evidence/verified_calibration_history.db
 python scripts/measure_mock_narrator_accuracy.py
 ```
@@ -81,6 +118,10 @@ All three work on a genuinely fresh clone. Full reproduction notes: [RESULTS.md]
   3%–100% seed to seed.
 - `multiway_netting_trap` breaks down at real settlement-batch scale (500+ transactions) — two
   different failure modes on two different providers, neither fixed by a magnitude pre-filter.
+- The "held-out" advice phrasing is held out from the *parser*, not from me — I wrote both phrase
+  banks. It's a real test of the rule, not a test against real bank text.
+- On familiar phrasing the best rule I could write still beats the local model on the residual. The
+  model's advantage here is specifically generalisation and failure mode, not raw accuracy.
 - The real Razorpay webhook receiver verifies and parses; it can't reconcile a settlement-only event
   on its own — the order/payment/ledger side lives in the merchant's own separate integration.
 
@@ -98,8 +139,16 @@ Full list: [LIMITATIONS.md](docs/LIMITATIONS.md).
   earn 8/8 again — honestly, this time.
 - Wiring that same category into the real product, a live Groq run got the arithmetic right and the
   category wrong; one added sentence in the system prompt took it from 3/7 correct to 6/7.
+- I published a timing table comparing three k-sum algorithms that had only ever run one of them,
+  because a `group_size` parameter counts the target transaction itself.
+- My new resolver's candidate pool looked entirely plausible and never contained the true answers —
+  every percentage was computed off the wrong hop. Only a scoring question caught it, not reading.
+- My own prompt didn't implement my own architecture: I handed the model a subset-sum problem Layer 0
+  had already solved, then presented the options in an order that leaked the answer through position.
+- I built a cascade router on an escalation signal that can never fire — in choice mode a verified
+  answer is verified by construction, so the gate was structurally dead.
 
-Fifteen incidents, fixed format: [WHAT_BROKE.md](docs/WHAT_BROKE.md).
+Nineteen incidents, fixed format: [WHAT_BROKE.md](docs/WHAT_BROKE.md).
 
 ## Get it running
 

@@ -4,6 +4,70 @@ The complete list. README keeps the five most load-bearing of these as one-line 
 the full picture, including the ones that didn't make the cut for space, not because they matter
 less.
 
+**The "held-out" advice phrasing is held out from the parser, not from me.** The generalisation
+result this project now leads with — the keyword rule dropping 33.6 points on phrasing its cue list
+never saw, while both models drop 5–7 — is measured against a second phrase bank that I also wrote.
+That makes it a genuine test of the *parser* (a test asserts the held-out bank contains none of the
+rule's own negation cues, so the rule really is meeting unfamiliar constructions) and **not** a test
+against real bank text. Someone else's settlement advice, or a real remittance file, could break both
+readers in ways neither bank anticipates. What the measurement supports is narrow and worth stating
+exactly: a rule tuned to phrasing its author has seen generalises far worse than a model does to
+phrasing neither has seen. It does not establish either reader's absolute accuracy on production
+data, and no claim to that effect is made anywhere in these docs.
+
+**On held-out phrasing, the best end-to-end strategy is a free heuristic that ignores the advice
+entirely — and it beats every model reader.** "Always take the fewest-component explanation" scores
+31.7%, against 26.7% for the 14b reader, 20.0% for 7b, 8.3% for the collapsed keyword rule and a 6.1%
+chance floor ([RESULTS.md](RESULTS.md)). Reading this text at 73–82% accuracy is comfortably better
+than a broken rule and still not accurate enough to beat a trivial structural prior. This is the
+sharpest limit on the argument this project makes, so it is stated here and in the README rather than
+left for a reader to find: what the evidence supports is that a model reads settlement advice better
+than a rule does and fails far more safely, **not** that adding the model improves the end-to-end
+result at these model sizes. Whether a stronger reader crosses that line is an open question this
+project has not answered — 14b closes about half the gap to parsimony that 7b leaves, which is
+suggestive and nothing more.
+
+**Cascade routing is built and measured and does not work.** `app/resolver/cascade.py` scores 20.0%
+end to end, worse than free parsimony, having added ~2.4s per case. Its escalation gates were designed
+before the numbers came in and both turned out to be structurally wrong: the model tiers escalate on
+verification failure, which in choice mode can never happen (a chosen option is arithmetically valid
+by construction), so the 14b tier absorbed zero cases; and tier 0's gate measures whether the advice
+*discriminated* rather than whether the reading was *correct*, so it absorbed six cases and got none
+of them right. The honest summary is that I could not construct a useful escalation signal for this
+task — self-reported confidence is uninformative, verification is trivially satisfied, and tie count
+measures the wrong quantity. It ships as measured rather than tuned or withdrawn.
+
+**On the residual, the best rule I could write still beats the model on familiar phrasing.** Choosing
+among Layer 0's valid decompositions, the keyword baseline lands well ahead of the local model when
+the advice is phrased the way its cue list expects. The model column is not dropped for losing, and
+the honest summary is that the model's advantage here is specifically in *generalisation and failure
+mode*, not in raw accuracy on the phrasing distribution the rule was tuned for. Anyone reading this
+project for "the LLM beat the rule" will not find that claim; what is claimed is narrower and, I
+think, more useful.
+
+**Layer 0's decomposition resolver closes 0% of the exceptions it sees, by construction.** The
+architecture's headline is that the deterministic layer takes everything it can first — and on the
+whole batch that is true and large (85%, almost entirely the matching engine's own work). But of the
+exceptions that actually reach the *decomposition* resolver, it fully resolves essentially none,
+because a delta produced by several compounding causes is under-determined almost by definition. Its
+job there is to establish which cases arithmetic cannot answer and exactly how unanswerable each one
+is (the k that gives the 1/k floor), not to close them. Quoting "Layer 0 resolves N%" without that
+distinction would misdescribe what the module does.
+
+**The residual numbers rest on n≈59 cases per condition.** Enough to separate a 38.3% dangerous-error
+rate from a 3.4% one, not enough to rank the two models against each other with confidence, and small
+enough that a per-cause Wilson lower bound rarely clears the 90% autonomy gate yet — which is why
+`auto_attribute_causes` is usually empty on a single run. That is the calibration layer working as
+designed rather than a result being suppressed, but it does mean the per-cause autonomy story is
+currently a mechanism with real numbers behind it, not a system that has actually earned autonomy on
+this task.
+
+**`compound_delta` and the residual stage are off by default.** They run only with
+`enable_compound_delta`, deliberately, so every evidence file and number measured before this
+architecture existed stays valid rather than being silently invalidated by a default change. The cost
+is that a judge running the plain documented quickstart does not see the residual pipeline unless
+they tick the box in the dashboard or pass the flag.
+
 **Not horizontally scaled, though a real load test found no acute problem within the range tested.**
 One FastAPI instance, SQLite. A real load test against a genuinely running server (not the in-process
 `TestClient` tests use) measured 100% success and gracefully-degrading latency at 1 through 32
@@ -92,6 +156,16 @@ entirely until a real named proposal exists to show. See [WHAT_BROKE.md](WHAT_BR
 reasonable question like "how many transactions were escalated?" — falls back to detail on the
 first 3 transactions in the batch, with an honest label pointing at `ollama`/`groq` for a real
 answer. Disclosed here rather than left to surprise a judge on a default-provider run.
+
+**The strongest deterministic netting solver breaks down at ordinary batch sizes once the group is
+genuinely multi-way.** An earlier version of this file, and of [RESULTS.md](RESULTS.md), reported the
+solver as reliable up to `n_total=1000`. That figure was measured with `group_size=3`, which — because
+that parameter counts the target transaction itself — meant only two other transactions had to cancel,
+a plain 2-sum. Re-run across group sizes 3/4/5 so all three k-sum paths actually execute, the real
+frontier is much closer in: at a genuine four-member group the solver finds the true group on 19/30
+seeds at n=100 and **1/30 at n=200**, because a coincidental smaller group cancels first (30/30 of the
+failures at n=5,000). Compute time was never the limit — it stays under 2ms at every size tested. The
+limit is disambiguation, and it arrives at batch sizes a real merchant sees every day.
 
 **On the original, hand-built multi-way netting experiment** ([RESULTS.md](RESULTS.md)): even with a
 verification tool available, the smaller local model (`qwen2.5:7b-instruct`) solved only 1 of 8
