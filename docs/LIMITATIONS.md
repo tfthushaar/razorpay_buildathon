@@ -7,14 +7,16 @@ Twelve limits, ordered by how much they constrain the claims here.
 `qwen2.5:7b-instruct` and `qwen2.5:14b-instruct`. Two sizes, one family. "A model reads better than a
 rule" is really "qwen reads better than a rule" until a second family is measured on the same cases.
 
-The harness exists and works. `app/resolver/cycle_reader.py` and
-`scripts/generate_reading_evidence.py` both take `--groq-model`, and live calls against
-`openai/gpt-oss-20b` return correct verdicts on held-out phrasing where the regex returns nothing. The
-measurement is blocked on Groq's free-tier daily token quota, which this session had already consumed:
-199,913 of 200,000. A first attempt also produced a column that scored identically to its baseline in
-both conditions, because a missing key was swallowed as "no reading available" (see
-[WHAT_BROKE.md](WHAT_BROKE.md)). That is fixed, and the run is a quota reset away. No claim rests on
-the second family.
+The harness works and the path is verified: `scripts/generate_reading_evidence.py --groq-model` runs
+the column, and live single calls against `openai/gpt-oss-20b` return correct verdicts on held-out
+phrasing where the regex returns nothing.
+
+The column is still not measured. The most recent attempt passed preflight for 120 calls, ran for two
+hours without completing a condition, and a second attempt was refused at 199,672 of 200,000 daily
+tokens used. Groq's free tier exposes per-minute headroom in its headers and no daily remaining, so a
+preflight that probes with one realistic request can clear a run that cannot finish. It refuses
+correctly once the daily cap is actually hit, which is why no partial column was ever recorded, but
+it cannot predict exhaustion in advance. No claim in this repo rests on a second family.
 
 ## The held-out phrasing is held out from the parser, not from me
 
