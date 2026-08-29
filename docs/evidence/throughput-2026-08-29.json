@@ -1,0 +1,68 @@
+{
+  "generated_on": "2026-08-29",
+  "n": 50000,
+  "repeats": 3,
+  "hardware": {
+    "platform": "Windows-11-10.0.26200-SP0",
+    "processor": "AMD64 Family 25 Model 97 Stepping 2, AuthenticAMD",
+    "python": "3.12.10",
+    "logical_cpus": 16,
+    "physical_cpus": null
+  },
+  "densities": {
+    "demo_default": {
+      "clean_ratio": 0.6,
+      "n": 50000,
+      "closed_deterministically": 42500,
+      "reaching_a_model": 7500,
+      "closed_share": 0.85,
+      "component_seconds": {
+        "generate": 1.812,
+        "build_chains": 2.7286,
+        "matching": 0.1411,
+        "tool_context": 0.0414,
+        "narrate_mock": 2.4081
+      },
+      "scopes": {
+        "chains_and_matching": {
+          "seconds": 2.8696,
+          "tx_per_sec": 17424,
+          "covers": "build_chains + matching"
+        },
+        "run_batch_timed_region": {
+          "seconds": 7.1312,
+          "tx_per_sec": 7011,
+          "covers": "generate + build_chains + matching + tool_context + narrate_mock",
+          "note": "the scope behind the previously published 5,508 tx/sec figure"
+        }
+      }
+    },
+    "realistic": {
+      "clean_ratio": 0.97,
+      "n": 50000,
+      "closed_deterministically": 49438,
+      "reaching_a_model": 562,
+      "closed_share": 0.9888,
+      "component_seconds": {
+        "generate": 1.9059,
+        "build_chains": 2.293,
+        "matching": 0.1445,
+        "tool_context": 0.0354,
+        "narrate_mock": 0.1111
+      },
+      "scopes": {
+        "chains_and_matching": {
+          "seconds": 2.4375,
+          "tx_per_sec": 20513,
+          "covers": "build_chains + matching"
+        },
+        "run_batch_timed_region": {
+          "seconds": 4.4899,
+          "tx_per_sec": 11136,
+          "covers": "generate + build_chains + matching + tool_context + narrate_mock",
+          "note": "the scope behind the previously published 5,508 tx/sec figure"
+        }
+      }
+    }
+  }
+}

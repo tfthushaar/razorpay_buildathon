@@ -184,28 +184,42 @@ transactions that reconciled correctly.
 
 ## Throughput, and why the model is only allowed on the residual
 
-| | Deterministic tx/sec | Closed without a model | Reaching a model |
-|---|---|---|---|
-| demo density, 60% clean | 20,953 | 85.0% | 15.0% |
-| realistic density, 97% clean | 27,531 | 98.9% | 1.1% |
+Scope is stated per row, because a previously published 5,508 tx/sec figure and a 20,953 tx/sec one
+measured different things and the difference was scope, not speed. Both scopes are timed here so any
+two figures can be checked against each other. 50,000 transactions, median of 3 repeats.
 
-Chains plus matching over 50,000 transactions. A real settlement batch is overwhelmingly clean; the
-demo default is deliberately denser so every category is exercised at small n.
+| Density | Closed without a model | Reaching a model | chains + matching | full `run_batch` region |
+|---|---|---|---|---|
+| demo default, 60% clean | 85.0% | 15.0% | 17,424 tx/sec | 7,011 tx/sec |
+| realistic, 97% clean | 98.9% | 1.1% | 20,513 tx/sec | 11,136 tx/sec |
 
-A real model runs at 2.58 tx/sec, roughly 8,000 times slower. That gap is the argument for the
-architecture rather than an objection to it. For a merchant at 100,000 transactions a day at realistic
-density, 98,900 resolve deterministically in under four seconds, and the 1,100 that reach a model take
-about 7 minutes. At the demo's inflated exception rate the same day costs 97 minutes.
+`chains + matching` is `build_all_chains` plus Pass 1/2. The `run_batch` region additionally covers
+batch generation, tool-context construction and mock narration, and is the scope behind the earlier
+5,508 figure. Component timings are in the evidence file and they sum.
 
-Running the model on everything would take 10.8 hours. The resolver is what makes the economics work,
-and it is also what makes the accuracy figures mean anything.
+Two corrections. The earlier 5,508 tx/sec was the wider scope at demo density, not the narrower one,
+so it was never comparable to a chains-and-matching number. And figures of 20,953 and 27,531 published
+in an earlier version of this file came from single unrepeated runs; the medians above are 17% and 25%
+lower.
+
+Measured on Windows 11, AMD Zen 3 (Family 25), 16 logical CPUs, Python 3.12.10. Throughput is a
+hardware claim as much as a code claim, so the baseline is recorded rather than left to inference.
+
+A real model runs at 2.58 tx/sec, about 8,000 times slower than deterministic matching. That gap is
+the argument for the architecture. For a merchant at 100,000 transactions a day at realistic density,
+98,900 resolve deterministically in about 5 seconds and the 1,100 reaching a model take 7 minutes.
+Running everything through the model would take 10.8 hours. At the demo's inflated exception rate the
+same day costs 97 minutes of model time.
+
+Reproduce: `python scripts/benchmark_throughput.py`. Raw:
+[`throughput-2026-08-29.json`](evidence/throughput-2026-08-29.json).
 
 ## Core reconciliation
 
 | Claim | Number |
 |---|---|
-| Match rate, real provider | 99.3% of settlement value, 7 escalations of 120 |
-| Match rate, mock provider | 86.0%, 18 escalations of 120 |
+| Match rate, real provider, demo density | 99.3% of settlement value, 7 escalations of 120 |
+| Match rate, mock provider, demo density | 86.0%, 18 escalations of 120 |
 | Throughput | see the throughput section above |
 | `netting_trap` | 59 distinct real cases, 98.3% [91.0, 99.7] |
 | `duplicate_refund` | 37 distinct real cases, 100% [90.6, 100.0] |
@@ -214,6 +228,10 @@ and it is also what makes the accuracy figures mean anything.
 | Adversarial stress batch | 40/40 handled, 0 wrongly auto-resolved |
 
 Reproduce: `python scripts/audit_calibration.py --db ../docs/evidence/verified_calibration_history.db`.
+
+These rows are all at the generator's demo density, 60% clean, which is deliberately denser than
+reality so every category is exercised at n=120. The 98.9% figure quoted elsewhere is the same
+pipeline at a realistic 97%-clean density. Different denominators, both measured.
 
 Every rupee figure here is generated. The mechanism is the claim; the amounts illustrate it.
 

@@ -1,6 +1,6 @@
 # What broke
 
-Ten incidents that changed how the system works, newest first. Longer journal:
+Eleven incidents that changed how the system works, newest first. Longer journal:
 [`BUILD_LOG.md`](../BUILD_LOG.md).
 
 ---
@@ -20,6 +20,32 @@ The same re-run corrected an n=500 cell of 29/30 = 96.7%, which I had published 
 across 30 seeds up to n=1000". The sweep now records `algorithm_used` per row.
 
 Found by: reading the committed evidence file after an external prompt to check it.
+
+---
+
+## A throughput figure that improved by changing definition
+
+Symptom. A published throughput number went from 5,508 tx/sec to 20,953 tx/sec between two passes,
+with the old row deleted and no note. It was then promoted to the README's lead economic argument,
+with no reproduce command and no committed evidence.
+
+Cause. The metric changed scope. The old figure timed `run_batch`'s instrumented region; the new one
+timed chains and matching alone. Both were true measurements of different things. Separately, the new
+figures came from single unrepeated runs: the medians over 3 repeats are 17,424 and 20,513, which is
+17% and 25% below what I published.
+
+A third error sat underneath. The BUILD_LOG entry for the original run described the 9.08s as covering
+"matching + fee-leak review + journal generation". `run_batch` stops its timer before both. The
+description had been wrong since the day it was written, which is what let the later comparison look
+reasonable.
+
+Fix. `scripts/benchmark_throughput.py` times every component separately so the scopes sum and any two
+published figures can be checked against each other. It records the hardware, because a reader
+measuring 1.8× lower needs to be able to tell whether that is their CPU or my arithmetic. Evidence
+committed, reproduce command added, scope stated per row.
+
+Found by: an external reviewer running chains-and-matching on their own machine, getting 11,427 tx/sec
+against my 20,953, and finding nothing in the repo to reconcile it against.
 
 ---
 

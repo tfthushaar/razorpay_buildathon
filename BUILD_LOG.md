@@ -2573,9 +2573,15 @@ blog). Added the paragraph to "Where this fits," verified rather than assumed.
 
 **What I actually built this round, all directly verifiable:**
 
-- **50,000-transaction evidence run**, real: 50,000 transactions, ₹54,81,13,443.15 total value,
-  processed end-to-end (matching + fee-leak review + journal generation) in 9.08 measured seconds —
-  5,508 tx/sec, mock provider. Raw output committed at `docs/evidence/50k-batch-run-2026-08-25.json`.
+- **50,000-transaction evidence run**, real: 50,000 transactions, ₹54,81,13,443.15 total value, in
+  9.08 measured seconds — 5,508 tx/sec, mock provider. Raw output committed at
+  `docs/evidence/50k-batch-run-2026-08-25.json`. **Scope correction, 2026-08-29:** this entry
+  originally described the 9.08s as covering "matching + fee-leak review + journal generation".
+  It does not. `run_batch` stops its timer before either of those runs. The region actually timed is
+  batch generation, chain building, matching, tool-context construction and mock narration. The
+  number is right and the description was wrong, which mattered later when a
+  chains-and-matching-only figure was published alongside it as though the two were comparable. Both
+  scopes are now timed separately by `scripts/benchmark_throughput.py`.
   85.0% resolved without escalation; the remaining 15% (7,500 transactions) escalated honestly
   rather than auto-resolving, since this run used the mock provider and this project's own
   calibration gate never lets mock decisions auto-resolve regardless of accumulated history —

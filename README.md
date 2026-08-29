@@ -8,10 +8,11 @@ A merchant's finance analyst on the Tuesday after a settlement cycle. They have 
 report, a bank statement, and their own ERP ledger, and the three do not agree. Their day is spent
 deciding which mismatches are explained, which need a human, and which are money someone owes them.
 
-This system does that triage. It closes 98.9% of a realistic batch deterministically, escalates what
-genuinely needs judgment with the evidence attached, and refuses to auto-resolve anything it has not
-measured itself accurate on. It also audits the fee against the merchant's contract, which
-reconciliation never does, because a wrongly-charged fee reconciles perfectly.
+This system does that triage. It closes 98.9% of a realistic 97%-clean batch deterministically (85.0%
+at the demo's deliberately denser default), escalates what genuinely needs judgment with the evidence
+attached, and refuses to auto-resolve anything it has not measured itself accurate on. It also audits
+the fee against the merchant's contract, which reconciliation never does, because a wrongly-charged
+fee reconciles perfectly.
 
 Live: [razorpay-buildathon-five.vercel.app](https://razorpay-buildathon-five.vercel.app)
 
@@ -28,10 +29,11 @@ explanations, or none. A case a rule could solve is taken by the rule, so it can
 model's accuracy figure. With k valid explanations, blind choice scores exactly 1/k, so the baseline
 is computed rather than argued.
 
-The economics follow from the same fact. Deterministic matching runs at 27,531 tx/sec. A real model
-runs at 2.58 tx/sec, about 8,000 times slower. At 100,000 transactions a day, 98,900 resolve in under
-four seconds and the 1,100 that reach a model take 7 minutes. Running the model on everything would
-take 10.8 hours. The resolver is what makes both the economics and the accuracy figures work.
+The economics follow from the same fact. Chains and matching run at 20,513 tx/sec on a realistic
+97%-clean batch. A real model runs at 2.58 tx/sec, about 8,000 times slower. At 100,000 transactions a
+day, 98,900 resolve deterministically in about 5 seconds and the 1,100 reaching a model take 7
+minutes. Running everything through the model would take 10.8 hours. The resolver is what makes both
+the economics and the accuracy figures work.
 
 ![Escalation queue with tool-call trace expanded](docs/screenshots/04-escalation-tool-trace.png)
 *A real escalated case, with the tool calls and results behind it.*
@@ -110,12 +112,17 @@ A hosted-model column scored byte-identical to its baseline in both conditions. 
 raising on every call, the retry wrapper saw no rate-limit string, and it returned "no reading
 available". Three hundred silent failures look exactly like a model that reads nothing. I was one edit
 from publishing "gpt-oss-20b buys nothing" as a fact about the model. The tell was the three-decimal
-match to the baseline. Non-rate-limit errors now propagate instead of degrading to `None`.
+match to the baseline.
+
+A throughput figure improved 3.8× between passes because the metric changed scope, not speed. I
+deleted the old row without saying so, promoted the new one to this README, and shipped it with no
+reproduce command and no evidence file. The new figures were also single unrepeated runs, and the
+medians are 17% and 25% lower.
 
 Also: a timing table comparing three algorithms that only ever ran one, and a result I overstated
 against my own architecture off a three-case difference.
 
-Ten incidents with sourced attribution: [WHAT_BROKE.md](docs/WHAT_BROKE.md).
+Eleven incidents with sourced attribution: [WHAT_BROKE.md](docs/WHAT_BROKE.md).
 
 ## Get it running
 
