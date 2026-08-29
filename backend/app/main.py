@@ -128,6 +128,8 @@ class RunRequest(BaseModel):
     reset_history: bool = False
     enable_discovery: bool = False  # opt-in: propose a candidate category for each genuine_error case (never auto-adopted)
     enable_multiway_netting: bool = False  # opt-in: inject multiway_netting_trap cases (default off -- see app/data_gen/generate.py)
+    enable_held_out_variants: bool = False  # opt-in: near-miss duplicate_refund/netting_trap cases the exact-match rule can't confirm
+    enable_narration_explained: bool = False  # opt-in: inject narration_explained cases (delta explained only by free text)
 
 
 class ResolveRequest(BaseModel):
@@ -165,6 +167,8 @@ def api_run(req: RunRequest) -> BatchRunResult:
             calibration_history=calibration_history,
             enable_discovery=req.enable_discovery,
             enable_multiway_netting=req.enable_multiway_netting,
+            enable_held_out_variants=req.enable_held_out_variants,
+            enable_narration_explained=req.enable_narration_explained,
         )
         escalations_by_id = {e.transaction_id: e.model_dump() for e in result.escalations}
 

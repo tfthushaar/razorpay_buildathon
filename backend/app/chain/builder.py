@@ -63,6 +63,7 @@ class CausalChain(BaseModel):
     payment_id: str
     settlement_id: str
     settlement_batch_id: str
+    bank_narration: str | None = None  # the settlement's own free-text field, when present -- see narration_explained
     ledger_id: str
 
 
@@ -121,6 +122,7 @@ def build_chain(
         settlement_id=settlement.settlement_id,
         settlement_batch_id=settlement.settlement_batch_id,
         ledger_id=ledger.ledger_id,
+        bank_narration=settlement.bank_narration,
     )
 
 

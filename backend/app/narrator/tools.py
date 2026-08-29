@@ -165,3 +165,16 @@ def recall_similar_resolutions(category_guess: str, context: ToolContext) -> dic
         return {"category": category_guess, "prior_count": 0, "note": "no prior resolutions of this category found"}
     avg_confidence = sum(m["confidence"] for m in matches) / len(matches)
     return {"category": category_guess, "prior_count": len(matches), "avg_confidence": round(avg_confidence, 3)}
+
+
+def read_bank_narration(transaction_id: str, context: ToolContext) -> dict:
+    """The settlement's own free-text narration/remarks field, when the batch has one
+    (narration_explained, app/data_gen/generate.py) -- a genuine reading-comprehension task, not a
+    structured lookup: no other tool, and no other field on any record, carries the fact this text
+    sometimes states (e.g. a promotional fee waiver applied this cycle). Returns None for every
+    other pattern, honestly -- there's nothing to read, not a hidden signal a smarter parse would
+    find."""
+    chain = context.chains.get(transaction_id)
+    if chain is None:
+        return {"error": f"no transaction {transaction_id!r} in this batch"}
+    return {"transaction_id": transaction_id, "bank_narration": chain.bank_narration}

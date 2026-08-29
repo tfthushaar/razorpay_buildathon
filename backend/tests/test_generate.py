@@ -311,3 +311,133 @@ def test_multiway_netting_trap_disabled_by_default():
     main, _ = generate(seed=1, main_n=150, stress_n=0)
     labels = {g.true_label for g in main.ground_truth}
     assert "multiway_netting_trap" not in labels
+
+
+# --- held-out variants (Phase 4): the near-miss duplicate_refund/netting_trap patterns that break
+# check_batch_anomalies' exact-match logic while remaining genuinely the same true_label -- the
+# "shared author" problem's actual fix. Off by default, same posture as enable_multiway_netting. ---
+
+
+def test_held_out_variants_disabled_by_default_produce_no_near_miss_notes():
+    main, _ = generate(seed=1, main_n=200, stress_n=0)
+    assert not any("near-miss" in (g.internal_note or "") or "near-nets" in (g.internal_note or "") for g in main.ground_truth)
+
+
+def test_held_out_duplicate_refund_near_miss_is_never_exactly_matched_by_the_rule():
+    from app.chain.builder import build_all_chains
+    from app.narrator.tools import build_tool_context, check_batch_anomalies
+
+    found_any = False
+    for seed in range(1, 15):
+        main, _ = generate(seed=seed, main_n=200, stress_n=0, enable_held_out_variants=True)
+        chains = build_all_chains(main)
+        context = build_tool_context(main, chains)
+        for gt in main.ground_truth:
+            if gt.true_label != "duplicate_refund" or "near-miss" not in (gt.internal_note or ""):
+                continue
+            found_any = True
+            result = check_batch_anomalies(gt.transaction_id, context)
+            assert result["duplicate_refund_match"] is None, f"seed={seed} {gt.transaction_id}: near-miss should never exact-match"
+    assert found_any, "fixture assumption: seeds 1-14 at n=200 with held-out variants enabled should produce at least one near-miss duplicate_refund"
+
+
+def test_held_out_netting_trap_near_miss_is_never_exactly_matched_by_the_rule():
+    from app.chain.builder import build_all_chains
+    from app.narrator.tools import build_tool_context, check_batch_anomalies
+
+    found_any = False
+    for seed in range(1, 15):
+        main, _ = generate(seed=seed, main_n=200, stress_n=0, enable_held_out_variants=True)
+        chains = build_all_chains(main)
+        context = build_tool_context(main, chains)
+        for gt in main.ground_truth:
+            if gt.true_label != "netting_trap" or "near-nets" not in (gt.internal_note or ""):
+                continue
+            found_any = True
+            result = check_batch_anomalies(gt.transaction_id, context)
+            assert result["netting_partner"] is None, f"seed={seed} {gt.transaction_id}: near-miss should never exact-match"
+    assert found_any, "fixture assumption: seeds 1-14 at n=200 with held-out variants enabled should produce at least one near-miss netting_trap"
+
+
+def test_held_out_near_miss_perturbation_is_never_zero_or_indistinguishable_from_clean():
+    """The whole point is a SMALL but NONZERO gap from the clean version -- verify the perturbation
+    itself is always present and bounded, not accidentally zero (which would silently produce a
+    clean case mislabeled as a near-miss one)."""
+    for seed in range(1, 15):
+        main, _ = generate(seed=seed, main_n=200, stress_n=0, enable_held_out_variants=True)
+        for gt in main.ground_truth:
+            if "near-nets" in (gt.internal_note or "") or "near-miss" in (gt.internal_note or ""):
+                assert "off by 0" not in gt.internal_note and "plus a 0 " not in gt.internal_note
+
+
+def test_generate_is_deterministic_with_held_out_variants_enabled():
+    main_a, _ = generate(seed=7, main_n=200, stress_n=0, enable_held_out_variants=True)
+    main_b, _ = generate(seed=7, main_n=200, stress_n=0, enable_held_out_variants=True)
+    assert [o.order_id for o in main_a.orders] == [o.order_id for o in main_b.orders]
+    assert [g.true_label for g in main_a.ground_truth] == [g.true_label for g in main_b.ground_truth]
+
+
+def test_main_batch_with_held_out_variants_always_totals_exactly_n():
+    for n in range(0, 151):
+        main, _ = generate(seed=1, main_n=n, stress_n=0, enable_held_out_variants=True)
+        assert len(main.orders) == n
+        assert len(main.ground_truth) == n
+
+
+# --- narration_explained (Phase 5): a delta explained only by free text, not by any structured
+# field or delta-arithmetic a rule could check at any scale. Off by default. ---
+
+
+def test_narration_explained_disabled_by_default():
+    main, _ = generate(seed=1, main_n=200, stress_n=0)
+    labels = {g.true_label for g in main.ground_truth}
+    assert "narration_explained" not in labels
+    assert all(s.bank_narration is None for s in main.settlements)
+
+
+def test_narration_explained_settlements_carry_real_varied_narration_text():
+    found_any = False
+    seen_texts = set()
+    for seed in range(1, 15):
+        main, _ = generate(seed=seed, main_n=200, stress_n=0, enable_narration_explained=True)
+        settlements_by_payment = {s.payment_id: s for s in main.settlements}
+        payments_by_order = {p.order_id: p for p in main.payments}
+        for gt in main.ground_truth:
+            if gt.true_label != "narration_explained":
+                continue
+            found_any = True
+            settlement = settlements_by_payment[payments_by_order[gt.transaction_id].payment_id]
+            assert settlement.bank_narration, f"seed={seed}: narration_explained case has no narration text"
+            seen_texts.add(settlement.bank_narration.split("-")[0].split("/")[0].split(" ")[0])
+    assert found_any, "fixture assumption: seeds 1-14 at n=200 with narration_explained enabled should produce at least one case"
+    assert len(seen_texts) > 1, "narration text should show real template variety, not one fixed string"
+
+
+def test_narration_explained_delta_equals_exactly_the_waived_fee_and_tax():
+    found_any = False
+    for seed in range(1, 15):
+        main, _ = generate(seed=seed, main_n=200, stress_n=0, enable_narration_explained=True)
+        orders, payments, settlements_by_payment, _, _, gt_by_id = _index(main)
+        for oid, gt in gt_by_id.items():
+            if gt.true_label != "narration_explained":
+                continue
+            found_any = True
+            payment = payments[oid]
+            settlement = settlements_by_payment[payment.payment_id][0]
+            net_expected = payment.captured_amount - payment.fee_amount - payment.tax_amount
+            assert settlement.settled_amount - net_expected == payment.fee_amount + payment.tax_amount
+    assert found_any
+
+
+def test_generate_is_deterministic_with_narration_explained_enabled():
+    main_a, _ = generate(seed=7, main_n=200, stress_n=0, enable_narration_explained=True)
+    main_b, _ = generate(seed=7, main_n=200, stress_n=0, enable_narration_explained=True)
+    assert [o.order_id for o in main_a.orders] == [o.order_id for o in main_b.orders]
+    assert [g.true_label for g in main_a.ground_truth] == [g.true_label for g in main_b.ground_truth]
+
+
+def test_main_batch_with_narration_explained_always_totals_exactly_n():
+    for n in range(0, 151):
+        main, _ = generate(seed=1, main_n=n, stress_n=0, enable_narration_explained=True)
+        assert len(main.orders) == n
+        assert len(main.ground_truth) == n

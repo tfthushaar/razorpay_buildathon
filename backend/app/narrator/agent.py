@@ -49,6 +49,7 @@ from app.narrator.tools import (
     check_sla_window,
     list_batch_deltas,
     lookup_fee_schedule,
+    read_bank_narration,
     recall_similar_resolutions,
     verify_group_sum,
 )
@@ -60,7 +61,11 @@ from app.narrator.tools import (
 _groq_breaker = CircuitBreaker()
 _ollama_breaker = CircuitBreaker()
 
-NARRATOR_CATEGORIES = ("duplicate_refund", "netting_trap", "genuine_error", "multiway_netting_trap")
+NARRATOR_CATEGORIES = ("duplicate_refund", "netting_trap", "genuine_error", "multiway_netting_trap", "narration_explained")
+# narration_explained (added 2026-08-29): a delta explained only by the settlement's own free-text
+# narration field -- no structured field or delta-arithmetic a rule could check at any scale (not
+# even the combinatorial multiway_netting_trap machinery) records this fact. narrate_mock never
+# calls read_bank_narration, so it fails structurally here too, same posture as multiway_netting_trap.
 # multiway_netting_trap (added 2026-08-29): a group of 3+ transactions in the same settlement batch
 # whose deltas cancel TOGETHER, invisible to check_batch_anomalies by construction (it only ever
 # checks ONE other transaction for an exact opposite delta, never a combination). Brought in from
@@ -92,6 +97,13 @@ committing to an answer — do not assert an explanation you haven't verified. I
 confirms cancellation against a candidate group of TWO OR MORE other transactions, the category is
 multiway_netting_trap, never netting_trap — netting_trap is reserved specifically for a single
 pairwise partner found via check_batch_anomalies alone.
+
+One more tool, read_bank_narration, returns the settlement's own free-text remarks field, when one
+exists. Occasionally a delta is explained only by what this text says (e.g. a fee waiver applied
+that cycle) — nothing else on the transaction records this fact, so if the other tools find nothing,
+read this field before concluding genuine_error. If it genuinely explains the delta, the category is
+narration_explained. The text is realistic and messy (abbreviations, inconsistent phrasing) — read
+it for what it means, not for a fixed keyword.
 
 Categories you may output: {", ".join(NARRATOR_CATEGORIES)}.
 (clean_match, fee_deduction, partial_refund, timing_lag, and currency_rounding are already resolved deterministically
@@ -186,6 +198,14 @@ TOOL_SCHEMAS = [
             },
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "read_bank_narration",
+            "description": "Read the settlement's own free-text narration/remarks field, when one exists. Sometimes explains a delta nothing else records.",
+            "parameters": {"type": "object", "properties": {"transaction_id": {"type": "string"}}, "required": ["transaction_id"]},
+        },
+    },
 ]
 
 
@@ -231,6 +251,8 @@ def _execute_tool(name: str, arguments: dict, chain: CausalChain, context: ToolC
         if isinstance(candidates, str):
             candidates = [candidates]
         return verify_group_sum(chain.transaction_id, [str(c) for c in candidates], context)
+    if name == "read_bank_narration":
+        return read_bank_narration(chain.transaction_id, context)
     raise ValueError(f"unknown tool: {name}")
 
 

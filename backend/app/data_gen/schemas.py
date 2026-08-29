@@ -23,6 +23,7 @@ TrueLabel = Literal[
     "currency_rounding",
     "genuine_error",
     "multiway_netting_trap",
+    "narration_explained",
 ]
 
 
@@ -67,6 +68,12 @@ class Settlement(BaseModel):
     rail: Rail
     settled_at: datetime
     sla_days: int
+    # Free text, real bank settlement files carry something like this (a narration/remarks field on
+    # the NEFT/RTGS/UPI record) -- optional and unstructured on purpose. None for every existing
+    # pattern (nothing reads it); populated, deliberately messy, only for narration_explained
+    # (app/data_gen/generate.py::_gen_narration_explained) -- the one pattern this project has where
+    # resolving it genuinely requires reading text, not a structured lookup at any scale.
+    bank_narration: str | None = None
 
 
 class LedgerEntry(BaseModel):

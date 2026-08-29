@@ -107,6 +107,7 @@ class SyntheticDataGenerator:
         captured_at: datetime,
         sla_days: int | None = None,
         batch_id_override: str | None = None,
+        bank_narration: str | None = None,
     ) -> Settlement:
         sla = sla_days if sla_days is not None else self._sla_days_for(rail)
         settled_at = captured_at + timedelta(days=sla, hours=self.rng.randint(0, 10))
@@ -123,6 +124,7 @@ class SyntheticDataGenerator:
             rail=rail,
             settled_at=settled_at,
             sla_days=sla,
+            bank_narration=bank_narration,
         )
 
     def _build_ledger(self, order_id: str, expected_amount: int, recorded_at: datetime) -> LedgerEntry:
@@ -255,6 +257,55 @@ class SyntheticDataGenerator:
         )
         return [order], [payment], [refund], [settlement], [ledger], [gt]
 
+    def _gen_duplicate_refund_near_miss(self):
+        """The same real pattern as `_gen_duplicate_refund` -- a refund legitimately issued once,
+        applied twice in settlement -- but with one further, independent small perturbation on top
+        (a realistic rounding/timing artifact, e.g. a paisa-level currency conversion residue),
+        so the shortfall is CLOSE to the refund amount but not exactly equal to it.
+
+        Exists to break the "shared author" problem the clean version can't test: `check_batch_
+        anomalies`'s duplicate-refund check is `amount == abs(delta)`, an exact match, since the
+        generator's own clean version never produces anything else -- the rule and the injector
+        agree perfectly because the same author wrote both to the same exact-match definition.
+        This variant is still, genuinely, a duplicate refund (same true_label) -- the rule's exact
+        check will legitimately miss it; whether a real LLM's own arithmetic reasoning over the raw
+        refund_total/settlement_delta numbers in its own prompt (see agent.py's `_describe_chain`,
+        which exposes both directly) can recognize an approximate match the tool itself can't
+        confirm is the entire point -- measured, not assumed, in scripts/generate_held_out_variant_
+        evidence.py."""
+        rail = self._pick_rail()
+        amount = self._rand_amount()
+        created_at = self._rand_created_at()
+        order, payment, fee, tax = self._build_order_and_payment(amount, rail, "INR", created_at)
+        net_before_refund = amount - fee - tax
+        refund_amount = round(amount * self.rng.uniform(0.2, 0.4))
+        refund = Refund(
+            refund_id=self._new_id("rfnd"),
+            payment_id=payment.payment_id,
+            amount=refund_amount,
+            created_at=payment.captured_at + timedelta(days=1),
+            refund_type="partial",
+        )
+        # same double-application as the clean version, PLUS a small independent perturbation --
+        # small enough that a reader would still recognize "this is basically the refund amount",
+        # large enough that it never coincidentally lands on exactly 0 (which would make it
+        # indistinguishable from the clean version) or on another real refund amount by chance.
+        near_miss_epsilon = self.rng.choice([-1, 1]) * self.rng.randint(20, 150)
+        net_after_refund = net_before_refund - (2 * refund_amount) + near_miss_epsilon
+        settlement = self._build_settlement(payment.payment_id, rail, net_after_refund, payment.captured_at)
+        ledger = self._build_ledger(order.order_id, net_before_refund - refund_amount, created_at + timedelta(minutes=5))
+        gt = GroundTruthEntry(
+            transaction_id=order.order_id,
+            true_label="duplicate_refund",
+            injected_by_you=True,
+            internal_note=(
+                f"refund {refund.refund_id} of {refund_amount} applied twice in settlement, "
+                f"plus a {near_miss_epsilon} near-miss perturbation -- the rule's exact-match check "
+                f"structurally cannot confirm this one"
+            ),
+        )
+        return [order], [payment], [refund], [settlement], [ledger], [gt]
+
     def _gen_netting_trap(self):
         """Two independent transactions whose individual errors are +X and -X. Summed at the
         batch level they look perfectly reconciled; per-transaction (causal chain) matching is
@@ -299,6 +350,61 @@ class SyntheticDataGenerator:
             injected_by_you=True,
             linked_transaction_id=order_a.order_id,
             internal_note=f"over by {x}, nets against {order_a.order_id}",
+        )
+        return (
+            [order_a, order_b],
+            [payment_a, payment_b],
+            [],
+            [settlement_a, settlement_b],
+            [ledger_a, ledger_b],
+            [gt_a, gt_b],
+        )
+
+    def _gen_netting_trap_near_miss(self):
+        """The same real pattern as `_gen_netting_trap` -- two transactions individually wrong,
+        batch-level near-cancellation -- but B's delta is `+x + epsilon`, not exactly `+x`, so
+        `check_batch_anomalies`'s exact-opposite check (`other.settlement_delta == -delta`) fails
+        by construction. Still genuinely a netting_trap (same true_label, same cross-link) -- the
+        held-out variant this project's own "shared author" limitation needed: the clean version's
+        rule and injector agree perfectly because the same author wrote both to the same exact-match
+        definition, so this variant is the one that actually tests whether a real LLM's own
+        arithmetic reasoning generalizes past that brittleness, not just repeats it."""
+        rail = self._pick_rail()
+        created_at = self._rand_created_at()
+        x = self.rng.choice([50, 100, 150, 200]) * 100  # paise
+        near_miss_epsilon = self.rng.choice([-1, 1]) * self.rng.randint(20, 150)
+        shared_sla = self._sla_days_for(rail)
+        shared_batch_id = f"batch_{rail}_{(created_at + timedelta(days=shared_sla)).date().isoformat()}"
+
+        amount_a = self._rand_amount()
+        order_a, payment_a, fee_a, tax_a = self._build_order_and_payment(amount_a, rail, "INR", created_at)
+        net_a = amount_a - fee_a - tax_a
+        settlement_a = self._build_settlement(
+            payment_a.payment_id, rail, net_a - x, payment_a.captured_at, sla_days=shared_sla, batch_id_override=shared_batch_id
+        )
+        ledger_a = self._build_ledger(order_a.order_id, net_a, created_at + timedelta(minutes=5))
+
+        amount_b = self._rand_amount()
+        order_b, payment_b, fee_b, tax_b = self._build_order_and_payment(amount_b, rail, "INR", created_at)
+        net_b = amount_b - fee_b - tax_b
+        settlement_b = self._build_settlement(
+            payment_b.payment_id, rail, net_b + x + near_miss_epsilon, payment_b.captured_at, sla_days=shared_sla, batch_id_override=shared_batch_id
+        )
+        ledger_b = self._build_ledger(order_b.order_id, net_b, created_at + timedelta(minutes=5))
+
+        gt_a = GroundTruthEntry(
+            transaction_id=order_a.order_id,
+            true_label="netting_trap",
+            injected_by_you=True,
+            linked_transaction_id=order_b.order_id,
+            internal_note=f"short by {x}, near-nets against {order_b.order_id} (off by {near_miss_epsilon})",
+        )
+        gt_b = GroundTruthEntry(
+            transaction_id=order_b.order_id,
+            true_label="netting_trap",
+            injected_by_you=True,
+            linked_transaction_id=order_a.order_id,
+            internal_note=f"over by {x + near_miss_epsilon}, near-nets against {order_a.order_id} (off by {near_miss_epsilon})",
         )
         return (
             [order_a, order_b],
@@ -431,6 +537,54 @@ class SyntheticDataGenerator:
         )
         return [order], [payment], [], [settlement], [ledger], [gt]
 
+    # A real bank settlement file's narration/remarks field, deliberately varied -- different
+    # abbreviation styles, word orders, and separators, so no single fixed keyword or regex reliably
+    # catches all of them, the way `_gen_genuine_error`'s templates for previous patterns never
+    # needed to defeat a hypothetical rule (mock never reads this field at all, so it fails
+    # structurally regardless -- the variety here is about making the reading task itself
+    # realistic, not about tricking a rule that was never built).
+    _NARRATION_TEMPLATES = [
+        "FEE WAIVED - PROMO {code} APPLIED",
+        "PROMO{code}-NOFEECHG-SETTLEMENT",
+        "chgs waived promo ref {code} pls ignore fee diff",
+        "Settlement adj: merchant fee exempted (campaign {code})",
+        "FEEEXEMPT/{code}/AUTOAPPLIED",
+        "Note: fee not deducted this cycle - promo code {code} - contact support if discrepancy",
+        "{code}-FEEWAIVER-Q{quarter}-PROCESSED",
+        "waived chgs ({code}) refer promo terms",
+    ]
+
+    def _gen_narration_explained(self):
+        """A settlement delta that looks exactly like an unexplained genuine_error from the
+        structured data alone (fee+tax were not deducted, for a real business reason: a promotional
+        fee waiver) -- but the bank's own settlement narration field, read as free text, actually
+        explains it. No structured field anywhere records "this transaction had its fee waived" --
+        the only place that fact exists is this messy text, so no rule at any scale (not even the
+        combinatorial multiway_netting_trap machinery, which only ever looks at deltas) can resolve
+        this; only genuine reading comprehension can. `narrate_mock` never calls `read_bank_
+        narration` at all, so it fails structurally here, the same posture as multiway_netting_trap
+        -- see scripts/generate_narration_explained_evidence.py for the real, measured comparison
+        against a provider that actually reads the text."""
+        rail = self._pick_rail()
+        amount = self._rand_amount()
+        created_at = self._rand_created_at()
+        order, payment, fee, tax = self._build_order_and_payment(amount, rail, "INR", created_at)
+        net = amount - fee - tax
+        # fee+tax not deducted this cycle -- the promo waiver's real, arithmetic effect
+        delta = fee + tax
+        code = f"PR{self.rng.randint(1000, 9999)}"
+        template = self.rng.choice(self._NARRATION_TEMPLATES)
+        narration = template.format(code=code, quarter=self.rng.randint(1, 4))
+        settlement = self._build_settlement(payment.payment_id, rail, net + delta, payment.captured_at, bank_narration=narration)
+        ledger = self._build_ledger(order.order_id, net, created_at + timedelta(minutes=5))
+        gt = GroundTruthEntry(
+            transaction_id=order.order_id,
+            true_label="narration_explained",
+            injected_by_you=True,
+            internal_note=f"delta={delta} (fee {fee} + tax {tax} waived), explained only by bank_narration={narration!r}",
+        )
+        return [order], [payment], [], [settlement], [ledger], [gt]
+
     # ---- batch assembly -------------------------------------------------------
 
     def _merge(self, batches: list[tuple]) -> SyntheticBatch:
@@ -453,6 +607,8 @@ class SyntheticDataGenerator:
         enable_multiway_netting: bool = False,
         multiway_group_size: int = 3,
         multiway_n_distractors: int = 3,
+        enable_held_out_variants: bool = False,
+        enable_narration_explained: bool = False,
     ) -> SyntheticBatch:
         """Main batch: `clean_ratio` clean (default 60%), remaining share split
         25:10:5 (explainable:adversarial:ambiguous -- the spec's original relative proportions
@@ -472,7 +628,23 @@ class SyntheticDataGenerator:
         `multiway_n_distractors` ambiguous slots per call (its group members are adversarial-labeled,
         its distractors are honestly genuine_error-labeled) -- both shares are tracked independently
         below so the batch always totals exactly `n`, the same invariant the pairwise trap already
-        preserves."""
+        preserves.
+
+        `enable_held_out_variants` defaults False, same reasoning. When on, a fraction of
+        netting_trap/duplicate_refund instances become the near-miss versions (`_gen_netting_trap_
+        near_miss`/`_gen_duplicate_refund_near_miss`) -- same true_label, same slot cost as their
+        clean counterparts, but with a small perturbation `check_batch_anomalies`'s own exact-match
+        logic cannot confirm. This exists to break the "shared author" problem the clean versions
+        can't test (the rule and the injector agree perfectly on those because the same author wrote
+        both to the same exact-match definition) -- see scripts/generate_held_out_variant_evidence.py
+        for the real, measured comparison.
+
+        `enable_narration_explained` defaults False, same reasoning. When on, a fraction of the
+        ambiguous share's genuine_error slots become `_gen_narration_explained` instead -- a
+        different kind of genuine judgment from every other pattern in this generator: the delta is
+        explained only by free text (a bank settlement narration field), never by any structured
+        field or delta-arithmetic a rule could check at any scale, not even the combinatorial
+        multiway_netting_trap machinery."""
         if clean_ratio == 0.60:
             # the exact original literal expressions, kept byte-for-byte instead of derived from
             # clean_ratio -- checked directly (not assumed) that the mathematically-equivalent
@@ -525,13 +697,17 @@ class SyntheticDataGenerator:
                 remaining_adversarial -= multiway_group_size
                 remaining_ambiguous -= multiway_n_distractors
             elif remaining_adversarial >= 2 and self.rng.random() < 0.5:
-                batches.append(self._gen_netting_trap())
+                use_near_miss = enable_held_out_variants and self.rng.random() < 0.5
+                batches.append(self._gen_netting_trap_near_miss() if use_near_miss else self._gen_netting_trap())
                 remaining_adversarial -= 2
             else:
-                batches.append(self._gen_duplicate_refund())
+                use_near_miss = enable_held_out_variants and self.rng.random() < 0.5
+                batches.append(self._gen_duplicate_refund_near_miss() if use_near_miss else self._gen_duplicate_refund())
                 remaining_adversarial -= 1
 
-        batches += [self._gen_genuine_error() for _ in range(remaining_ambiguous)]
+        for _ in range(remaining_ambiguous):
+            use_narration = enable_narration_explained and self.rng.random() < 0.34
+            batches.append(self._gen_narration_explained() if use_narration else self._gen_genuine_error())
 
         self.rng.shuffle(batches)
         return self._merge(batches)
@@ -736,10 +912,22 @@ class SyntheticDataGenerator:
 
 
 def generate(
-    seed: int = 42, main_n: int = 120, stress_n: int = 40, clean_ratio: float = 0.60, enable_multiway_netting: bool = False
+    seed: int = 42,
+    main_n: int = 120,
+    stress_n: int = 40,
+    clean_ratio: float = 0.60,
+    enable_multiway_netting: bool = False,
+    enable_held_out_variants: bool = False,
+    enable_narration_explained: bool = False,
 ) -> tuple[SyntheticBatch, SyntheticBatch]:
     gen = SyntheticDataGenerator(seed=seed)
-    main_batch = gen.generate_main_batch(main_n, clean_ratio=clean_ratio, enable_multiway_netting=enable_multiway_netting)
+    main_batch = gen.generate_main_batch(
+        main_n,
+        clean_ratio=clean_ratio,
+        enable_multiway_netting=enable_multiway_netting,
+        enable_held_out_variants=enable_held_out_variants,
+        enable_narration_explained=enable_narration_explained,
+    )
     stress_gen = SyntheticDataGenerator(seed=seed + 1)  # distinct stream so the stress batch isn't a replay of the main one
     stress_batch = stress_gen.generate_stress_batch(stress_n)
     return main_batch, stress_batch

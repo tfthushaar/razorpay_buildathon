@@ -1,0 +1,1061 @@
+{
+  "mock": {
+    "entries": [
+      {
+        "seed": 1,
+        "transaction_id": "order_5bc80c8dceb4",
+        "bank_narration": "FEE WAIVED - PROMO PR6265 APPLIED",
+        "predicted": "genuine_error",
+        "correct": false,
+        "confidence": 0.3,
+        "reasoning": "Settlement differs from the computed post-fee/refund amount by 8850. Neither the duplicate-refund registry nor the pairwise batch-netting check explains it, and timing is within normal variance either way. This check only ever compares one other transaction at a time \u2014 it cannot search for a discrepancy that only cancels across three or more transactions together, so a genuine multiway netting pattern would also land here, misclassified. Flagging for review rather than guessing.",
+        "tool_calls": [
+          "check_batch_anomalies",
+          "check_sla_window",
+          "recall_similar_resolutions"
+        ]
+      },
+      {
+        "seed": 1,
+        "transaction_id": "order_ad375326dde1",
+        "bank_narration": "PR6692-FEEWAIVER-Q1-PROCESSED",
+        "predicted": "genuine_error",
+        "correct": false,
+        "confidence": 0.3,
+        "reasoning": "Settlement differs from the computed post-fee/refund amount by 590. Neither the duplicate-refund registry nor the pairwise batch-netting check explains it, and timing is within normal variance either way. This check only ever compares one other transaction at a time \u2014 it cannot search for a discrepancy that only cancels across three or more transactions together, so a genuine multiway netting pattern would also land here, misclassified. Flagging for review rather than guessing.",
+        "tool_calls": [
+          "check_batch_anomalies",
+          "check_sla_window",
+          "recall_similar_resolutions"
+        ]
+      },
+      {
+        "seed": 2,
+        "transaction_id": "order_e510f86ce29d",
+        "bank_narration": "Settlement adj: merchant fee exempted (campaign PR1678)",
+        "predicted": "genuine_error",
+        "correct": false,
+        "confidence": 0.3,
+        "reasoning": "Settlement differs from the computed post-fee/refund amount by 14160. Neither the duplicate-refund registry nor the pairwise batch-netting check explains it, and timing is within normal variance either way. This check only ever compares one other transaction at a time \u2014 it cannot search for a discrepancy that only cancels across three or more transactions together, so a genuine multiway netting pattern would also land here, misclassified. Flagging for review rather than guessing.",
+        "tool_calls": [
+          "check_batch_anomalies",
+          "check_sla_window",
+          "recall_similar_resolutions"
+        ]
+      },
+      {
+        "seed": 2,
+        "transaction_id": "order_3d9af07b8784",
+        "bank_narration": "PROMOPR5081-NOFEECHG-SETTLEMENT",
+        "predicted": "genuine_error",
+        "correct": false,
+        "confidence": 0.3,
+        "reasoning": "Settlement differs from the computed post-fee/refund amount by 2950. Neither the duplicate-refund registry nor the pairwise batch-netting check explains it, and timing is within normal variance either way. This check only ever compares one other transaction at a time \u2014 it cannot search for a discrepancy that only cancels across three or more transactions together, so a genuine multiway netting pattern would also land here, misclassified. Flagging for review rather than guessing.",
+        "tool_calls": [
+          "check_batch_anomalies",
+          "check_sla_window",
+          "recall_similar_resolutions"
+        ]
+      },
+      {
+        "seed": 2,
+        "transaction_id": "order_8a0f66d6bb64",
+        "bank_narration": "Note: fee not deducted this cycle - promo code PR1286 - contact support if discrepancy",
+        "predicted": "genuine_error",
+        "correct": false,
+        "confidence": 0.3,
+        "reasoning": "Settlement differs from the computed post-fee/refund amount by 354. Neither the duplicate-refund registry nor the pairwise batch-netting check explains it, and timing is within normal variance either way. This check only ever compares one other transaction at a time \u2014 it cannot search for a discrepancy that only cancels across three or more transactions together, so a genuine multiway netting pattern would also land here, misclassified. Flagging for review rather than guessing.",
+        "tool_calls": [
+          "check_batch_anomalies",
+          "check_sla_window",
+          "recall_similar_resolutions"
+        ]
+      },
+      {
+        "seed": 2,
+        "transaction_id": "order_e7f614c553c3",
+        "bank_narration": "Settlement adj: merchant fee exempted (campaign PR7130)",
+        "predicted": "genuine_error",
+        "correct": false,
+        "confidence": 0.3,
+        "reasoning": "Settlement differs from the computed post-fee/refund amount by 3540. Neither the duplicate-refund registry nor the pairwise batch-netting check explains it, and timing is within normal variance either way. This check only ever compares one other transaction at a time \u2014 it cannot search for a discrepancy that only cancels across three or more transactions together, so a genuine multiway netting pattern would also land here, misclassified. Flagging for review rather than guessing.",
+        "tool_calls": [
+          "check_batch_anomalies",
+          "check_sla_window",
+          "recall_similar_resolutions"
+        ]
+      },
+      {
+        "seed": 3,
+        "transaction_id": "order_f5b9e14e75ce",
+        "bank_narration": "chgs waived promo ref PR3993 pls ignore fee diff",
+        "predicted": "genuine_error",
+        "correct": false,
+        "confidence": 0.3,
+        "reasoning": "Settlement differs from the computed post-fee/refund amount by 177. Neither the duplicate-refund registry nor the pairwise batch-netting check explains it, and timing is within normal variance either way. This check only ever compares one other transaction at a time \u2014 it cannot search for a discrepancy that only cancels across three or more transactions together, so a genuine multiway netting pattern would also land here, misclassified. Flagging for review rather than guessing.",
+        "tool_calls": [
+          "check_batch_anomalies",
+          "check_sla_window",
+          "recall_similar_resolutions"
+        ]
+      },
+      {
+        "seed": 4,
+        "transaction_id": "order_4e2995fcc63f",
+        "bank_narration": "Settlement adj: merchant fee exempted (campaign PR6286)",
+        "predicted": "genuine_error",
+        "correct": false,
+        "confidence": 0.3,
+        "reasoning": "Settlement differs from the computed post-fee/refund amount by 2655. Neither the duplicate-refund registry nor the pairwise batch-netting check explains it, and timing is within normal variance either way. This check only ever compares one other transaction at a time \u2014 it cannot search for a discrepancy that only cancels across three or more transactions together, so a genuine multiway netting pattern would also land here, misclassified. Flagging for review rather than guessing.",
+        "tool_calls": [
+          "check_batch_anomalies",
+          "check_sla_window",
+          "recall_similar_resolutions"
+        ]
+      },
+      {
+        "seed": 5,
+        "transaction_id": "order_28d7439c2083",
+        "bank_narration": "Note: fee not deducted this cycle - promo code PR2412 - contact support if discrepancy",
+        "predicted": "genuine_error",
+        "correct": false,
+        "confidence": 0.3,
+        "reasoning": "Settlement differs from the computed post-fee/refund amount by 28320. Neither the duplicate-refund registry nor the pairwise batch-netting check explains it, and timing is within normal variance either way. This check only ever compares one other transaction at a time \u2014 it cannot search for a discrepancy that only cancels across three or more transactions together, so a genuine multiway netting pattern would also land here, misclassified. Flagging for review rather than guessing.",
+        "tool_calls": [
+          "check_batch_anomalies",
+          "check_sla_window",
+          "recall_similar_resolutions"
+        ]
+      },
+      {
+        "seed": 5,
+        "transaction_id": "order_57536a07d3eb",
+        "bank_narration": "Settlement adj: merchant fee exempted (campaign PR6215)",
+        "predicted": "genuine_error",
+        "correct": false,
+        "confidence": 0.3,
+        "reasoning": "Settlement differs from the computed post-fee/refund amount by 4248. Neither the duplicate-refund registry nor the pairwise batch-netting check explains it, and timing is within normal variance either way. This check only ever compares one other transaction at a time \u2014 it cannot search for a discrepancy that only cancels across three or more transactions together, so a genuine multiway netting pattern would also land here, misclassified. Flagging for review rather than guessing.",
+        "tool_calls": [
+          "check_batch_anomalies",
+          "check_sla_window",
+          "recall_similar_resolutions"
+        ]
+      },
+      {
+        "seed": 6,
+        "transaction_id": "order_4d7e56b4490a",
+        "bank_narration": "PROMOPR2950-NOFEECHG-SETTLEMENT",
+        "predicted": "genuine_error",
+        "correct": false,
+        "confidence": 0.3,
+        "reasoning": "Settlement differs from the computed post-fee/refund amount by 4248. Neither the duplicate-refund registry nor the pairwise batch-netting check explains it, and timing is within normal variance either way. This check only ever compares one other transaction at a time \u2014 it cannot search for a discrepancy that only cancels across three or more transactions together, so a genuine multiway netting pattern would also land here, misclassified. Flagging for review rather than guessing.",
+        "tool_calls": [
+          "check_batch_anomalies",
+          "check_sla_window",
+          "recall_similar_resolutions"
+        ]
+      },
+      {
+        "seed": 6,
+        "transaction_id": "order_172bdc1b4397",
+        "bank_narration": "FEE WAIVED - PROMO PR4692 APPLIED",
+        "predicted": "genuine_error",
+        "correct": false,
+        "confidence": 0.3,
+        "reasoning": "Settlement differs from the computed post-fee/refund amount by 17700. Neither the duplicate-refund registry nor the pairwise batch-netting check explains it, and timing is within normal variance either way. This check only ever compares one other transaction at a time \u2014 it cannot search for a discrepancy that only cancels across three or more transactions together, so a genuine multiway netting pattern would also land here, misclassified. Flagging for review rather than guessing.",
+        "tool_calls": [
+          "check_batch_anomalies",
+          "check_sla_window",
+          "recall_similar_resolutions"
+        ]
+      },
+      {
+        "seed": 6,
+        "transaction_id": "order_376dff8c5bfc",
+        "bank_narration": "Settlement adj: merchant fee exempted (campaign PR3996)",
+        "predicted": "genuine_error",
+        "correct": false,
+        "confidence": 0.3,
+        "reasoning": "Settlement differs from the computed post-fee/refund amount by 531. Neither the duplicate-refund registry nor the pairwise batch-netting check explains it, and timing is within normal variance either way. This check only ever compares one other transaction at a time \u2014 it cannot search for a discrepancy that only cancels across three or more transactions together, so a genuine multiway netting pattern would also land here, misclassified. Flagging for review rather than guessing.",
+        "tool_calls": [
+          "check_batch_anomalies",
+          "check_sla_window",
+          "recall_similar_resolutions"
+        ]
+      },
+      {
+        "seed": 6,
+        "transaction_id": "order_e541f3ffceef",
+        "bank_narration": "Note: fee not deducted this cycle - promo code PR1921 - contact support if discrepancy",
+        "predicted": "genuine_error",
+        "correct": false,
+        "confidence": 0.3,
+        "reasoning": "Settlement differs from the computed post-fee/refund amount by 2360. Neither the duplicate-refund registry nor the pairwise batch-netting check explains it, and timing is within normal variance either way. This check only ever compares one other transaction at a time \u2014 it cannot search for a discrepancy that only cancels across three or more transactions together, so a genuine multiway netting pattern would also land here, misclassified. Flagging for review rather than guessing.",
+        "tool_calls": [
+          "check_batch_anomalies",
+          "check_sla_window",
+          "recall_similar_resolutions"
+        ]
+      },
+      {
+        "seed": 7,
+        "transaction_id": "order_8944ede9a6b9",
+        "bank_narration": "FEEEXEMPT/PR4573/AUTOAPPLIED",
+        "predicted": "genuine_error",
+        "correct": false,
+        "confidence": 0.3,
+        "reasoning": "Settlement differs from the computed post-fee/refund amount by 354. Neither the duplicate-refund registry nor the pairwise batch-netting check explains it, and timing is within normal variance either way. This check only ever compares one other transaction at a time \u2014 it cannot search for a discrepancy that only cancels across three or more transactions together, so a genuine multiway netting pattern would also land here, misclassified. Flagging for review rather than guessing.",
+        "tool_calls": [
+          "check_batch_anomalies",
+          "check_sla_window",
+          "recall_similar_resolutions"
+        ]
+      },
+      {
+        "seed": 7,
+        "transaction_id": "order_6024c2f2aa1a",
+        "bank_narration": "PR6307-FEEWAIVER-Q4-PROCESSED",
+        "predicted": "genuine_error",
+        "correct": false,
+        "confidence": 0.3,
+        "reasoning": "Settlement differs from the computed post-fee/refund amount by 4956. Neither the duplicate-refund registry nor the pairwise batch-netting check explains it, and timing is within normal variance either way. This check only ever compares one other transaction at a time \u2014 it cannot search for a discrepancy that only cancels across three or more transactions together, so a genuine multiway netting pattern would also land here, misclassified. Flagging for review rather than guessing.",
+        "tool_calls": [
+          "check_batch_anomalies",
+          "check_sla_window",
+          "recall_similar_resolutions"
+        ]
+      },
+      {
+        "seed": 7,
+        "transaction_id": "order_53e9a869b8a3",
+        "bank_narration": "FEE WAIVED - PROMO PR4695 APPLIED",
+        "predicted": "genuine_error",
+        "correct": false,
+        "confidence": 0.3,
+        "reasoning": "Settlement differs from the computed post-fee/refund amount by 590. Neither the duplicate-refund registry nor the pairwise batch-netting check explains it, and timing is within normal variance either way. This check only ever compares one other transaction at a time \u2014 it cannot search for a discrepancy that only cancels across three or more transactions together, so a genuine multiway netting pattern would also land here, misclassified. Flagging for review rather than guessing.",
+        "tool_calls": [
+          "check_batch_anomalies",
+          "check_sla_window",
+          "recall_similar_resolutions"
+        ]
+      },
+      {
+        "seed": 8,
+        "transaction_id": "order_101ec93aaade",
+        "bank_narration": "chgs waived promo ref PR9976 pls ignore fee diff",
+        "predicted": "genuine_error",
+        "correct": false,
+        "confidence": 0.3,
+        "reasoning": "Settlement differs from the computed post-fee/refund amount by 354. Neither the duplicate-refund registry nor the pairwise batch-netting check explains it, and timing is within normal variance either way. This check only ever compares one other transaction at a time \u2014 it cannot search for a discrepancy that only cancels across three or more transactions together, so a genuine multiway netting pattern would also land here, misclassified. Flagging for review rather than guessing.",
+        "tool_calls": [
+          "check_batch_anomalies",
+          "check_sla_window",
+          "recall_similar_resolutions"
+        ]
+      },
+      {
+        "seed": 8,
+        "transaction_id": "order_e1ef36328613",
+        "bank_narration": "PROMOPR1699-NOFEECHG-SETTLEMENT",
+        "predicted": "genuine_error",
+        "correct": false,
+        "confidence": 0.3,
+        "reasoning": "Settlement differs from the computed post-fee/refund amount by 531. Neither the duplicate-refund registry nor the pairwise batch-netting check explains it, and timing is within normal variance either way. This check only ever compares one other transaction at a time \u2014 it cannot search for a discrepancy that only cancels across three or more transactions together, so a genuine multiway netting pattern would also land here, misclassified. Flagging for review rather than guessing.",
+        "tool_calls": [
+          "check_batch_anomalies",
+          "check_sla_window",
+          "recall_similar_resolutions"
+        ]
+      },
+      {
+        "seed": 8,
+        "transaction_id": "order_0cd797316ec5",
+        "bank_narration": "Note: fee not deducted this cycle - promo code PR1120 - contact support if discrepancy",
+        "predicted": "genuine_error",
+        "correct": false,
+        "confidence": 0.3,
+        "reasoning": "Settlement differs from the computed post-fee/refund amount by 8850. Neither the duplicate-refund registry nor the pairwise batch-netting check explains it, and timing is within normal variance either way. This check only ever compares one other transaction at a time \u2014 it cannot search for a discrepancy that only cancels across three or more transactions together, so a genuine multiway netting pattern would also land here, misclassified. Flagging for review rather than guessing.",
+        "tool_calls": [
+          "check_batch_anomalies",
+          "check_sla_window",
+          "recall_similar_resolutions"
+        ]
+      },
+      {
+        "seed": 9,
+        "transaction_id": "order_9c14f66296f8",
+        "bank_narration": "PR4992-FEEWAIVER-Q2-PROCESSED",
+        "predicted": "genuine_error",
+        "correct": false,
+        "confidence": 0.3,
+        "reasoning": "Settlement differs from the computed post-fee/refund amount by 9912. Neither the duplicate-refund registry nor the pairwise batch-netting check explains it, and timing is within normal variance either way. This check only ever compares one other transaction at a time \u2014 it cannot search for a discrepancy that only cancels across three or more transactions together, so a genuine multiway netting pattern would also land here, misclassified. Flagging for review rather than guessing.",
+        "tool_calls": [
+          "check_batch_anomalies",
+          "check_sla_window",
+          "recall_similar_resolutions"
+        ]
+      },
+      {
+        "seed": 9,
+        "transaction_id": "order_3ec075955a9b",
+        "bank_narration": "waived chgs (PR1442) refer promo terms",
+        "predicted": "genuine_error",
+        "correct": false,
+        "confidence": 0.3,
+        "reasoning": "Settlement differs from the computed post-fee/refund amount by 17700. Neither the duplicate-refund registry nor the pairwise batch-netting check explains it, and timing is within normal variance either way. This check only ever compares one other transaction at a time \u2014 it cannot search for a discrepancy that only cancels across three or more transactions together, so a genuine multiway netting pattern would also land here, misclassified. Flagging for review rather than guessing.",
+        "tool_calls": [
+          "check_batch_anomalies",
+          "check_sla_window",
+          "recall_similar_resolutions"
+        ]
+      },
+      {
+        "seed": 9,
+        "transaction_id": "order_f9da7453e673",
+        "bank_narration": "PR6154-FEEWAIVER-Q2-PROCESSED",
+        "predicted": "genuine_error",
+        "correct": false,
+        "confidence": 0.3,
+        "reasoning": "Settlement differs from the computed post-fee/refund amount by 590. Neither the duplicate-refund registry nor the pairwise batch-netting check explains it, and timing is within normal variance either way. This check only ever compares one other transaction at a time \u2014 it cannot search for a discrepancy that only cancels across three or more transactions together, so a genuine multiway netting pattern would also land here, misclassified. Flagging for review rather than guessing.",
+        "tool_calls": [
+          "check_batch_anomalies",
+          "check_sla_window",
+          "recall_similar_resolutions"
+        ]
+      },
+      {
+        "seed": 9,
+        "transaction_id": "order_cac4f19a8548",
+        "bank_narration": "Settlement adj: merchant fee exempted (campaign PR2182)",
+        "predicted": "genuine_error",
+        "correct": false,
+        "confidence": 0.3,
+        "reasoning": "Settlement differs from the computed post-fee/refund amount by 354. Neither the duplicate-refund registry nor the pairwise batch-netting check explains it, and timing is within normal variance either way. This check only ever compares one other transaction at a time \u2014 it cannot search for a discrepancy that only cancels across three or more transactions together, so a genuine multiway netting pattern would also land here, misclassified. Flagging for review rather than guessing.",
+        "tool_calls": [
+          "check_batch_anomalies",
+          "check_sla_window",
+          "recall_similar_resolutions"
+        ]
+      },
+      {
+        "seed": 10,
+        "transaction_id": "order_434c209380fa",
+        "bank_narration": "PR6270-FEEWAIVER-Q4-PROCESSED",
+        "predicted": "genuine_error",
+        "correct": false,
+        "confidence": 0.3,
+        "reasoning": "Settlement differs from the computed post-fee/refund amount by 531. Neither the duplicate-refund registry nor the pairwise batch-netting check explains it, and timing is within normal variance either way. This check only ever compares one other transaction at a time \u2014 it cannot search for a discrepancy that only cancels across three or more transactions together, so a genuine multiway netting pattern would also land here, misclassified. Flagging for review rather than guessing.",
+        "tool_calls": [
+          "check_batch_anomalies",
+          "check_sla_window",
+          "recall_similar_resolutions"
+        ]
+      },
+      {
+        "seed": 10,
+        "transaction_id": "order_e5f93a98e360",
+        "bank_narration": "waived chgs (PR8307) refer promo terms",
+        "predicted": "genuine_error",
+        "correct": false,
+        "confidence": 0.3,
+        "reasoning": "Settlement differs from the computed post-fee/refund amount by 3540. Neither the duplicate-refund registry nor the pairwise batch-netting check explains it, and timing is within normal variance either way. This check only ever compares one other transaction at a time \u2014 it cannot search for a discrepancy that only cancels across three or more transactions together, so a genuine multiway netting pattern would also land here, misclassified. Flagging for review rather than guessing.",
+        "tool_calls": [
+          "check_batch_anomalies",
+          "check_sla_window",
+          "recall_similar_resolutions"
+        ]
+      },
+      {
+        "seed": 11,
+        "transaction_id": "order_6962fe536566",
+        "bank_narration": "FEEEXEMPT/PR7279/AUTOAPPLIED",
+        "predicted": "genuine_error",
+        "correct": false,
+        "confidence": 0.3,
+        "reasoning": "Settlement differs from the computed post-fee/refund amount by 590. Neither the duplicate-refund registry nor the pairwise batch-netting check explains it, and timing is within normal variance either way. This check only ever compares one other transaction at a time \u2014 it cannot search for a discrepancy that only cancels across three or more transactions together, so a genuine multiway netting pattern would also land here, misclassified. Flagging for review rather than guessing.",
+        "tool_calls": [
+          "check_batch_anomalies",
+          "check_sla_window",
+          "recall_similar_resolutions"
+        ]
+      },
+      {
+        "seed": 11,
+        "transaction_id": "order_e97ef9abec97",
+        "bank_narration": "FEE WAIVED - PROMO PR7622 APPLIED",
+        "predicted": "genuine_error",
+        "correct": false,
+        "confidence": 0.3,
+        "reasoning": "Settlement differs from the computed post-fee/refund amount by 118000. Neither the duplicate-refund registry nor the pairwise batch-netting check explains it, and timing is within normal variance either way. This check only ever compares one other transaction at a time \u2014 it cannot search for a discrepancy that only cancels across three or more transactions together, so a genuine multiway netting pattern would also land here, misclassified. Flagging for review rather than guessing.",
+        "tool_calls": [
+          "check_batch_anomalies",
+          "check_sla_window",
+          "recall_similar_resolutions"
+        ]
+      },
+      {
+        "seed": 11,
+        "transaction_id": "order_31480a6d007e",
+        "bank_narration": "Settlement adj: merchant fee exempted (campaign PR6912)",
+        "predicted": "genuine_error",
+        "correct": false,
+        "confidence": 0.3,
+        "reasoning": "Settlement differs from the computed post-fee/refund amount by 3540. Neither the duplicate-refund registry nor the pairwise batch-netting check explains it, and timing is within normal variance either way. This check only ever compares one other transaction at a time \u2014 it cannot search for a discrepancy that only cancels across three or more transactions together, so a genuine multiway netting pattern would also land here, misclassified. Flagging for review rather than guessing.",
+        "tool_calls": [
+          "check_batch_anomalies",
+          "check_sla_window",
+          "recall_similar_resolutions"
+        ]
+      },
+      {
+        "seed": 12,
+        "transaction_id": "order_3a201b8167af",
+        "bank_narration": "PROMOPR4313-NOFEECHG-SETTLEMENT",
+        "predicted": "genuine_error",
+        "correct": false,
+        "confidence": 0.3,
+        "reasoning": "Settlement differs from the computed post-fee/refund amount by 14160. Neither the duplicate-refund registry nor the pairwise batch-netting check explains it, and timing is within normal variance either way. This check only ever compares one other transaction at a time \u2014 it cannot search for a discrepancy that only cancels across three or more transactions together, so a genuine multiway netting pattern would also land here, misclassified. Flagging for review rather than guessing.",
+        "tool_calls": [
+          "check_batch_anomalies",
+          "check_sla_window",
+          "recall_similar_resolutions"
+        ]
+      },
+      {
+        "seed": 12,
+        "transaction_id": "order_bdadb813cab0",
+        "bank_narration": "Settlement adj: merchant fee exempted (campaign PR2781)",
+        "predicted": "genuine_error",
+        "correct": false,
+        "confidence": 0.3,
+        "reasoning": "Settlement differs from the computed post-fee/refund amount by 1180. Neither the duplicate-refund registry nor the pairwise batch-netting check explains it, and timing is within normal variance either way. This check only ever compares one other transaction at a time \u2014 it cannot search for a discrepancy that only cancels across three or more transactions together, so a genuine multiway netting pattern would also land here, misclassified. Flagging for review rather than guessing.",
+        "tool_calls": [
+          "check_batch_anomalies",
+          "check_sla_window",
+          "recall_similar_resolutions"
+        ]
+      },
+      {
+        "seed": 12,
+        "transaction_id": "order_53b09a01a3b3",
+        "bank_narration": "waived chgs (PR8329) refer promo terms",
+        "predicted": "genuine_error",
+        "correct": false,
+        "confidence": 0.3,
+        "reasoning": "Settlement differs from the computed post-fee/refund amount by 59000. Neither the duplicate-refund registry nor the pairwise batch-netting check explains it, and timing is within normal variance either way. This check only ever compares one other transaction at a time \u2014 it cannot search for a discrepancy that only cancels across three or more transactions together, so a genuine multiway netting pattern would also land here, misclassified. Flagging for review rather than guessing.",
+        "tool_calls": [
+          "check_batch_anomalies",
+          "check_sla_window",
+          "recall_similar_resolutions"
+        ]
+      },
+      {
+        "seed": 12,
+        "transaction_id": "order_d9cd18de120e",
+        "bank_narration": "chgs waived promo ref PR1426 pls ignore fee diff",
+        "predicted": "genuine_error",
+        "correct": false,
+        "confidence": 0.3,
+        "reasoning": "Settlement differs from the computed post-fee/refund amount by 354. Neither the duplicate-refund registry nor the pairwise batch-netting check explains it, and timing is within normal variance either way. This check only ever compares one other transaction at a time \u2014 it cannot search for a discrepancy that only cancels across three or more transactions together, so a genuine multiway netting pattern would also land here, misclassified. Flagging for review rather than guessing.",
+        "tool_calls": [
+          "check_batch_anomalies",
+          "check_sla_window",
+          "recall_similar_resolutions"
+        ]
+      },
+      {
+        "seed": 13,
+        "transaction_id": "order_91631c716928",
+        "bank_narration": "Settlement adj: merchant fee exempted (campaign PR8862)",
+        "predicted": "genuine_error",
+        "correct": false,
+        "confidence": 0.3,
+        "reasoning": "Settlement differs from the computed post-fee/refund amount by 1180. Neither the duplicate-refund registry nor the pairwise batch-netting check explains it, and timing is within normal variance either way. This check only ever compares one other transaction at a time \u2014 it cannot search for a discrepancy that only cancels across three or more transactions together, so a genuine multiway netting pattern would also land here, misclassified. Flagging for review rather than guessing.",
+        "tool_calls": [
+          "check_batch_anomalies",
+          "check_sla_window",
+          "recall_similar_resolutions"
+        ]
+      },
+      {
+        "seed": 13,
+        "transaction_id": "order_d808cbc67e1a",
+        "bank_narration": "PROMOPR5096-NOFEECHG-SETTLEMENT",
+        "predicted": "genuine_error",
+        "correct": false,
+        "confidence": 0.3,
+        "reasoning": "Settlement differs from the computed post-fee/refund amount by 885. Neither the duplicate-refund registry nor the pairwise batch-netting check explains it, and timing is within normal variance either way. This check only ever compares one other transaction at a time \u2014 it cannot search for a discrepancy that only cancels across three or more transactions together, so a genuine multiway netting pattern would also land here, misclassified. Flagging for review rather than guessing.",
+        "tool_calls": [
+          "check_batch_anomalies",
+          "check_sla_window",
+          "recall_similar_resolutions"
+        ]
+      },
+      {
+        "seed": 13,
+        "transaction_id": "order_41c7a187dbda",
+        "bank_narration": "FEEEXEMPT/PR2419/AUTOAPPLIED",
+        "predicted": "genuine_error",
+        "correct": false,
+        "confidence": 0.3,
+        "reasoning": "Settlement differs from the computed post-fee/refund amount by 3540. Neither the duplicate-refund registry nor the pairwise batch-netting check explains it, and timing is within normal variance either way. This check only ever compares one other transaction at a time \u2014 it cannot search for a discrepancy that only cancels across three or more transactions together, so a genuine multiway netting pattern would also land here, misclassified. Flagging for review rather than guessing.",
+        "tool_calls": [
+          "check_batch_anomalies",
+          "check_sla_window",
+          "recall_similar_resolutions"
+        ]
+      },
+      {
+        "seed": 13,
+        "transaction_id": "order_a9f6438288e1",
+        "bank_narration": "FEEEXEMPT/PR6996/AUTOAPPLIED",
+        "predicted": "genuine_error",
+        "correct": false,
+        "confidence": 0.3,
+        "reasoning": "Settlement differs from the computed post-fee/refund amount by 531. Neither the duplicate-refund registry nor the pairwise batch-netting check explains it, and timing is within normal variance either way. This check only ever compares one other transaction at a time \u2014 it cannot search for a discrepancy that only cancels across three or more transactions together, so a genuine multiway netting pattern would also land here, misclassified. Flagging for review rather than guessing.",
+        "tool_calls": [
+          "check_batch_anomalies",
+          "check_sla_window",
+          "recall_similar_resolutions"
+        ]
+      },
+      {
+        "seed": 14,
+        "transaction_id": "order_29aab2d61811",
+        "bank_narration": "chgs waived promo ref PR3160 pls ignore fee diff",
+        "predicted": "genuine_error",
+        "correct": false,
+        "confidence": 0.3,
+        "reasoning": "Settlement differs from the computed post-fee/refund amount by 531. Neither the duplicate-refund registry nor the pairwise batch-netting check explains it, and timing is within normal variance either way. This check only ever compares one other transaction at a time \u2014 it cannot search for a discrepancy that only cancels across three or more transactions together, so a genuine multiway netting pattern would also land here, misclassified. Flagging for review rather than guessing.",
+        "tool_calls": [
+          "check_batch_anomalies",
+          "check_sla_window",
+          "recall_similar_resolutions"
+        ]
+      },
+      {
+        "seed": 14,
+        "transaction_id": "order_38dcebbae9c2",
+        "bank_narration": "waived chgs (PR3202) refer promo terms",
+        "predicted": "genuine_error",
+        "correct": false,
+        "confidence": 0.3,
+        "reasoning": "Settlement differs from the computed post-fee/refund amount by 8850. Neither the duplicate-refund registry nor the pairwise batch-netting check explains it, and timing is within normal variance either way. This check only ever compares one other transaction at a time \u2014 it cannot search for a discrepancy that only cancels across three or more transactions together, so a genuine multiway netting pattern would also land here, misclassified. Flagging for review rather than guessing.",
+        "tool_calls": [
+          "check_batch_anomalies",
+          "check_sla_window",
+          "recall_similar_resolutions"
+        ]
+      },
+      {
+        "seed": 14,
+        "transaction_id": "order_2899ba7005be",
+        "bank_narration": "FEEEXEMPT/PR8778/AUTOAPPLIED",
+        "predicted": "genuine_error",
+        "correct": false,
+        "confidence": 0.3,
+        "reasoning": "Settlement differs from the computed post-fee/refund amount by 17700. Neither the duplicate-refund registry nor the pairwise batch-netting check explains it, and timing is within normal variance either way. This check only ever compares one other transaction at a time \u2014 it cannot search for a discrepancy that only cancels across three or more transactions together, so a genuine multiway netting pattern would also land here, misclassified. Flagging for review rather than guessing.",
+        "tool_calls": [
+          "check_batch_anomalies",
+          "check_sla_window",
+          "recall_similar_resolutions"
+        ]
+      },
+      {
+        "seed": 14,
+        "transaction_id": "order_7c4b29c8888f",
+        "bank_narration": "PR3067-FEEWAIVER-Q3-PROCESSED",
+        "predicted": "genuine_error",
+        "correct": false,
+        "confidence": 0.3,
+        "reasoning": "Settlement differs from the computed post-fee/refund amount by 17700. Neither the duplicate-refund registry nor the pairwise batch-netting check explains it, and timing is within normal variance either way. This check only ever compares one other transaction at a time \u2014 it cannot search for a discrepancy that only cancels across three or more transactions together, so a genuine multiway netting pattern would also land here, misclassified. Flagging for review rather than guessing.",
+        "tool_calls": [
+          "check_batch_anomalies",
+          "check_sla_window",
+          "recall_similar_resolutions"
+        ]
+      },
+      {
+        "seed": 15,
+        "transaction_id": "order_087be4fb7b94",
+        "bank_narration": "PR8991-FEEWAIVER-Q1-PROCESSED",
+        "predicted": "genuine_error",
+        "correct": false,
+        "confidence": 0.3,
+        "reasoning": "Settlement differs from the computed post-fee/refund amount by 4956. Neither the duplicate-refund registry nor the pairwise batch-netting check explains it, and timing is within normal variance either way. This check only ever compares one other transaction at a time \u2014 it cannot search for a discrepancy that only cancels across three or more transactions together, so a genuine multiway netting pattern would also land here, misclassified. Flagging for review rather than guessing.",
+        "tool_calls": [
+          "check_batch_anomalies",
+          "check_sla_window",
+          "recall_similar_resolutions"
+        ]
+      },
+      {
+        "seed": 15,
+        "transaction_id": "order_5430675127df",
+        "bank_narration": "PROMOPR9015-NOFEECHG-SETTLEMENT",
+        "predicted": "genuine_error",
+        "correct": false,
+        "confidence": 0.3,
+        "reasoning": "Settlement differs from the computed post-fee/refund amount by 3540. Neither the duplicate-refund registry nor the pairwise batch-netting check explains it, and timing is within normal variance either way. This check only ever compares one other transaction at a time \u2014 it cannot search for a discrepancy that only cancels across three or more transactions together, so a genuine multiway netting pattern would also land here, misclassified. Flagging for review rather than guessing.",
+        "tool_calls": [
+          "check_batch_anomalies",
+          "check_sla_window",
+          "recall_similar_resolutions"
+        ]
+      },
+      {
+        "seed": 16,
+        "transaction_id": "order_14442184880d",
+        "bank_narration": "Settlement adj: merchant fee exempted (campaign PR6423)",
+        "predicted": "genuine_error",
+        "correct": false,
+        "confidence": 0.3,
+        "reasoning": "Settlement differs from the computed post-fee/refund amount by 354. Neither the duplicate-refund registry nor the pairwise batch-netting check explains it, and timing is within normal variance either way. This check only ever compares one other transaction at a time \u2014 it cannot search for a discrepancy that only cancels across three or more transactions together, so a genuine multiway netting pattern would also land here, misclassified. Flagging for review rather than guessing.",
+        "tool_calls": [
+          "check_batch_anomalies",
+          "check_sla_window",
+          "recall_similar_resolutions"
+        ]
+      },
+      {
+        "seed": 17,
+        "transaction_id": "order_cc89f5a0386d",
+        "bank_narration": "Settlement adj: merchant fee exempted (campaign PR9357)",
+        "predicted": "genuine_error",
+        "correct": false,
+        "confidence": 0.3,
+        "reasoning": "Settlement differs from the computed post-fee/refund amount by 8850. Neither the duplicate-refund registry nor the pairwise batch-netting check explains it, and timing is within normal variance either way. This check only ever compares one other transaction at a time \u2014 it cannot search for a discrepancy that only cancels across three or more transactions together, so a genuine multiway netting pattern would also land here, misclassified. Flagging for review rather than guessing.",
+        "tool_calls": [
+          "check_batch_anomalies",
+          "check_sla_window",
+          "recall_similar_resolutions"
+        ]
+      },
+      {
+        "seed": 17,
+        "transaction_id": "order_44cb79ba2b0d",
+        "bank_narration": "PROMOPR5558-NOFEECHG-SETTLEMENT",
+        "predicted": "genuine_error",
+        "correct": false,
+        "confidence": 0.3,
+        "reasoning": "Settlement differs from the computed post-fee/refund amount by 177. Neither the duplicate-refund registry nor the pairwise batch-netting check explains it, and timing is within normal variance either way. This check only ever compares one other transaction at a time \u2014 it cannot search for a discrepancy that only cancels across three or more transactions together, so a genuine multiway netting pattern would also land here, misclassified. Flagging for review rather than guessing.",
+        "tool_calls": [
+          "check_batch_anomalies",
+          "check_sla_window",
+          "recall_similar_resolutions"
+        ]
+      },
+      {
+        "seed": 18,
+        "transaction_id": "order_2abe480a73dd",
+        "bank_narration": "Settlement adj: merchant fee exempted (campaign PR7713)",
+        "predicted": "genuine_error",
+        "correct": false,
+        "confidence": 0.3,
+        "reasoning": "Settlement differs from the computed post-fee/refund amount by 885. Neither the duplicate-refund registry nor the pairwise batch-netting check explains it, and timing is within normal variance either way. This check only ever compares one other transaction at a time \u2014 it cannot search for a discrepancy that only cancels across three or more transactions together, so a genuine multiway netting pattern would also land here, misclassified. Flagging for review rather than guessing.",
+        "tool_calls": [
+          "check_batch_anomalies",
+          "check_sla_window",
+          "recall_similar_resolutions"
+        ]
+      },
+      {
+        "seed": 18,
+        "transaction_id": "order_0fc19a827dfb",
+        "bank_narration": "FEEEXEMPT/PR8366/AUTOAPPLIED",
+        "predicted": "genuine_error",
+        "correct": false,
+        "confidence": 0.3,
+        "reasoning": "Settlement differs from the computed post-fee/refund amount by 1180. Neither the duplicate-refund registry nor the pairwise batch-netting check explains it, and timing is within normal variance either way. This check only ever compares one other transaction at a time \u2014 it cannot search for a discrepancy that only cancels across three or more transactions together, so a genuine multiway netting pattern would also land here, misclassified. Flagging for review rather than guessing.",
+        "tool_calls": [
+          "check_batch_anomalies",
+          "check_sla_window",
+          "recall_similar_resolutions"
+        ]
+      },
+      {
+        "seed": 18,
+        "transaction_id": "order_a72878556a4f",
+        "bank_narration": "PR4545-FEEWAIVER-Q2-PROCESSED",
+        "predicted": "genuine_error",
+        "correct": false,
+        "confidence": 0.3,
+        "reasoning": "Settlement differs from the computed post-fee/refund amount by 17700. Neither the duplicate-refund registry nor the pairwise batch-netting check explains it, and timing is within normal variance either way. This check only ever compares one other transaction at a time \u2014 it cannot search for a discrepancy that only cancels across three or more transactions together, so a genuine multiway netting pattern would also land here, misclassified. Flagging for review rather than guessing.",
+        "tool_calls": [
+          "check_batch_anomalies",
+          "check_sla_window",
+          "recall_similar_resolutions"
+        ]
+      },
+      {
+        "seed": 18,
+        "transaction_id": "order_cc82adb883cb",
+        "bank_narration": "waived chgs (PR8839) refer promo terms",
+        "predicted": "genuine_error",
+        "correct": false,
+        "confidence": 0.3,
+        "reasoning": "Settlement differs from the computed post-fee/refund amount by 3540. Neither the duplicate-refund registry nor the pairwise batch-netting check explains it, and timing is within normal variance either way. This check only ever compares one other transaction at a time \u2014 it cannot search for a discrepancy that only cancels across three or more transactions together, so a genuine multiway netting pattern would also land here, misclassified. Flagging for review rather than guessing.",
+        "tool_calls": [
+          "check_batch_anomalies",
+          "check_sla_window",
+          "recall_similar_resolutions"
+        ]
+      },
+      {
+        "seed": 18,
+        "transaction_id": "order_ebc9eac00bd1",
+        "bank_narration": "Note: fee not deducted this cycle - promo code PR9598 - contact support if discrepancy",
+        "predicted": "genuine_error",
+        "correct": false,
+        "confidence": 0.3,
+        "reasoning": "Settlement differs from the computed post-fee/refund amount by 28320. Neither the duplicate-refund registry nor the pairwise batch-netting check explains it, and timing is within normal variance either way. This check only ever compares one other transaction at a time \u2014 it cannot search for a discrepancy that only cancels across three or more transactions together, so a genuine multiway netting pattern would also land here, misclassified. Flagging for review rather than guessing.",
+        "tool_calls": [
+          "check_batch_anomalies",
+          "check_sla_window",
+          "recall_similar_resolutions"
+        ]
+      },
+      {
+        "seed": 18,
+        "transaction_id": "order_55d3da453c97",
+        "bank_narration": "waived chgs (PR8941) refer promo terms",
+        "predicted": "genuine_error",
+        "correct": false,
+        "confidence": 0.3,
+        "reasoning": "Settlement differs from the computed post-fee/refund amount by 28320. Neither the duplicate-refund registry nor the pairwise batch-netting check explains it, and timing is within normal variance either way. This check only ever compares one other transaction at a time \u2014 it cannot search for a discrepancy that only cancels across three or more transactions together, so a genuine multiway netting pattern would also land here, misclassified. Flagging for review rather than guessing.",
+        "tool_calls": [
+          "check_batch_anomalies",
+          "check_sla_window",
+          "recall_similar_resolutions"
+        ]
+      },
+      {
+        "seed": 19,
+        "transaction_id": "order_fda8fb248c5c",
+        "bank_narration": "FEEEXEMPT/PR3295/AUTOAPPLIED",
+        "predicted": "genuine_error",
+        "correct": false,
+        "confidence": 0.3,
+        "reasoning": "Settlement differs from the computed post-fee/refund amount by 2655. Neither the duplicate-refund registry nor the pairwise batch-netting check explains it, and timing is within normal variance either way. This check only ever compares one other transaction at a time \u2014 it cannot search for a discrepancy that only cancels across three or more transactions together, so a genuine multiway netting pattern would also land here, misclassified. Flagging for review rather than guessing.",
+        "tool_calls": [
+          "check_batch_anomalies",
+          "check_sla_window",
+          "recall_similar_resolutions"
+        ]
+      },
+      {
+        "seed": 19,
+        "transaction_id": "order_70c58faddb84",
+        "bank_narration": "waived chgs (PR9271) refer promo terms",
+        "predicted": "genuine_error",
+        "correct": false,
+        "confidence": 0.3,
+        "reasoning": "Settlement differs from the computed post-fee/refund amount by 885. Neither the duplicate-refund registry nor the pairwise batch-netting check explains it, and timing is within normal variance either way. This check only ever compares one other transaction at a time \u2014 it cannot search for a discrepancy that only cancels across three or more transactions together, so a genuine multiway netting pattern would also land here, misclassified. Flagging for review rather than guessing.",
+        "tool_calls": [
+          "check_batch_anomalies",
+          "check_sla_window",
+          "recall_similar_resolutions"
+        ]
+      },
+      {
+        "seed": 19,
+        "transaction_id": "order_f42dfcd36f61",
+        "bank_narration": "PROMOPR5789-NOFEECHG-SETTLEMENT",
+        "predicted": "genuine_error",
+        "correct": false,
+        "confidence": 0.3,
+        "reasoning": "Settlement differs from the computed post-fee/refund amount by 885. Neither the duplicate-refund registry nor the pairwise batch-netting check explains it, and timing is within normal variance either way. This check only ever compares one other transaction at a time \u2014 it cannot search for a discrepancy that only cancels across three or more transactions together, so a genuine multiway netting pattern would also land here, misclassified. Flagging for review rather than guessing.",
+        "tool_calls": [
+          "check_batch_anomalies",
+          "check_sla_window",
+          "recall_similar_resolutions"
+        ]
+      },
+      {
+        "seed": 19,
+        "transaction_id": "order_6463d8c468d6",
+        "bank_narration": "FEEEXEMPT/PR9707/AUTOAPPLIED",
+        "predicted": "genuine_error",
+        "correct": false,
+        "confidence": 0.3,
+        "reasoning": "Settlement differs from the computed post-fee/refund amount by 17700. Neither the duplicate-refund registry nor the pairwise batch-netting check explains it, and timing is within normal variance either way. This check only ever compares one other transaction at a time \u2014 it cannot search for a discrepancy that only cancels across three or more transactions together, so a genuine multiway netting pattern would also land here, misclassified. Flagging for review rather than guessing.",
+        "tool_calls": [
+          "check_batch_anomalies",
+          "check_sla_window",
+          "recall_similar_resolutions"
+        ]
+      },
+      {
+        "seed": 19,
+        "transaction_id": "order_09e84e4f5d73",
+        "bank_narration": "PROMOPR2788-NOFEECHG-SETTLEMENT",
+        "predicted": "genuine_error",
+        "correct": false,
+        "confidence": 0.3,
+        "reasoning": "Settlement differs from the computed post-fee/refund amount by 177. Neither the duplicate-refund registry nor the pairwise batch-netting check explains it, and timing is within normal variance either way. This check only ever compares one other transaction at a time \u2014 it cannot search for a discrepancy that only cancels across three or more transactions together, so a genuine multiway netting pattern would also land here, misclassified. Flagging for review rather than guessing.",
+        "tool_calls": [
+          "check_batch_anomalies",
+          "check_sla_window",
+          "recall_similar_resolutions"
+        ]
+      },
+      {
+        "seed": 20,
+        "transaction_id": "order_ffd11a709d35",
+        "bank_narration": "PR5954-FEEWAIVER-Q3-PROCESSED",
+        "predicted": "genuine_error",
+        "correct": false,
+        "confidence": 0.3,
+        "reasoning": "Settlement differs from the computed post-fee/refund amount by 2950. Neither the duplicate-refund registry nor the pairwise batch-netting check explains it, and timing is within normal variance either way. This check only ever compares one other transaction at a time \u2014 it cannot search for a discrepancy that only cancels across three or more transactions together, so a genuine multiway netting pattern would also land here, misclassified. Flagging for review rather than guessing.",
+        "tool_calls": [
+          "check_batch_anomalies",
+          "check_sla_window",
+          "recall_similar_resolutions"
+        ]
+      },
+      {
+        "seed": 20,
+        "transaction_id": "order_17ffb6fabb7c",
+        "bank_narration": "FEEEXEMPT/PR7346/AUTOAPPLIED",
+        "predicted": "genuine_error",
+        "correct": false,
+        "confidence": 0.3,
+        "reasoning": "Settlement differs from the computed post-fee/refund amount by 4956. Neither the duplicate-refund registry nor the pairwise batch-netting check explains it, and timing is within normal variance either way. This check only ever compares one other transaction at a time \u2014 it cannot search for a discrepancy that only cancels across three or more transactions together, so a genuine multiway netting pattern would also land here, misclassified. Flagging for review rather than guessing.",
+        "tool_calls": [
+          "check_batch_anomalies",
+          "check_sla_window",
+          "recall_similar_resolutions"
+        ]
+      },
+      {
+        "seed": 20,
+        "transaction_id": "order_5a6b0187e62f",
+        "bank_narration": "waived chgs (PR7815) refer promo terms",
+        "predicted": "genuine_error",
+        "correct": false,
+        "confidence": 0.3,
+        "reasoning": "Settlement differs from the computed post-fee/refund amount by 1487. Neither the duplicate-refund registry nor the pairwise batch-netting check explains it, and timing is within normal variance either way. This check only ever compares one other transaction at a time \u2014 it cannot search for a discrepancy that only cancels across three or more transactions together, so a genuine multiway netting pattern would also land here, misclassified. Flagging for review rather than guessing.",
+        "tool_calls": [
+          "check_batch_anomalies",
+          "check_sla_window",
+          "recall_similar_resolutions"
+        ]
+      },
+      {
+        "seed": 20,
+        "transaction_id": "order_3311b58e2a78",
+        "bank_narration": "FEE WAIVED - PROMO PR6695 APPLIED",
+        "predicted": "genuine_error",
+        "correct": false,
+        "confidence": 0.3,
+        "reasoning": "Settlement differs from the computed post-fee/refund amount by 8850. Neither the duplicate-refund registry nor the pairwise batch-netting check explains it, and timing is within normal variance either way. This check only ever compares one other transaction at a time \u2014 it cannot search for a discrepancy that only cancels across three or more transactions together, so a genuine multiway netting pattern would also land here, misclassified. Flagging for review rather than guessing.",
+        "tool_calls": [
+          "check_batch_anomalies",
+          "check_sla_window",
+          "recall_similar_resolutions"
+        ]
+      },
+      {
+        "seed": 20,
+        "transaction_id": "order_e4a9d9abaa73",
+        "bank_narration": "FEE WAIVED - PROMO PR6374 APPLIED",
+        "predicted": "genuine_error",
+        "correct": false,
+        "confidence": 0.3,
+        "reasoning": "Settlement differs from the computed post-fee/refund amount by 2360. Neither the duplicate-refund registry nor the pairwise batch-netting check explains it, and timing is within normal variance either way. This check only ever compares one other transaction at a time \u2014 it cannot search for a discrepancy that only cancels across three or more transactions together, so a genuine multiway netting pattern would also land here, misclassified. Flagging for review rather than guessing.",
+        "tool_calls": [
+          "check_batch_anomalies",
+          "check_sla_window",
+          "recall_similar_resolutions"
+        ]
+      },
+      {
+        "seed": 20,
+        "transaction_id": "order_2d905d9e1624",
+        "bank_narration": "Note: fee not deducted this cycle - promo code PR8059 - contact support if discrepancy",
+        "predicted": "genuine_error",
+        "correct": false,
+        "confidence": 0.3,
+        "reasoning": "Settlement differs from the computed post-fee/refund amount by 2360. Neither the duplicate-refund registry nor the pairwise batch-netting check explains it, and timing is within normal variance either way. This check only ever compares one other transaction at a time \u2014 it cannot search for a discrepancy that only cancels across three or more transactions together, so a genuine multiway netting pattern would also land here, misclassified. Flagging for review rather than guessing.",
+        "tool_calls": [
+          "check_batch_anomalies",
+          "check_sla_window",
+          "recall_similar_resolutions"
+        ]
+      },
+      {
+        "seed": 20,
+        "transaction_id": "order_10532c79f913",
+        "bank_narration": "Note: fee not deducted this cycle - promo code PR8256 - contact support if discrepancy",
+        "predicted": "genuine_error",
+        "correct": false,
+        "confidence": 0.3,
+        "reasoning": "Settlement differs from the computed post-fee/refund amount by 531. Neither the duplicate-refund registry nor the pairwise batch-netting check explains it, and timing is within normal variance either way. This check only ever compares one other transaction at a time \u2014 it cannot search for a discrepancy that only cancels across three or more transactions together, so a genuine multiway netting pattern would also land here, misclassified. Flagging for review rather than guessing.",
+        "tool_calls": [
+          "check_batch_anomalies",
+          "check_sla_window",
+          "recall_similar_resolutions"
+        ]
+      }
+    ],
+    "correct": 0,
+    "total": 64
+  },
+  "ollama": {
+    "entries": [
+      {
+        "seed": 1,
+        "transaction_id": "order_5bc80c8dceb4",
+        "bank_narration": "FEE WAIVED - PROMO PR6265 APPLIED",
+        "predicted": "narration_explained",
+        "correct": true,
+        "confidence": 1.0,
+        "reasoning": "The delta of 8850 is explained by the narration stating a fee waiver was applied.",
+        "tool_calls": [
+          "check_batch_anomalies",
+          "list_batch_deltas",
+          "verify_group_sum",
+          "read_bank_narration"
+        ]
+      },
+      {
+        "seed": 1,
+        "transaction_id": "order_ad375326dde1",
+        "bank_narration": "PR6692-FEEWAIVER-Q1-PROCESSED",
+        "predicted": "narration_explained",
+        "correct": true,
+        "confidence": 1.0,
+        "reasoning": "The narration indicates a fee waiver of 590 INR, which explains the unbalanced settlement.",
+        "tool_calls": [
+          "check_sla_window",
+          "check_batch_anomalies",
+          "list_batch_deltas",
+          "read_bank_narration",
+          "verify_group_sum"
+        ]
+      },
+      {
+        "seed": 2,
+        "transaction_id": "order_e510f86ce29d",
+        "bank_narration": "Settlement adj: merchant fee exempted (campaign PR1678)",
+        "predicted": "narration_explained",
+        "correct": true,
+        "confidence": 1.0,
+        "reasoning": "The delta is explained by the bank narration noting a merchant fee exemption due to a campaign.",
+        "tool_calls": [
+          "check_batch_anomalies",
+          "list_batch_deltas",
+          "verify_group_sum",
+          "read_bank_narration"
+        ]
+      },
+      {
+        "seed": 2,
+        "transaction_id": "order_3d9af07b8784",
+        "bank_narration": "PROMOPR5081-NOFEECHG-SETTLEMENT",
+        "predicted": "narration_explained",
+        "correct": true,
+        "confidence": 1.0,
+        "reasoning": "The settlement delta is explained by the narration 'NOFEECHG', indicating a fee waiver for this transaction.",
+        "tool_calls": [
+          "check_batch_anomalies",
+          "list_batch_deltas",
+          "verify_group_sum",
+          "read_bank_narration"
+        ]
+      },
+      {
+        "seed": 2,
+        "transaction_id": "order_8a0f66d6bb64",
+        "bank_narration": "Note: fee not deducted this cycle - promo code PR1286 - contact support if discrepancy",
+        "predicted": "narration_explained",
+        "correct": true,
+        "confidence": 1.0,
+        "reasoning": "The fee of 300 INR was not deducted this cycle due to a promotional code PR1286. The bank narration explicitly states this.",
+        "tool_calls": [
+          "check_batch_anomalies",
+          "list_batch_deltas",
+          "verify_group_sum",
+          "read_bank_narration"
+        ]
+      },
+      {
+        "seed": 2,
+        "transaction_id": "order_e7f614c553c3",
+        "bank_narration": "Settlement adj: merchant fee exempted (campaign PR7130)",
+        "predicted": "narration_explained",
+        "correct": true,
+        "confidence": 1.0,
+        "reasoning": "The transaction's discrepancy is explained by the narration, which states that merchant fees were exempted due to a campaign (PR7130).",
+        "tool_calls": [
+          "check_batch_anomalies",
+          "list_batch_deltas",
+          "verify_group_sum",
+          "read_bank_narration"
+        ]
+      },
+      {
+        "seed": 3,
+        "transaction_id": "order_f5b9e14e75ce",
+        "bank_narration": "chgs waived promo ref PR3993 pls ignore fee diff",
+        "predicted": "narration_explained",
+        "correct": true,
+        "confidence": 1.0,
+        "reasoning": "The fee difference is explained by the narration, which states that a fee waiver was applied due to a promotional offer.",
+        "tool_calls": [
+          "check_batch_anomalies",
+          "list_batch_deltas",
+          "verify_group_sum",
+          "read_bank_narration"
+        ]
+      },
+      {
+        "seed": 4,
+        "transaction_id": "order_4e2995fcc63f",
+        "bank_narration": "Settlement adj: merchant fee exempted (campaign PR6286)",
+        "predicted": "narration_explained",
+        "correct": true,
+        "confidence": 1.0,
+        "reasoning": "The delta is explained by the narration which states that merchant fee was exempted due to a campaign.",
+        "tool_calls": [
+          "check_batch_anomalies",
+          "list_batch_deltas",
+          "verify_group_sum",
+          "read_bank_narration"
+        ]
+      },
+      {
+        "seed": 5,
+        "transaction_id": "order_28d7439c2083",
+        "bank_narration": "Note: fee not deducted this cycle - promo code PR2412 - contact support if discrepancy",
+        "predicted": "narration_explained",
+        "correct": true,
+        "confidence": 1.0,
+        "reasoning": "The settlement delta of 28320 is explained by the narration stating that the fee was not deducted this cycle due to a promo code.",
+        "tool_calls": [
+          "check_batch_anomalies",
+          "list_batch_deltas",
+          "verify_group_sum",
+          "read_bank_narration"
+        ]
+      },
+      {
+        "seed": 5,
+        "transaction_id": "order_57536a07d3eb",
+        "bank_narration": "Settlement adj: merchant fee exempted (campaign PR6215)",
+        "predicted": "narration_explained",
+        "correct": true,
+        "confidence": 1.0,
+        "reasoning": "The delta is explained by the bank narration indicating that merchant fees were exempted due to a campaign.",
+        "tool_calls": [
+          "check_batch_anomalies",
+          "list_batch_deltas",
+          "verify_group_sum",
+          "read_bank_narration"
+        ]
+      }
+    ],
+    "correct": 10,
+    "total": 10
+  }
+}

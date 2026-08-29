@@ -49,6 +49,8 @@ export interface RunRequest {
   reset_history?: boolean;
   enable_discovery?: boolean;
   enable_multiway_netting?: boolean;
+  enable_held_out_variants?: boolean;
+  enable_narration_explained?: boolean;
 }
 
 export const runBatch = (req: RunRequest) =>

@@ -1,0 +1,201 @@
+{
+  "mock": {
+    "correct": 0,
+    "total": 101
+  },
+  "ollama": {
+    "entries": [
+      {
+        "seed": 1,
+        "transaction_id": "order_c9338d17f165",
+        "true_label": "duplicate_refund",
+        "predicted": "genuine_error",
+        "correct": false,
+        "confidence": 0.0,
+        "reasoning": "Narrator did not converge within the tool-call budget; escalating rather than guessing."
+      },
+      {
+        "seed": 1,
+        "transaction_id": "order_e396a004d56d",
+        "true_label": "netting_trap",
+        "predicted": "genuine_error",
+        "correct": false,
+        "confidence": 1.0,
+        "reasoning": "The settlement delta of -15000 INR is exactly offset by a transaction in the same batch (order_93470da7a2cc) with a delta of 15116 INR, confirming a multiway netting scenario that the single transaction check missed."
+      },
+      {
+        "seed": 1,
+        "transaction_id": "order_93470da7a2cc",
+        "true_label": "netting_trap",
+        "predicted": "genuine_error",
+        "correct": false,
+        "confidence": 1.0,
+        "reasoning": "The settlement delta of 15116 is explained by another transaction in the same batch with a delta of -15000, but verify_group_sum confirms that no group of transactions including this one cancels exactly. The bank narration is null."
+      },
+      {
+        "seed": 1,
+        "transaction_id": "order_114d37664e76",
+        "true_label": "duplicate_refund",
+        "predicted": "genuine_error",
+        "correct": false,
+        "confidence": 1.0,
+        "reasoning": "No duplicate refund, netting partner, or narration explaining the delta was found. The delta of -53094 remains unexplained."
+      },
+      {
+        "seed": 1,
+        "transaction_id": "order_a7611dc164ea",
+        "true_label": "netting_trap",
+        "predicted": "genuine_error",
+        "correct": false,
+        "confidence": 0.9,
+        "reasoning": "The settlement delta of -20000 INR is not explained by any other transaction in the batch or the narration, indicating a genuine error in the settlement."
+      },
+      {
+        "seed": 1,
+        "transaction_id": "order_2bd3cad11579",
+        "true_label": "netting_trap",
+        "predicted": "genuine_error",
+        "correct": false,
+        "confidence": 0.0,
+        "reasoning": "Narrator did not converge within the tool-call budget; escalating rather than guessing."
+      },
+      {
+        "seed": 1,
+        "transaction_id": "order_5f4e4fbf6bda",
+        "true_label": "netting_trap",
+        "predicted": "genuine_error",
+        "correct": false,
+        "confidence": 0.9,
+        "reasoning": "The settlement delta of -5000 cannot be explained by any combination of other transactions in the batch or by the narration."
+      },
+      {
+        "seed": 1,
+        "transaction_id": "order_f3de212765d1",
+        "true_label": "netting_trap",
+        "predicted": "genuine_error",
+        "correct": false,
+        "confidence": 0.0,
+        "reasoning": "Narrator did not converge within the tool-call budget; escalating rather than guessing."
+      },
+      {
+        "seed": 1,
+        "transaction_id": "order_994273b0646e",
+        "true_label": "duplicate_refund",
+        "predicted": "genuine_error",
+        "correct": false,
+        "confidence": 1.0,
+        "reasoning": "The transaction's own delta is -801879, and no other transactions in the same batch offset this amount. The bank narration field is also empty, leaving no explanation for the discrepancy."
+      },
+      {
+        "seed": 2,
+        "transaction_id": "order_bf92f8818b6b",
+        "true_label": "duplicate_refund",
+        "predicted": "genuine_error",
+        "correct": false,
+        "confidence": 1.0,
+        "reasoning": "The settlement delta (-59877) does not match any other transaction in the batch, and there is no narration to explain the delta. The transaction is outside the normal variance and appears to be genuinely erroneous."
+      },
+      {
+        "seed": 2,
+        "transaction_id": "order_b5711aedf55d",
+        "true_label": "duplicate_refund",
+        "predicted": "genuine_error",
+        "correct": false,
+        "confidence": 0.9,
+        "reasoning": "The transaction's own delta is -1927467, and no other transactions in the batch have a delta that could collectively cancel it. The bank narration is also null, leaving no other plausible explanation."
+      },
+      {
+        "seed": 2,
+        "transaction_id": "order_efa46b90db85",
+        "true_label": "duplicate_refund",
+        "predicted": "genuine_error",
+        "correct": false,
+        "confidence": 0.8,
+        "reasoning": "The settlement delta is explained by the cumulative effect of multiple other transactions in the same batch, none of which individually offset the delta, but together they do. This is confirmed by verify_group_sum."
+      },
+      {
+        "seed": 2,
+        "transaction_id": "order_e92bbc6c290f",
+        "true_label": "duplicate_refund",
+        "predicted": "genuine_error",
+        "correct": false,
+        "confidence": 1.0,
+        "reasoning": "The transaction's delta of -12784 is exactly the sum of two other transactions in the same batch, -15000 and 15000, confirming a multiway netting trap. No narration explains this."
+      },
+      {
+        "seed": 2,
+        "transaction_id": "order_07917334b4ce",
+        "true_label": "netting_trap",
+        "predicted": "multiway_netting_trap",
+        "correct": false,
+        "confidence": 1.0,
+        "reasoning": "The settlement delta of -20000 is the sum of three transactions in the same batch: order_1beee0187267 (+20098), order_954e96f93ae2 (-65200), and order_e12346453395 (0). These transactions, when combined, exactly cancel out to the observed shortfall."
+      },
+      {
+        "seed": 2,
+        "transaction_id": "order_1beee0187267",
+        "true_label": "netting_trap",
+        "predicted": "genuine_error",
+        "correct": false,
+        "confidence": 0.95,
+        "reasoning": "The settlement delta of 20098 is not explained by any known transaction in the batch and there is no narration to clarify the discrepancy."
+      },
+      {
+        "seed": 2,
+        "transaction_id": "order_4669913d5d71",
+        "true_label": "netting_trap",
+        "predicted": "genuine_error",
+        "correct": false,
+        "confidence": 1.0,
+        "reasoning": "The settlement delta of -10000 is explained by two other transactions in the same batch, which individually do not offset the delta but collectively do. Since verify_group_sum did not confirm cancellation, the delta remains unexplained. There is no bank narration to provide additional context."
+      },
+      {
+        "seed": 2,
+        "transaction_id": "order_2f546ee0bbe4",
+        "true_label": "netting_trap",
+        "predicted": "genuine_error",
+        "correct": false,
+        "confidence": 1.0,
+        "reasoning": "The settlement delta of 9900 INR is not explained by any duplicate refund, netting trap, or narration. The deltas of -10000 and -3 from other transactions in the same batch do not sum to the full 9900, leaving an unexplained 97 INR difference, hence a genuine error."
+      },
+      {
+        "seed": 2,
+        "transaction_id": "order_959aa1ff74fa",
+        "true_label": "netting_trap",
+        "predicted": "genuine_error",
+        "correct": false,
+        "confidence": 1.0,
+        "reasoning": "The settlement delta of -5000 is explained by the transaction order_c4ac6091eefb, which adds 5036 to the batch, and the own delta of -5000. Since verify_group_sum did not confirm the cancellation, and there is no narration explaining this, it is a genuine error."
+      },
+      {
+        "seed": 2,
+        "transaction_id": "order_c4ac6091eefb",
+        "true_label": "netting_trap",
+        "predicted": "genuine_error",
+        "correct": false,
+        "confidence": 0.8,
+        "reasoning": "The transaction's delta is due to two other transactions in the same batch that offset each other, but not exactly with the current transaction. This is a multiway netting trap, but recall_similar_resolutions did not find a similar case, so it's genuinely new."
+      },
+      {
+        "seed": 2,
+        "transaction_id": "order_a2f3bd131c99",
+        "true_label": "netting_trap",
+        "predicted": "genuine_error",
+        "correct": false,
+        "confidence": 0.0,
+        "reasoning": "Narrator did not converge within the tool-call budget; escalating rather than guessing."
+      },
+      {
+        "seed": 2,
+        "transaction_id": "order_59bf90d9cb76",
+        "true_label": "netting_trap",
+        "predicted": "genuine_error",
+        "correct": false,
+        "confidence": 1.0,
+        "reasoning": "The settlement delta of 4896 is not explained by any duplicate refunds or netting partners, and the candidate transaction's delta (-5000) does not exactly cancel it. No narration is provided to explain the delta."
+      }
+    ],
+    "correct": 0,
+    "total": 21
+  }
+}

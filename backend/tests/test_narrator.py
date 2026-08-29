@@ -471,3 +471,54 @@ def test_narrate_mock_discloses_the_structural_limitation_on_a_real_multiway_cas
     output = narrate_mock(chains[txn_id], context)
     assert output.category == "genuine_error"  # still wrong here, exactly as expected and measured
     assert "three or more" in output.reasoning or "combination" in output.reasoning.lower()
+
+
+# --- narration_explained: mock never calls read_bank_narration, so it fails structurally here too,
+# same posture as multiway_netting_trap. ---
+
+
+def _first_narration_case(seed_range=range(1, 20), main_n=200):
+    # _narration_queue doesn't expose enable_narration_explained -- generate directly here instead
+    for seed in seed_range:
+        main, _ = generate(seed=seed, main_n=main_n, stress_n=0, enable_narration_explained=True)
+        chains = build_all_chains(main)
+        results = run_matching_engine(chains)
+        context = build_tool_context(main, chains)
+        gt_by_id = {g.transaction_id: g.true_label for g in main.ground_truth}
+        for txn_id, r in results.items():
+            if r.resolution == "needs_narration" and gt_by_id.get(txn_id) == "narration_explained":
+                return chains, context, txn_id, gt_by_id
+    raise AssertionError("fixture assumption: no narration_explained case found in the swept seed range")
+
+
+def test_narration_explained_is_a_narrator_category():
+    assert "narration_explained" in NARRATOR_CATEGORIES
+
+
+def test_execute_tool_dispatches_read_bank_narration():
+    chains, context, txn_id, _ = _first_narration_case()
+    result = _execute_tool("read_bank_narration", {}, chains[txn_id], context)
+    assert result["transaction_id"] == txn_id
+    assert result["bank_narration"]  # real, non-empty text
+
+
+def test_read_bank_narration_returns_none_for_every_other_pattern():
+    chains, context, queue, gt_by_id = _narration_queue(main_n=150)
+    checked = 0
+    for txn_id in queue:
+        if gt_by_id.get(txn_id) == "narration_explained":
+            continue
+        result = _execute_tool("read_bank_narration", {}, chains[txn_id], context)
+        assert result["bank_narration"] is None
+        checked += 1
+    assert checked > 0
+
+
+def test_narrate_mock_fails_structurally_on_a_real_narration_explained_case():
+    """mock never calls read_bank_narration -- it must always fall through to genuine_error here,
+    the same structural-inability posture as multiway_netting_trap."""
+    chains, context, txn_id, _ = _first_narration_case()
+    output = narrate_mock(chains[txn_id], context)
+    assert output.category == "genuine_error"
+    tool_names = [tc.tool for tc in output.tool_calls]
+    assert "read_bank_narration" not in tool_names

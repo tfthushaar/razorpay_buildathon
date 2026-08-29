@@ -11,7 +11,8 @@ export type Category =
   | "netting_trap"
   | "currency_rounding"
   | "genuine_error"
-  | "multiway_netting_trap";
+  | "multiway_netting_trap"
+  | "narration_explained";
 
 export interface CategoryCalibration {
   category: string;

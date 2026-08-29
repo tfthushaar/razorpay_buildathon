@@ -23,10 +23,16 @@ export function RunControls({ onRun, loading, error }: Props) {
   // number here.
   const [mainN, setMainN] = useState(30);
   const [stressN, setStressN] = useState(10);
-  const [provider, setProvider] = useState("mock");
+  // Default to the real, recommended provider, not the zero-LLM path -- a first run with no
+  // changes made should show the AI actually reasoning, not the rule-only fallback. Falls back
+  // safely (a clear "local call failed" escalation reason, not a crash) if Ollama isn't running
+  // yet; mock is still one click away in the dropdown for anyone who wants the zero-setup path.
+  const [provider, setProvider] = useState("ollama");
   const [resetHistory, setResetHistory] = useState(false);
   const [enableDiscovery, setEnableDiscovery] = useState(false);
   const [enableMultiwayNetting, setEnableMultiwayNetting] = useState(false);
+  const [enableHeldOutVariants, setEnableHeldOutVariants] = useState(false);
+  const [enableNarrationExplained, setEnableNarrationExplained] = useState(false);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -73,8 +79,8 @@ export function RunControls({ onRun, loading, error }: Props) {
         <label>
           Narrator provider
           <select value={provider} onChange={(e) => setProvider(e.target.value)}>
-            <option value="mock">mock (zero-cost, deterministic)</option>
-            <option value="ollama">ollama (local qwen2.5:7b, zero cost, zero rate limit)</option>
+            <option value="ollama">ollama (local qwen2.5:7b, zero cost, zero rate limit) — recommended</option>
+            <option value="mock">mock (zero-cost, deterministic, no LLM calls)</option>
             <option value="groq">groq (gpt-oss-20b, needs GROQ_API_KEY, rate-limited)</option>
           </select>
         </label>
@@ -93,6 +99,20 @@ export function RunControls({ onRun, loading, error }: Props) {
           <input type="checkbox" checked={enableMultiwayNetting} onChange={(e) => setEnableMultiwayNetting(e.target.checked)} />
           Inject multi-way netting case
         </label>
+        <label
+          className="checkbox-label"
+          title="Inject near-miss duplicate_refund/netting_trap cases -- same true category, but perturbed just enough that the exact-match rule can never confirm them, breaking the 'same author wrote the rule and the injector' problem the clean versions can't test"
+        >
+          <input type="checkbox" checked={enableHeldOutVariants} onChange={(e) => setEnableHeldOutVariants(e.target.checked)} />
+          Inject held-out near-miss cases
+        </label>
+        <label
+          className="checkbox-label"
+          title="Inject a narration_explained case: a delta explained only by the settlement's own free-text remarks field -- no structured field or delta-arithmetic a rule could check at any scale records this"
+        >
+          <input type="checkbox" checked={enableNarrationExplained} onChange={(e) => setEnableNarrationExplained(e.target.checked)} />
+          Inject narration-explained case
+        </label>
         <button
           disabled={loading}
           onClick={() =>
@@ -105,6 +125,8 @@ export function RunControls({ onRun, loading, error }: Props) {
               reset_history: resetHistory,
               enable_discovery: enableDiscovery,
               enable_multiway_netting: enableMultiwayNetting,
+              enable_held_out_variants: enableHeldOutVariants,
+              enable_narration_explained: enableNarrationExplained,
             })
           }
         >
