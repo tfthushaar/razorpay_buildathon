@@ -65,9 +65,9 @@ On three-source matching every structured field is exhausted by construction, le
 free-text settlement cycle. On held-out phrasing the regex scores 88.0%, identical to not parsing at
 all, and the local model scores 94.0% (exact McNemar p = 0.049).
 
-The settlement Q&A agent splits the same way. Against ground truth computed from the batch, a keyword
-router scores 83.3% on my phrasing and **0.0%** on held-out phrasing; the model goes 63.3% to 50.0%,
-and neither fabricated a transaction id.
+The settlement Q&A agent splits the same way. Across nine questions with ground truth computed from
+the batch, a keyword router scores 87.5% on my phrasing and **0.0%** on held-out phrasing; the model
+goes 65.0% to 62.5%, and neither fabricated a transaction id.
 
 Free text as one signal among several does not pay for itself. As the only evidence left it is worth
 6 points, and the rule is worth zero.

@@ -196,6 +196,12 @@ Refusing 10.2% of the batch separates those rows. It does not improve date cover
 reason currently firing is amount-related and a refund changes what settles, not when
 (`test_refusing_actually_improves_amount_accuracy` fails the build if refusing stops helping).
 
+Four of the five reasons had never fired outside a hand-built object, leaving the effect above resting
+on `refund_in_flight`. On a pending batch carrying the missing shapes, `sla_already_breached` fires 129
+times, `partial_capture` 80, `not_captured` 40 and `non_positive_net` 40. `non_positive_net` turns out
+to be unreachable for any positive capture under a pure-percentage fee schedule, so it fires only on a
+fully reversed authorisation, alongside `partial_capture`.
+
 Five numbers because the mean sits far from the middle here: 83% of it comes from five rows out of
 1,795, and the median is zero.
 
@@ -240,23 +246,28 @@ Throughput: **455,955 predictions/sec**. Reproduce:
 
 ## Settlement Q&A
 
-Six questions per batch, each with an answer computed from the batch itself, scored on the number,
+Nine questions per batch, each with an answer computed from the batch itself, scored on the number,
 the ids cited, and any cited id that does not exist.
 
 | Provider | Seen phrasing | Held-out phrasing | Gap |
 |---|---|---|---|
-| keyword rule | 83.3% | **0.0%** | -83.3 pts |
-| `qwen2.5:7b-instruct` | 63.3% | **50.0%** | -13.3 pts |
+| keyword rule | 87.5% | **0.0%** | -87.5 pts |
+| `qwen2.5:7b-instruct` | 65.0% | **62.5%** | -2.5 pts |
 
-5 seeds, 30 numeric answers per cell. The held-out column asks the same questions in words the
-rule's cue list was never built for, and a test asserts it contains none of that vocabulary.
+5 seeds, 40 numeric answers per cell. The held-out column asks the same questions in words the rule's
+cue list was never built for, and a test asserts it contains none of that vocabulary.
+
+An earlier version of this table ran six questions and put the model at 63.3% and 50.0%. The two are
+not a before-and-after: the question set changed at the same time as the toolset. `settlements_by_date`
+closed the one question no provider could answer, and three questions were added. What the new run
+measures is nine questions against the current tools.
 
 The rule is the better instrument on questions phrased the way I wrote it, and answers none at all
 once the wording changes: "what is the size of this run" fires no cue, so no tool runs. Citation
-overlap moves the same way, 0.67 to 0.01 against the model's 0.90 to 0.58.
+overlap moves the same way, 0.67 to 0.01 against the model's 0.93 to 0.56.
 
-Fabricated transaction ids: 0 of 30 in all four conditions. An invented id is a reference an
-operations person goes and looks for, so it is scored separately from being wrong.
+Fabricated transaction ids: 0 of 45 in all four conditions. An invented id is a reference an operations
+person goes and looks for, so it is scored separately from being wrong.
 
 Reproduce: `python scripts/generate_qa_evidence.py`. Raw:
 [`qa-2026-08-30.json`](evidence/qa-2026-08-30.json).
