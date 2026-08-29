@@ -116,7 +116,9 @@ Two layers sit around it, and both exist to keep the output falsifiable.
 `captured - fee - tax`, which is exact for an ordinary transaction and wrong for five identifiable
 shapes: a partial capture, a refund in flight, an uncaptured payment, a non-positive net, and an SLA
 ceiling already past. Each is decidable from Order, Payment and Refund alone. None consults a
-Settlement, which would make the forecast a lookup.
+Settlement, which would make the forecast a lookup. `generate_pending_batch(edge_case_ratio=...)`
+produces the four shapes the settled batch never contains, so every reason is exercised against
+generated data rather than a hand-built object; it defaults to off.
 
 `calibrated_interval.py` decides how wide the date window should be. The default window is the rail's
 SLA tolerance, a policy boundary that states no confidence level and therefore cannot be checked
@@ -131,13 +133,16 @@ worst. A single mean was misleading on this data, where 83% of it came from five
 ## The Q&A agent
 
 `app/qa/` answers free-text questions over a completed batch through a tool loop. Four tools are
-scoped to one transaction, one date or the anomaly check; `summarise_batch` covers the aggregate
-questions a controller asks first, such as batch size, settled value, how many reconcile exactly and
-how many need review. Everything it reports comes from chain arithmetic and the deterministic
+scoped to one transaction, one date or the anomaly check. Two more cover what a controller asks
+first: `summarise_batch` for batch size, settled value, how many reconcile exactly and how many need
+review, and `settlements_by_date` for when money actually lands, which groups settlements by day and
+names the busiest one. Everything they report comes from chain arithmetic and the deterministic
 matching engine, never from the generator's labels.
 
 The mock provider routes the same tools through a keyword list, which makes it a real baseline rather
-than a strawman, and a test asserts the held-out question bank contains none of that vocabulary.
+than a strawman, and a test asserts the held-out question bank contains none of that vocabulary. It
+gets no cue for the date-grouping tool: its date regex already reaches the phrasing its author saw,
+and inventing one for "busiest payout day" would hand the baseline a word it never earned.
 
 ## Other loops
 
