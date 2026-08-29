@@ -1,10 +1,21 @@
 # Settlement Reconciliation Copilot
 
-Razorpay AI Buildathon 2026, Track 04. Reconciles merchant ledger data against Razorpay settlement
-data, locates which hop in a transaction's causal chain broke, and auto-resolves only what it has
-measured itself accurate on.
+Razorpay AI Buildathon 2026, Track 04.
+
+## Who this is for
+
+A merchant's finance analyst on the Tuesday after a settlement cycle. They have a Razorpay settlement
+report, a bank statement, and their own ERP ledger, and the three do not agree. Their day is spent
+deciding which mismatches are explained, which need a human, and which are money someone owes them.
+
+This system does that triage. It closes 98.9% of a realistic batch deterministically, escalates what
+genuinely needs judgment with the evidence attached, and refuses to auto-resolve anything it has not
+measured itself accurate on. It also audits the fee against the merchant's contract, which
+reconciliation never does, because a wrongly-charged fee reconciles perfectly.
 
 Live: [razorpay-buildathon-five.vercel.app](https://razorpay-buildathon-five.vercel.app)
+
+## Where AI belongs, measured rather than asserted
 
 Every category I built for the model to handle fell to a rule I wrote afterwards. `netting_trap` to a
 20-line check. `multiway_netting_trap` to a hash table. `narration_explained` to a keyword scan. Three
@@ -17,6 +28,11 @@ explanations, or none. A case a rule could solve is taken by the rule, so it can
 model's accuracy figure. With k valid explanations, blind choice scores exactly 1/k, so the baseline
 is computed rather than argued.
 
+The economics follow from the same fact. Deterministic matching runs at 27,531 tx/sec. A real model
+runs at 2.58 tx/sec, about 8,000 times slower. At 100,000 transactions a day, 98,900 resolve in under
+four seconds and the 1,100 that reach a model take 7 minutes. Running the model on everything would
+take 10.8 hours. The resolver is what makes both the economics and the accuracy figures work.
+
 ![Escalation queue with tool-call trace expanded](docs/screenshots/04-escalation-tool-trace.png)
 *A real escalated case, with the tool calls and results behind it.*
 
@@ -24,8 +40,8 @@ is computed rather than argued.
 
 I wrote the strongest rule I could: fragment splitting, cause keywords, and a 29-entry negation-cue
 list assembled with full sight of the generator's phrasing. Then I tested both readers on held-out
-phrasing the cue list has never seen, keeping the domain vocabulary intact so the rule could not fail
-on a missing synonym.
+phrasing the cue list has never seen, with the domain vocabulary intact so the rule could not fail on
+a missing synonym.
 
 | Reader | Phrasing its author saw | Held-out phrasing |
 |---|---|---|
@@ -43,19 +59,31 @@ Wrong, but safe.
 
 ## Where that does and does not pay
 
-On the compound residual, a free heuristic that ignores the advice entirely scores 31.7% against the
-14b reader's 26.7%. The paired test gives p = 0.55, so parsimony is at least as good and the
-difference is not distinguishable at n=60. Reading did not help where it competes with a structural
-prior.
+On the compound residual, a free heuristic that ignores the advice scores 31.7% against the 14b
+reader's 26.7%. The paired test gives p = 0.55, so parsimony is at least as good. Reading did not help
+where it competes with a structural prior.
 
-On three-source matching, every structured field is exhausted by construction, and the free-text
-settlement cycle is all that remains. Same matcher, same filters, same weights; only the cycle reader
-changes. On held-out phrasing the regex scores 88.0%, identical to not parsing the cycle at all. The
-local model scores 94.0%, winning 13 paired cases and losing 4 (exact McNemar p = 0.049).
+On three-source matching, every structured field is exhausted by construction and only the free-text
+settlement cycle remains. Same matcher, same weights; only the cycle reader changes. On held-out
+phrasing the regex scores 88.0%, identical to not parsing at all. The local model scores 94.0%,
+winning 13 paired cases and losing 4 (exact McNemar p = 0.049).
 
-When free text is one signal among several, the model does not pay for itself. When the structured
-fields are exhausted and text is the only evidence left, it is worth 6 points and the rule is worth
-zero.
+When free text is one signal among several, the model does not pay for itself. When it is the only
+evidence left, it is worth 6 points and the rule is worth zero.
+
+## Money the merchant is already losing
+
+Reconciliation compares the settlement against the records. It never compares the fee against the
+merchant's contract, so a fee charged at the wrong rate reconciles cleanly forever. Neither Razorpay
+Recon nor Settlement Insights performs that check.
+
+Three patterns ship: a card-grade rate applied to UPI, GST computed on the gross amount instead of the
+fee, and a wrong GST slab. False positive rate is **0 across 51,000** ordinary transactions, in 0.06s.
+That is what makes it safe to run unattended.
+
+GST on the gateway fee is Input Tax Credit the merchant can claim, normally buried in one "gateway
+charges" ledger line. The ERP export splits it onto its own line per transaction. Not an exception to
+investigate; money lost on transactions that reconciled correctly.
 
 Full numbers with reproduce commands: [RESULTS.md](docs/RESULTS.md).
 
@@ -78,11 +106,16 @@ Full list: [LIMITATIONS.md](docs/LIMITATIONS.md).
 
 ## What broke
 
-I published a timing table comparing three algorithms that only ever ran one. A Groq column scored
-identically to its baseline in both conditions because a missing API key was being swallowed as "no
-reading available". I overstated a result against my own architecture off a three-case difference.
+A hosted-model column scored byte-identical to its baseline in both conditions. A missing API key was
+raising on every call, the retry wrapper saw no rate-limit string, and it returned "no reading
+available". Three hundred silent failures look exactly like a model that reads nothing. I was one edit
+from publishing "gpt-oss-20b buys nothing" as a fact about the model. The tell was the three-decimal
+match to the baseline. Non-rate-limit errors now propagate instead of degrading to `None`.
 
-Ten incidents: [WHAT_BROKE.md](docs/WHAT_BROKE.md).
+Also: a timing table comparing three algorithms that only ever ran one, and a result I overstated
+against my own architecture off a three-case difference.
+
+Ten incidents with sourced attribution: [WHAT_BROKE.md](docs/WHAT_BROKE.md).
 
 ## Get it running
 

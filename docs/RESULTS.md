@@ -11,9 +11,9 @@ See `app/calibration/significance.py`.
 ## Reading remittance advice: model vs. regex
 
 Measured in isolation rather than inferred from end-to-end accuracy. The keyword baseline is two
-separable stages: read the advice into assertions, then score every valid decomposition against them.
-Stage two is bookkeeping a rule does perfectly. Only stage one is compared here, against ground truth
-the generator records itself.
+stages: read the advice into assertions, then score every valid decomposition against them. Stage two
+is bookkeeping a rule does perfectly. Only stage one is compared, against ground truth the generator
+records itself.
 
 The rule is written to win: fragment splitting, cause keywords, and a 29-entry negation-cue list
 assembled with full sight of the generator's phrasing.
@@ -94,19 +94,16 @@ shuffled option list.
 59 to 60 under-determined cases per condition. The true answer was inside the 40-option window in
 every one.
 
-Three findings.
-
 The keyword rule collapses to near-chance on held-out phrasing: 8.3% against a 6.1% floor.
 
 Handing the model the whole option list scores at chance. Layer 0 has already done the arithmetic, so
 asking the model to re-derive a subset-sum over 30 candidates is the one thing it is worst at.
 Splitting the job so the model only reads takes 7b from 5.1% to 25.4% on identical data.
 
-On held-out phrasing, parsimony scores 31.7% against the 14b reader's 26.7%. An earlier version of
-this file said parsimony beat every reader. The paired test on those same cases gives 7 discordant one
-way and 4 the other, p = 0.55. Parsimony is at least as good, and the difference is not
-distinguishable at n=60. What is clear is that reading did not help where it competes with a
-structural prior.
+Parsimony scores 31.7% against the 14b reader's 26.7%. An earlier version of this file said parsimony
+beat every reader. The paired test gives 7 discordant one way and 4 the other, p = 0.55. Parsimony is
+at least as good, and the difference is not distinguishable at n=60. Reading did not help where it
+competes with a structural prior.
 
 Reproduce: `python scripts/generate_residual_evidence.py`. Raw:
 [`residual-architecture-2026-08-29.json`](evidence/residual-architecture-2026-08-29.json),
@@ -114,8 +111,8 @@ Reproduce: `python scripts/generate_residual_evidence.py`. Raw:
 
 ## Why the ambiguity is not a tolerance knob
 
-The obvious objection is that tolerance-based matching manufactured the under-determination. The row
-worst for the architecture is zero rounding noise and zero tolerance, exact integer arithmetic.
+The objection is that tolerance-based matching manufactured the under-determination. The row worst for
+the architecture is zero rounding noise and zero tolerance, exact integer arithmetic.
 
 | Noise | Tolerance | Resolved | Under-determined | Unmatched | Median k | True answer recovered |
 |---|---|---|---|---|---|---|
@@ -124,13 +121,13 @@ worst for the architecture is zero rounding noise and zero tolerance, exact inte
 | 3 | 0 | 5 | 48 | 7 | 3 | 10/60 |
 | 3 | 10 | 1 | 59 | 0 | 22 | 60/60 |
 
-At exact match with no tolerance, 51 of 60 compound cases are still under-determined. Compositionality
-does that. Tolerance amplifies it. This is a standing test, `test_compositionality_alone_...`.
+At exact match with no tolerance, 51 of 60 compound cases are still under-determined.
+Compositionality does that; tolerance amplifies it. Standing test:
+`test_compositionality_alone_makes_it_under_determined`.
 
-The recovery column is what makes the rest meaningful. If Layer 0's candidate set did not contain the
-truth, "the model chose wrong" and "the right answer was never on the table" would be
-indistinguishable. It also found a real bug: percentage candidates computed off the post-fee hop
-instead of the captured amount, giving 11/60.
+The recovery column is what makes the rest meaningful. Without it, "the model chose wrong" and "the
+right answer was never on the table" are indistinguishable. It found a real bug: percentage candidates
+computed off the post-fee hop, giving 11/60.
 
 ## Cascade routing
 
@@ -154,27 +151,76 @@ is trivially satisfied, tie count measures the wrong quantity.
 Reproduce: `python scripts/generate_cascade_evidence.py`. Raw:
 [`cascade-routing-2026-08-29.json`](evidence/cascade-routing-2026-08-29.json).
 
+## Fee leakage and GST on fees
+
+A transaction can reconcile perfectly and still have been charged wrongly. Reconciliation compares the
+settlement against the records. It never compares the fee against the merchant's contract, so a fee
+charged at the wrong rate reconciles cleanly forever. Neither Razorpay Recon nor Settlement Insights
+performs that check.
+
+Three patterns ship (`app/feeleak/detector.py`):
+
+| Pattern | What it catches | Found in a 20-transaction sample |
+|---|---|---|
+| `blended_rate_overcharge` | a flat card-grade rate applied to UPI or netbanking | 7 |
+| `gst_wrong_base` | GST computed on the gross captured amount instead of the fee | 7 |
+| `gst_wrong_rate` | a real GST slab applied instead of 18% | 6 |
+
+On that sample: ₹1,497.40 recoverable in fees and ₹15,181.65 in miscalculated tax, against 0.58% of
+sample value. The amounts are synthetic. The rates are not: `FEE_PCT` and `GST_RATE` are the contract
+the detector checks against, and the same comparison runs against a real merchant's real contracted
+rates unchanged.
+
+False positive rate: **0 across 51,000** ordinary transactions spanning every category the generator
+produces, in 0.06s of detection time. That property is what makes the check safe to run unattended.
+It is a pure arithmetic pass with no per-transaction state, so scanning 200 times more data costs
+nothing (`test_zero_false_positives_against_every_existing_category`).
+
+Separately, GST on the gateway fee is Input Tax Credit the merchant can claim, and it is routinely
+buried inside a single "gateway charges" ledger line where no accountant will find it.
+`app/erp/journal.py` splits it into its own ITC-eligible line on every transaction: ₹2,139.72 across a
+120-transaction batch. That is not an exception to investigate. It is money already lost on
+transactions that reconciled correctly.
+
+## Throughput, and why the model is only allowed on the residual
+
+| | Deterministic tx/sec | Closed without a model | Reaching a model |
+|---|---|---|---|
+| demo density, 60% clean | 20,953 | 85.0% | 15.0% |
+| realistic density, 97% clean | 27,531 | 98.9% | 1.1% |
+
+Chains plus matching over 50,000 transactions. A real settlement batch is overwhelmingly clean; the
+demo default is deliberately denser so every category is exercised at small n.
+
+A real model runs at 2.58 tx/sec, roughly 8,000 times slower. That gap is the argument for the
+architecture rather than an objection to it. For a merchant at 100,000 transactions a day at realistic
+density, 98,900 resolve deterministically in under four seconds, and the 1,100 that reach a model take
+about 7 minutes. At the demo's inflated exception rate the same day costs 97 minutes.
+
+Running the model on everything would take 10.8 hours. The resolver is what makes the economics work,
+and it is also what makes the accuracy figures mean anything.
+
 ## Core reconciliation
 
 | Claim | Number |
 |---|---|
 | Match rate, real provider | 99.3% of settlement value, 7 escalations of 120 |
 | Match rate, mock provider | 86.0%, 18 escalations of 120 |
-| Throughput | 5,508 tx/sec mock at 50k scale; 2.58 tx/sec with a real LLM |
+| Throughput | see the throughput section above |
 | `netting_trap` | 59 distinct real cases, 98.3% [91.0, 99.7] |
 | `duplicate_refund` | 37 distinct real cases, 100% [90.6, 100.0] |
 | `genuine_error` | 66 distinct real cases, 80.3% [69.2, 88.1], never auto-resolves by design |
-| Auto-resolved with no human review | ₹4,86,473.13 across 59 distinct cases |
+| Auto-resolved with no human review | 59 distinct cases, ₹4,86,473.13 of synthetic value |
 | Adversarial stress batch | 40/40 handled, 0 wrongly auto-resolved |
 
 Reproduce: `python scripts/audit_calibration.py --db ../docs/evidence/verified_calibration_history.db`.
 
-After 8 accumulated Ollama batches, `netting_trap` cleared the 90% trust threshold and
-`duplicate_refund` did the same separately. `genuine_error` sat at 80.3% and stayed escalated, because
-no accuracy figure makes auto-resolving an admittedly-unexplained case correct.
+Every rupee figure here is generated. The mechanism is the claim; the amounts illustrate it.
 
-A 20-line rule with zero LLM calls scores 519/519 on those three categories. That is why the LLM's
-value there is reliability under failure, not judgment.
+After 8 accumulated Ollama batches, `netting_trap` and `duplicate_refund` each cleared the 90% trust
+threshold. `genuine_error` sat at 80.3% and stayed escalated, because no accuracy figure makes
+auto-resolving an admittedly-unexplained case correct. A 20-line rule with zero LLM calls scores
+519/519 on those three categories, which is why the LLM's value there is reliability under failure.
 
 ## Everything else
 
@@ -182,7 +228,6 @@ value there is reliability under failure, not judgment.
 |---|---|---|
 | Time-to-revocation drill | 1 wrong decision revoked a category, aggregate still 97.6% | `curl -X POST localhost:8000/api/drift/drill -H 'Content-Type: application/json' -d '{}'` |
 | Realized regret | ₹0 across 8 real auto-resolved transactions | `GET /api/regret` |
-| Fee leak, seed 42 n=20 | ₹1,497.40 recoverable, ₹15,181.65 miscalculated tax, 0 false positives in 260 | `test_fee_leak.py` |
 | GSTR-2B match | 120 matched, 30 exceptions across 3 disjoint kinds | `GET /api/gstr2b` |
 | Forecaster, n=30 | 9.1% MAPE, 93.3% interval coverage | `GET /api/forecast/backtest` |
 | Blind backtest, seeds 1–20 | MAPE 0.11%, coverage 56.5% (range 3%–100%) | `GET /api/forecast/blind-backtest` |

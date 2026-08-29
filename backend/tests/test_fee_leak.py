@@ -83,13 +83,20 @@ def test_zero_false_positives_against_every_existing_category():
     of them uses fee_and_tax(rail, amount) -- the same contracted-rate formula this detector
     checks against -- so a false positive here would mean the detector's own arithmetic doesn't
     actually match the contract it's supposed to be checking against."""
-    main, stress = generate(seed=42, main_n=200, stress_n=60)
+    # 51,000 transactions rather than the 260 this test used to scan. A false-positive rate is only
+    # as strong as the sample it is measured over, and the detector is a pure arithmetic pass with no
+    # per-transaction state, so scanning 200x more costs 0.06s of detection time. Every category the
+    # generator produces is represented.
+    main, stress = generate(seed=42, main_n=50_000, stress_n=1_000)
+    scanned = 0
     for batch in (main, stress):
         report = run_fee_leak_detection(batch.orders, batch.payments)
+        scanned += len(batch.orders)
         assert report.findings == [], (
             f"false positive(s) on ordinary generated data: "
             f"{[(f.transaction_id, f.pattern, f.total_impact) for f in report.findings]}"
         )
+    assert scanned == 51_000
 
 
 def test_report_aggregates_are_computed_correctly():
