@@ -1,6 +1,6 @@
 # What broke, and how it was fixed
 
-Nineteen incidents, chosen from a much longer chronological journal ([`BUILD_LOG.md`](../BUILD_LOG.md))
+Twenty incidents, chosen from a much longer chronological journal ([`BUILD_LOG.md`](../BUILD_LOG.md))
 as the ones that actually changed how the system works, or how it was built. Same fixed format
 throughout — symptom, root cause, fix, and the test that would now catch it.
 
@@ -13,23 +13,24 @@ you can drop into whichever ones are actually worth your time.
 |---|---|---|
 | 1 | Published evidence described three algorithms while only ever running one | evidence integrity |
 | 2 | A cascade router built on an escalation signal that can never fire | routing design |
-| 3 | A candidate pool full of plausible numbers that never contained the true ones | resolver |
-| 4 | My own prompt didn't implement my own architecture, and I blamed the model first | prompt design |
-| 5 | The same unguarded-boundary pattern recurred five times across two subsystems | narrator + API |
-| 6 | The flagship experiment's own methodology was weak, caught by re-reading its evidence | experiment design |
-| 7 | A brute-force timing experiment's construction defeated what it was measuring | benchmarking |
-| 8 | A live model got the arithmetic right and the category wrong; one sentence fixed it | prompt design |
-| 9 | Mock decisions could ride on trust a real provider had earned | calibration gate |
-| 10 | A test suite was silently erasing the live demo's accumulated history | test isolation |
-| 11 | Re-running the same batch could manufacture "trust" with zero new evidence, twice | calibration |
-| 12 | An architecture change was measured before being kept, and it made things worse | performance |
-| 13 | Eleven rounds of fail-safe fixes assumed a failing call would raise something | timeouts |
-| 14 | A regulatory citation had gone stale three weeks before I checked it | domain accuracy |
-| 15 | An integration spec named a Razorpay endpoint that doesn't exist | API research |
-| 16 | The real Razorpay connector crashed on a real API response shape | connector |
-| 17 | One specific batch size silently generated one transaction too many | generator |
-| 18 | A fix that looked done still regressed the behaviour it was meant to improve | verification |
-| 19 | A hang that wasn't a hang — real rate-limiting, diagnosed from network state | diagnosis |
+| 3 | A 10/10 result was a small-sample artefact; raising n moved it 16 points | measurement |
+| 4 | A candidate pool full of plausible numbers that never contained the true ones | resolver |
+| 5 | My own prompt didn't implement my own architecture, and I blamed the model first | prompt design |
+| 6 | The same unguarded-boundary pattern recurred five times across two subsystems | narrator + API |
+| 7 | The flagship experiment's own methodology was weak, caught by re-reading its evidence | experiment design |
+| 8 | A brute-force timing experiment's construction defeated what it was measuring | benchmarking |
+| 9 | A live model got the arithmetic right and the category wrong; one sentence fixed it | prompt design |
+| 10 | Mock decisions could ride on trust a real provider had earned | calibration gate |
+| 11 | A test suite was silently erasing the live demo's accumulated history | test isolation |
+| 12 | Re-running the same batch could manufacture "trust" with zero new evidence, twice | calibration |
+| 13 | An architecture change was measured before being kept, and it made things worse | performance |
+| 14 | Eleven rounds of fail-safe fixes assumed a failing call would raise something | timeouts |
+| 15 | A regulatory citation had gone stale three weeks before I checked it | domain accuracy |
+| 16 | An integration spec named a Razorpay endpoint that doesn't exist | API research |
+| 17 | The real Razorpay connector crashed on a real API response shape | connector |
+| 18 | One specific batch size silently generated one transaction too many | generator |
+| 19 | A fix that looked done still regressed the behaviour it was meant to improve | verification |
+| 20 | A hang that wasn't a hang — real rate-limiting, diagnosed from network state | diagnosis |
 
 ### Published evidence described three algorithms while only ever running one
 
@@ -75,6 +76,28 @@ measures the wrong quantity. The module ships as measured with this result in
 **Prevented:** `test_cascade_tier0_absorbs_only_when_the_advice_actually_discriminated` asserts the
 tie gate does *something* rather than absorbing everything — it did not, and could not, catch that
 the thing it does is not the thing that matters.
+
+---
+
+### A 10/10 result was a small-sample artefact, and raising n moved it 16 points
+
+**Symptom:** `narration_explained` — the category built specifically to need reading — was published
+at **Ollama 10/10**, a clean sweep, measured across 5 seeds.
+
+**Root cause:** Five seeds. A reviewer pointed out the obvious statistical objection: 10/10 has a 95%
+Wilson lower bound of 72.2%, so "10/10" and "accurate enough to trust" are not the same claim, and
+writing the first as though it were the second is the error. I had treated a small sample as a
+result.
+
+**Fix:** Raised the real-provider sample to 30 seeds. The honest number is **175/209 = 83.7%**
+(Wilson [78.1%, 88.1%]). Note what happened: raising n did not just tighten the interval, it moved the
+point estimate down **16.3 points**. Reporting a wider interval around 100% would still have been
+wrong. Every one of the 34 misses is the model answering `genuine_error` — failing to find the
+explanation and saying so rather than inventing one, which escalates safely — but 83.7% is what the
+category scores. Mock's structural failure was re-confirmed at n=143, upper bound 2.6%.
+
+**Prevented:** Nothing automated catches "this sample is too small to publish"; the guard is the habit
+of quoting an interval next to every accuracy figure, which this file's tables now do.
 
 ---
 

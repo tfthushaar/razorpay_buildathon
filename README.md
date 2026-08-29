@@ -170,8 +170,10 @@ Full list: [LIMITATIONS.md](docs/LIMITATIONS.md).
   had already solved, then presented the options in an order that leaked the answer through position.
 - I built a cascade router on an escalation signal that can never fire — in choice mode a verified
   answer is verified by construction, so the gate was structurally dead.
+- A 10/10 result I'd published was a small-sample artefact: raising the sample from 5 seeds to 30
+  moved it from 100% to 83.7%, so a wider interval alone would still have been wrong.
 
-Nineteen incidents, fixed format: [WHAT_BROKE.md](docs/WHAT_BROKE.md).
+Twenty incidents, fixed format: [WHAT_BROKE.md](docs/WHAT_BROKE.md).
 
 ## Get it running
 

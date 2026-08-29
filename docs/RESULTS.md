@@ -470,14 +470,25 @@ free-text remarks field (`Settlement.bank_narration`, eight varied, realisticall
 never by any structured field or delta-arithmetic a rule could check at any scale, not even the
 combinatorial `multiway_netting_trap` machinery.
 
-| Provider | Accuracy |
-|---|---|
-| mock | 0/64 — never calls `read_bank_narration`, structural |
-| Ollama (`qwen2.5:7b-instruct`) | **10/10** |
+| Provider | Accuracy | 95% Wilson interval |
+|---|---|---|
+| mock | 0/143 — never calls `read_bank_narration`, structural | [0.0%, 2.6%] |
+| Ollama (`qwen2.5:7b-instruct`) | **175/209 = 83.7%** | [78.1%, 88.1%] |
+
+**This number replaces a 10/10 I previously published, and the correction is the point.** A reviewer
+made the fair observation that 10/10 has a 95% Wilson lower bound of 72.2%, so "10/10" and "good
+enough to trust" are not the same claim. Raising the sample from 5 seeds to 30 did not merely tighten
+the interval — it moved the estimate **16.3 points**, from 100% to 83.7%. The original figure was a
+small-sample artefact, and a wider interval alone would have understated how misleading it was.
+
+Every one of the 34 misses is the same shape: the model answered `genuine_error`, i.e. it failed to
+find the explanation in the narration and said so rather than inventing one. That is the safe
+direction — those cases escalate to a human — but 83.7% is what this category actually scores, not a
+clean sweep.
 
 No tool-design tension here (unlike the held-out variants above) — reading comprehension over free
-text has no strict-verification step to conflict with, so the model's own capability is free to work,
-cleanly.
+text has no strict-verification step to conflict with. Mock's failure is structural and now confirmed
+at n=143 with an upper bound of 2.6%.
 
 Reproduce: `python scripts/generate_narration_explained_evidence.py`. Raw evidence:
 [`narration-explained-evidence-2026-08-29.json`](evidence/narration-explained-evidence-2026-08-29.json).
