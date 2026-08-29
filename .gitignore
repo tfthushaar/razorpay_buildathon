@@ -15,6 +15,9 @@ frontend/.vite/
 .env
 .env.*
 !.env.example
+# Holds a provider name, not a secret, and it has to ship or the deployed build falls back to the
+# local default (ollama), which the hosted backend cannot run. See frontend/src/components/RunControls.tsx.
+!frontend/.env.production
 
 # Data / DB (generated, not source)
 backend/data/*.db
