@@ -5,6 +5,10 @@ import { rupees } from "../formatters";
 export function FeeLeakAnalysis({ result }: { result: BatchRunResult }) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  // Every finding rendered at once made this panel about a fifth of the page. The count and the
+  // recovered total are the point; the individual rows are for someone who wants to check one.
+  const [showAll, setShowAll] = useState(false);
+  const VISIBLE = 6;
 
   // Backend already sorts by -abs(total_impact) (app/feeleak/detector.py) -- re-sorting here
   // defensively rather than trusting it blindly, since a sort defined once in the API contract is
@@ -52,7 +56,7 @@ export function FeeLeakAnalysis({ result }: { result: BatchRunResult }) {
             </div>
           </div>
           <ul className="fee-leak-list">
-            {findings.map((f) => {
+            {(showAll ? findings : findings.slice(0, VISIBLE)).map((f) => {
               const isOpen = expandedId === f.transaction_id;
               return (
                 <li key={f.transaction_id} className={`fee-leak-row${isOpen ? " is-open" : ""}`}>
@@ -90,6 +94,11 @@ export function FeeLeakAnalysis({ result }: { result: BatchRunResult }) {
               );
             })}
           </ul>
+          {findings.length > VISIBLE && (
+            <button type="button" className="secondary-button show-all-toggle" onClick={() => setShowAll((v) => !v)}>
+              {showAll ? `Show top ${VISIBLE}` : `Show all ${findings.length} findings`}
+            </button>
+          )}
         </>
       )}
     </section>

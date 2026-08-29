@@ -211,3 +211,77 @@ table {
   background: #fdecea;
   color: #a4262c;
 }
+
+/* --- Section headings and control grouping ---------------------------------------------------
+   Twelve equal-weight panels gave a reader no way to tell the work product from the diagnostics.
+   These group them and say what each group is for. */
+.section-heading {
+  margin: 2.5rem 0 0.25rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 2px solid var(--border, #e2e2e8);
+}
+.section-heading h2 {
+  margin: 0;
+  font-size: 1.15rem;
+  letter-spacing: -0.01em;
+}
+.section-heading p {
+  margin: 0.35rem 0 0;
+  font-size: 0.86rem;
+  opacity: 0.7;
+  max-width: 68ch;
+  line-height: 1.5;
+}
+
+/* The six injection toggles are opt-in extras. Folded away so a first run is four fields and a
+   button, not a wall of jargon. */
+.advanced-options {
+  margin-top: 1rem;
+  border-top: 1px solid var(--border, #e2e2e8);
+  padding-top: 0.85rem;
+}
+.advanced-options > summary {
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.9rem;
+  padding: 0.3rem 0;
+  user-select: none;
+  list-style: revert;
+}
+.advanced-options > summary:hover {
+  color: #3b3bd4;
+}
+.advanced-options .panel-sub {
+  margin: 0.4rem 0 0.85rem;
+  max-width: 72ch;
+}
+.advanced-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+  gap: 0.55rem 1.25rem;
+}
+.advanced-grid .checkbox-label {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  font-size: 0.87rem;
+  line-height: 1.35;
+  padding: 0.3rem 0;
+  cursor: help;
+}
+.advanced-grid .checkbox-label input {
+  margin-top: 0.15rem;
+  flex: 0 0 auto;
+}
+
+/* Run is the primary action on this panel and should read that way. */
+.run-controls .run-button {
+  align-self: end;
+  min-height: 2.6rem;
+  padding-inline: 1.6rem;
+  font-weight: 600;
+}
+
+.show-all-toggle {
+  margin-top: 0.75rem;
+}

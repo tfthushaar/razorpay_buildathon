@@ -997,11 +997,35 @@ button:disabled {
   opacity: 1;
 }
 
-.tour-entry-pill {
+.tour-entry-pill-wrap {
   position: fixed;
   right: 24px;
   bottom: 24px;
   z-index: 50;
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+  animation: reveal-in 0.3s ease-out both;
+}
+
+.tour-entry-dismiss {
+  background: var(--ink);
+  color: white;
+  border: none;
+  border-radius: 999px;
+  width: 30px;
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: var(--shadow-md);
+  opacity: 0.85;
+}
+
+.tour-entry-dismiss:hover {
+  opacity: 1;
+}
+
+.tour-entry-pill {
   background: var(--ink);
   color: white;
   border: none;
@@ -1010,7 +1034,7 @@ button:disabled {
   font-size: 0.82rem;
   font-weight: 600;
   box-shadow: var(--shadow-md);
-  animation: reveal-in 0.3s ease-out both;
+  cursor: pointer;
 }
 
 .tour-entry-pill:hover {

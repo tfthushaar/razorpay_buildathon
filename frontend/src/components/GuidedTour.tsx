@@ -84,10 +84,24 @@ export function GuidedTour({ hasEscalations, resolveSignal }: Props) {
 
   if (!active) {
     if (dismissedForGood) return null;
+    // The pill is fixed to the bottom-right and sits over the page permanently. Dismissal used to be
+    // reachable only by opening the tour first, so anyone who did not want it had no way to get rid
+    // of it while it covered the escalation cards underneath.
     return (
-      <button type="button" className="tour-entry-pill" onClick={() => { setStep(0); setActive(true); }}>
-        ▸ See how escalate → resolve → recalibrate works (30s)
-      </button>
+      <div className="tour-entry-pill-wrap">
+        <button type="button" className="tour-entry-pill" onClick={() => { setStep(0); setActive(true); }}>
+          ▸ See how escalate → resolve → recalibrate works (30s)
+        </button>
+        <button
+          type="button"
+          className="tour-entry-dismiss"
+          aria-label="Dismiss the guided tour"
+          title="Dismiss"
+          onClick={() => setDismissedForGood(true)}
+        >
+          ×
+        </button>
+      </div>
     );
   }
 

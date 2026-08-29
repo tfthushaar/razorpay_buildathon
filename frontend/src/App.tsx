@@ -17,6 +17,7 @@ import { SettlementQA } from "./components/SettlementQA";
 import { RevocationDrill } from "./components/RevocationDrill";
 import { BreakItPanel } from "./components/BreakItPanel";
 import { GuidedTour } from "./components/GuidedTour";
+import { SectionHeading } from "./components/SectionHeading";
 import "./App.css";
 
 function App() {
@@ -88,7 +89,6 @@ function App() {
       </header>
 
       <RunControls onRun={handleRun} loading={loading} error={error} />
-      <BreakItPanel />
 
       {result && (
         <div className="stale-wrap" data-stale={showStale ? "true" : "false"}>
@@ -99,16 +99,15 @@ function App() {
             </div>
           )}
           <SummaryTiles result={result} refreshKey={refreshKey} />
-          <div className="two-column">
-            <BaselineComparison result={result} />
-            <StressScorecard stress={result.stress} />
-            {result.residual && <ResidualPanel residual={result.residual} />}
-          </div>
-          <FeeLeakAnalysis result={result} />
-          <ForecastPanel refreshKey={refreshKey} />
-          <ErpExport result={result} />
-          <CalibrationPanel initialReport={result.calibration} refreshKey={refreshKey} onReportChange={setLiveCalibration} />
-          <RevocationDrill />
+
+          {/* Ordering is the analyst's, not the build's. What lands on someone's desk comes first:
+              the queue of exceptions they have to work, then the money nobody else is looking for.
+              The evidence a reviewer wants sits below that, and the developer tools sit below THAT.
+              A raw-JSON textarea used to be the second thing on this page, above every result. */}
+          <SectionHeading
+            title="Your queue"
+            subtitle="What this batch needs a human for, and what it found that reconciliation never looks at."
+          />
           <EscalationQueue
             escalations={result.escalations}
             runId={result.run_id}
@@ -119,6 +118,37 @@ function App() {
             liveAutoResolveCategories={liveAutoResolveCategories}
             categoryProposals={result.category_proposals}
           />
+          <FeeLeakAnalysis result={result} />
+
+          <SectionHeading
+            title="How much of this it is allowed to do alone"
+            subtitle="Autonomy is earned per category against a Wilson lower bound, and revoked the moment recent decisions regress."
+          />
+          <CalibrationPanel initialReport={result.calibration} refreshKey={refreshKey} onReportChange={setLiveCalibration} />
+          {result.residual && <ResidualPanel residual={result.residual} />}
+
+          <SectionHeading
+            title="Evidence it works"
+            subtitle="Measured against a naive baseline and an all-traps stress batch, neither of which the system gets to choose."
+          />
+          <div className="two-column">
+            <BaselineComparison result={result} />
+            <StressScorecard stress={result.stress} />
+          </div>
+
+          <SectionHeading
+            title="Looking forward, and out to the books"
+            subtitle="What is due to settle, and the journal that carries it into the merchant's accounting system."
+          />
+          <ForecastPanel refreshKey={refreshKey} />
+          <ErpExport result={result} />
+
+          <SectionHeading
+            title="Try to break it"
+            subtitle="Everything below is for probing the system rather than using it. Hand-craft a scenario, force a revocation, ask questions, read the audit trail."
+          />
+          <BreakItPanel />
+          <RevocationDrill />
           <SettlementQA key={refreshKey} />
           <AuditLogView runId={result.run_id} refreshKey={refreshKey} />
         </div>
