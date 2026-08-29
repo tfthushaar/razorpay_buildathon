@@ -262,6 +262,11 @@ not a before-and-after: the question set changed at the same time as the toolset
 closed the one question no provider could answer, and three questions were added. What the new run
 measures is nine questions against the current tools.
 
+Per question, held-out, the model now takes `busiest_date` 5/5 where it previously scored 0/5, which
+is the tool arriving. It still scores 0/5 on `needs_review_count`, `sla_breach_count` and
+`discrepancy_count`. Those three have a tool that can answer them, so the miss is comprehension rather
+than capability, and it is the honest ceiling on this column.
+
 The rule is the better instrument on questions phrased the way I wrote it, and answers none at all
 once the wording changes: "what is the size of this run" fires no cue, so no tool runs. Citation
 overlap moves the same way, 0.67 to 0.01 against the model's 0.93 to 0.56.
