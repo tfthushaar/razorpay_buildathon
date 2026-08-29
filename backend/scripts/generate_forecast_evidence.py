@@ -39,7 +39,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from app.data_gen.generate import generate  # noqa: E402
 from app.forecast.calibrated_interval import NOMINAL_LEVELS, fit, reliability_curve  # noqa: E402
 from app.forecast.backtest import ape_panel  # noqa: E402
-from app.forecast.forecastability import assess_batch  # noqa: E402
+from app.forecast.forecastability import REFUSAL_REASONS, assess_batch  # noqa: E402
 from app.forecast.predictor import predict_settlement  # noqa: E402
 
 
@@ -225,6 +225,38 @@ def main() -> None:
     print(f"  settlements landing on a weekend: {weekend_share:.1%} (uniform would be 28.6%)")
     print("  no weekday structure to exploit; a business-day adjustment would model nothing here")
 
+    # --- do the other four refusal reasons work on a generated batch ---------------------------
+    # Until now only refund_in_flight had ever fired outside a hand-built object, so the whole
+    # measured effect of refusing rested on one reason out of five. generate_pending_batch's
+    # edge_case_ratio (default 0.0, so no committed number moves) produces the other four.
+    print("\n=== refusal reasons on a pending batch with edge cases ===")
+    from datetime import timedelta
+
+    from app.data_gen.generate import generate_pending_batch
+
+    pending = generate_pending_batch(seed=7, n=400, edge_case_ratio=0.4)
+    as_of = max(p_.captured_at for p_ in pending.payments) + timedelta(days=1)
+    pending_assessments = assess_batch(pending.orders, pending.payments, [], as_of=as_of)
+    fired: dict[str, int] = {}
+    for a in pending_assessments.values():
+        for r in a.reasons:
+            fired[r] = fired.get(r, 0) + 1
+    n_refused = sum(1 for a in pending_assessments.values() if not a.forecastable)
+    for reason in sorted(REFUSAL_REASONS):
+        count = fired.get(reason, 0)
+        if count:
+            status = "fires"
+        elif reason == "refund_in_flight":
+            status = "n/a here; needs a Refund, so it fires on the settled batch above"
+        else:
+            status = "still never fires"
+        print(f"  {reason:<22} {count:>4}  {status}")
+    print(f"  refused {n_refused} of {len(pending_assessments)} pending payments")
+
+    baseline = generate_pending_batch(seed=7, n=400)
+    baseline_refused = sum(1 for a in assess_batch(baseline.orders, baseline.payments, []).values() if not a.forecastable)
+    print(f"  same batch with edge_case_ratio=0.0 refuses {baseline_refused}, which is the shipped default")
+
     # --- throughput -------------------------------------------------------------------------------
     bench, _ = generate(seed=3, main_n=args.n, stress_n=0)
     order_by_id = {o.order_id: o for o in bench.orders}
@@ -248,6 +280,15 @@ def main() -> None:
             "note": "post-hoc attribution against the generator's answer key, which the forecaster never sees",
             "amount_wrong": dict(sorted(amount_miss.items(), key=lambda kv: -kv[1])),
             "date_missed": dict(sorted(date_miss.items(), key=lambda kv: -kv[1])),
+        },
+        "refusal_reasons_exercised": {
+            "note": "generate_pending_batch(edge_case_ratio=0.4); the shipped default is 0.0 and refuses none of these",
+            "n_pending": len(pending_assessments),
+            "n_refused": n_refused,
+            "fired": dict(sorted(fired.items())),
+            "not_applicable_to_a_pending_batch": ["refund_in_flight"],
+            "still_never_fires": sorted(r for r in REFUSAL_REASONS if not fired.get(r) and r != "refund_in_flight"),
+            "default_ratio_refused": baseline_refused,
         },
         "banking_calendar_check": {
             "weekend_share_of_settlements": round(weekend_share, 4),

@@ -111,6 +111,25 @@ def _clean_count_truth(batch, chains, settled_at) -> GroundTruth:
     return GroundTruth(expected_number=sum(1 for c in chains.values() if c.settlement_delta == 0), expected_ids=set())
 
 
+def _sla_breach_truth(batch, chains, settled_at) -> GroundTruth:
+    """Settlements that landed outside the rail's SLA tolerance window."""
+    from app.qa.tools import summarise_batch
+
+    return GroundTruth(expected_number=summarise_batch(chains)["settled_outside_sla"], expected_ids=set())
+
+
+def _upi_count_truth(batch, chains, settled_at) -> GroundTruth:
+    """One rail's share of the batch. Tests whether a breakdown survives being asked about in prose."""
+    from app.qa.tools import summarise_batch
+
+    return GroundTruth(expected_number=summarise_batch(chains)["transactions_by_rail"].get("upi", 0), expected_ids=set())
+
+
+def _discrepancy_count_truth(batch, chains, settled_at) -> GroundTruth:
+    """The complement of `clean_count`, asked separately because a reader asks it separately."""
+    return GroundTruth(expected_number=sum(1 for c in chains.values() if c.settlement_delta != 0), expected_ids=set())
+
+
 def _batch_size_truth(batch, chains, settled_at) -> GroundTruth:
     return GroundTruth(expected_number=len(chains), expected_ids=set())
 
@@ -157,6 +176,24 @@ QUESTIONS: tuple[QuestionSpec, ...] = (
         seen="How many transactions are in this batch in total?",
         held_out="What is the size of this run?",
         truth=_batch_size_truth,
+    ),
+    QuestionSpec(
+        kind="sla_breach_count",
+        seen="How many transactions in total settled outside their SLA window?",
+        held_out="How many payouts arrived later than they were supposed to?",
+        truth=_sla_breach_truth,
+    ),
+    QuestionSpec(
+        kind="upi_count",
+        seen="How many transactions in this batch were settled over UPI?",
+        held_out="Of these payments, how many moved over the UPI rail?",
+        truth=_upi_count_truth,
+    ),
+    QuestionSpec(
+        kind="discrepancy_count",
+        seen="How many transactions in total show a mismatch against their records?",
+        held_out="How many payments came up short or long against what was expected?",
+        truth=_discrepancy_count_truth,
     ),
     QuestionSpec(
         kind="busiest_date",

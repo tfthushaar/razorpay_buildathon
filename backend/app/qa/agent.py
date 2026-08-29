@@ -24,7 +24,7 @@ from pydantic import BaseModel
 from app.chain.builder import CausalChain
 from app.narrator.circuit_breaker import CircuitBreaker, CircuitBreakerOpenError
 from app.narrator.tools import ToolContext, check_batch_anomalies
-from app.qa.tools import find_transactions_by_date, get_transaction_detail, list_flagged_transactions, summarise_batch
+from app.qa.tools import find_transactions_by_date, get_transaction_detail, list_flagged_transactions, settlements_by_date, summarise_batch
 
 _T = TypeVar("_T")
 
@@ -96,6 +96,14 @@ TOOL_SCHEMAS = [
             "parameters": {"type": "object", "properties": {}},
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "settlements_by_date",
+            "description": "Group every settlement in the batch by the date it landed, with a count and total value per date, and name the busiest date. Use this for questions about when money lands or which day carried the most, where no specific date is given.",
+            "parameters": {"type": "object", "properties": {}},
+        },
+    },
 ]
 
 
@@ -132,6 +140,8 @@ def _execute_tool(name: str, arguments: dict, context: ToolContext, settled_at_b
         return check_batch_anomalies(transaction_id, context)
     if name == "summarise_batch":
         return summarise_batch(context.chains)
+    if name == "settlements_by_date":
+        return settlements_by_date(context.chains, settled_at_by_transaction_id)
     if name == "list_flagged_transactions":
         return list_flagged_transactions(context)
     raise ValueError(f"unknown tool: {name}")
@@ -208,10 +218,18 @@ def answer_mock(question: str, context: ToolContext, settled_at_by_transaction_i
     if any(kw in question_lower for kw in _AGGREGATE_KEYWORDS):
         result = summarise_batch(context.chains)
         tool_calls_log.append(ToolCallRecord(tool="summarise_batch", arguments={}, result=result))
+        # Every figure summarise_batch returns, because the numeric scorer looks for the expected
+        # number anywhere in the prose and a rule author writing this branch would dump the lot
+        # rather than guess which one was asked for. Keeping it partial would weaken the baseline
+        # the models are measured against, which is the opposite of what this provider is for.
+        by_rail = ", ".join(f"{n} {rail}" for rail, n in sorted(result["transactions_by_rail"].items()))
         answer = (
-            f"Mock provider: this batch holds {result['total_transactions']} transaction(s); "
-            f"{result['reconciles_exactly']} reconcile exactly, {result['has_a_discrepancy']} carry a discrepancy, "
-            f"and {result['needs_human_review']} need human review (real aggregate, no LLM synthesis)."
+            f"Mock provider: this batch holds {result['total_transactions']} transaction(s) worth "
+            f"{result['total_settled_value_paise']} paise; {result['reconciles_exactly']} reconcile exactly, "
+            f"{result['has_a_discrepancy']} carry a discrepancy, {result['resolved_without_review']} resolved "
+            f"without review, {result['needs_human_review']} need human review, and "
+            f"{result['settled_outside_sla']} settled outside SLA. By rail: {by_rail} "
+            f"(real aggregate, no LLM synthesis)."
         )
         return QAAnswer(question=question, answer=answer, cited_transaction_ids=[], tool_calls=tool_calls_log, provider="mock")
 

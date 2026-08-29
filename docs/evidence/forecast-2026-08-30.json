@@ -117,6 +117,22 @@
       "netting_trap": 7
     }
   },
+  "refusal_reasons_exercised": {
+    "note": "generate_pending_batch(edge_case_ratio=0.4); the shipped default is 0.0 and refuses none of these",
+    "n_pending": 400,
+    "n_refused": 211,
+    "fired": {
+      "non_positive_net": 40,
+      "not_captured": 40,
+      "partial_capture": 80,
+      "sla_already_breached": 129
+    },
+    "not_applicable_to_a_pending_batch": [
+      "refund_in_flight"
+    ],
+    "still_never_fires": [],
+    "default_ratio_refused": 0
+  },
   "banking_calendar_check": {
     "weekend_share_of_settlements": 0.298,
     "uniform_expectation": 0.2857,
@@ -169,5 +185,5 @@
     },
     "verdict": "refusing improves one of MAPE and coverage, not both"
   },
-  "throughput_predictions_per_sec": 420645
+  "throughput_predictions_per_sec": 398557
 }

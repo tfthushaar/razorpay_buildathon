@@ -1159,7 +1159,7 @@ class SyntheticDataGenerator:
         self.rng.shuffle(batches)
         return self._merge(batches)
 
-    def generate_pending_batch(self, n: int = 10) -> PendingBatch:
+    def generate_pending_batch(self, n: int = 10, edge_case_ratio: float = 0.0) -> PendingBatch:
         """Orders + captured payments with NO settlement -- genuinely in-flight money, unlike
         every other batch this generator produces (all of which are "closed" by construction,
         since build_all_chains() requires a Settlement to exist). Reuses
@@ -1171,15 +1171,51 @@ class SyntheticDataGenerator:
         flight right now": nearly every one of them would already look overdue against a 1-5 day
         SLA window purely from the spread, not from anything genuinely wrong. Captures here are
         clustered in the last 0-2 days instead, the way an actual snapshot of unsettled payments
-        would look."""
+        would look.
+
+        `edge_case_ratio` defaults to 0.0, so every already-committed forecast evidence file still
+        describes the batch it was measured on. Above zero, that share is drawn from the four shapes
+        app/forecast/forecastability.py declines but this generator never produced, which left four
+        of its five refusal reasons implemented and never fired against a generated batch:
+
+            partial_capture       authorised, captured for less than the order amount
+            not_captured          authorised, never captured, so no amount or date to predict
+            non_positive_net      a fully reversed authorisation, captured for nothing
+            sla_already_breached  captured long enough ago that the tolerance ceiling is already past
+
+        Each is a real condition merchant data contains, and none needs a Settlement to detect. The
+        fifth reason, refund_in_flight, needs a Refund and so belongs to the settled batch, where it
+        already fires."""
         orders: list[Order] = []
         payments: list[Payment] = []
         recent_base = self.base_date + timedelta(days=self.rng.randint(18, 20))
-        for _ in range(n):
+        n_edge = int(round(n * edge_case_ratio))
+        shapes = ("partial_capture", "not_captured", "non_positive_net", "sla_already_breached")
+        for i in range(n):
             rail = self._pick_rail()
             amount = self._rand_amount()
             created_at = recent_base - timedelta(hours=self.rng.randint(0, 48))
             order, payment, _fee, _tax = self._build_order_and_payment(amount, rail, "INR", created_at)
+
+            if i < n_edge:
+                shape = shapes[i % len(shapes)]
+                if shape == "partial_capture":
+                    payment.captured_amount = amount // 2
+                elif shape == "not_captured":
+                    payment.captured = False
+                    payment.status = "authorized"
+                elif shape == "non_positive_net":
+                    # A fully reversed authorisation: marked captured, captured for nothing. Under
+                    # this project's fee schedule, which is a pure percentage with no flat floor,
+                    # that is the ONLY capture that can drive net to zero or below -- for any
+                    # positive amount, fee + tax is ~1.2% of it and never exceeds it. The reason
+                    # stays implemented because a schedule with a flat per-transaction component
+                    # makes it reachable for small tickets, and it fires here alongside
+                    # partial_capture rather than alone.
+                    payment.captured_amount = 0
+                elif shape == "sla_already_breached":
+                    payment.captured_at = payment.captured_at - timedelta(days=30)
+
             orders.append(order)
             payments.append(payment)
         return PendingBatch(orders=orders, payments=payments)
@@ -1237,10 +1273,10 @@ def generate_fee_leak_batch(seed: int = 42, n: int = 20) -> SyntheticBatch:
     return gen.generate_fee_leak_batch(n)
 
 
-def generate_pending_batch(seed: int = 42, n: int = 10) -> PendingBatch:
+def generate_pending_batch(seed: int = 42, n: int = 10, edge_case_ratio: float = 0.0) -> PendingBatch:
     """Independent stream (seed+3) -- in-flight transactions for the forward settlement
     predictor, distinct from every other batch this generator produces since it's the only one
     without a Settlement at all (see generate_pending_batch on SyntheticDataGenerator, and
     app/forecast/predictor.py)."""
     gen = SyntheticDataGenerator(seed=seed + 3)
-    return gen.generate_pending_batch(n)
+    return gen.generate_pending_batch(n, edge_case_ratio=edge_case_ratio)

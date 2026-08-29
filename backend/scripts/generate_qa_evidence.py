@@ -39,7 +39,7 @@ from app.data_gen.generate import generate  # noqa: E402
 from app.narrator.preflight import check_ollama_available  # noqa: E402
 from app.narrator.tools import build_tool_context  # noqa: E402
 from app.qa.agent import answer_question  # noqa: E402
-from app.qa.benchmark import build_questions, extract_ids_from_text, score_answer  # noqa: E402
+from app.qa.benchmark import QUESTIONS, build_questions, extract_ids_from_text, score_answer  # noqa: E402
 from app.qa.tools import build_settled_at_index  # noqa: E402
 
 
@@ -125,7 +125,7 @@ def main() -> None:
     results: dict[str, dict] = {}
 
     for phrasing in ("seen", "held_out"):
-        print(f"\n=== {phrasing} phrasing ({len(seeds)} seeds x 6 questions) ===", flush=True)
+        print(f"\n=== {phrasing} phrasing ({len(seeds)} seeds x {len(QUESTIONS)} questions) ===", flush=True)
         print(f"  {'provider':<10} {'numeric':>12} {'citations':>11} {'fabricated':>12}")
         for provider in providers:
             r = run_condition(provider, seeds, args.n, phrasing)
@@ -149,7 +149,7 @@ def main() -> None:
         "generated_on": date.today().isoformat(),
         "seeds": seeds,
         "n_per_batch": args.n,
-        "questions_per_batch": 6,
+        "questions_per_batch": len(QUESTIONS),
         "conditions": results,
         "generalisation_gap_numeric": gaps,
     }

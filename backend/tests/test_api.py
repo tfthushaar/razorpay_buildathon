@@ -647,7 +647,11 @@ def test_qa_accuracy_scores_answers_against_derived_ground_truth():
     response = TestClient(app).get("/api/qa/accuracy?n=80&phrasing=seen&provider=mock")
     assert response.status_code == 200, response.text
     body = response.json()
-    assert body["answers"] == 6
+    # Derived, not hardcoded: this assertion was pinned at 6 and broke the moment the question set
+    # grew, which tested the constant rather than the endpoint.
+    from app.qa.benchmark import QUESTIONS
+
+    assert body["answers"] == len(QUESTIONS)
     assert body["numeric_scored"] > 0
     assert 0.0 <= body["numeric_accuracy"] <= 1.0
     for row in body["per_question"]:

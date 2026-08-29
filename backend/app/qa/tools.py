@@ -59,6 +59,41 @@ def find_transactions_by_date(date_str: str, chains: dict[str, CausalChain], set
     return {"date": date_str, "count": len(matches), "matches": matches}
 
 
+def settlements_by_date(chains: dict[str, CausalChain], settled_at_by_transaction_id: dict[str, datetime]) -> dict:
+    """How much settled on each date, and which date carried the most.
+
+    `find_transactions_by_date` answers "what settled on 2026-01-05", which needs the date already in
+    hand. "When does my money actually land" and "which day was busiest" do not supply one, and no
+    tool could group settlements to find out. The Q&A benchmark recorded that as a miss for every
+    provider on held-out phrasing, correctly: the capability was absent.
+
+    Counts and totals only, derived from the settlement records themselves. Nothing here reads a
+    generator label.
+    """
+    by_date: dict[str, dict] = {}
+    for transaction_id, settled_at in settled_at_by_transaction_id.items():
+        chain = chains.get(transaction_id)
+        if chain is None:
+            continue
+        day = settled_at.date().isoformat()
+        bucket = by_date.setdefault(day, {"date": day, "count": 0, "settled_value_paise": 0, "with_a_discrepancy": 0})
+        bucket["count"] += 1
+        bucket["settled_value_paise"] += chain.actual_settled_amount
+        if chain.settlement_delta != 0:
+            bucket["with_a_discrepancy"] += 1
+
+    days = [by_date[d] for d in sorted(by_date)]
+    # Ties break on the later date, matching busiest_settlement_date() in app/qa/benchmark.py exactly,
+    # so a tie can never be scored as a disagreement about anything but the count.
+    busiest = max(days, key=lambda d: (d["count"], d["date"])) if days else None
+    return {
+        "n_dates": len(days),
+        "busiest_date": busiest["date"] if busiest else None,
+        "busiest_date_count": busiest["count"] if busiest else 0,
+        "by_date": days,
+    }
+
+
 def list_flagged_transactions(context: ToolContext) -> dict:
     """Batch-wide scan for duplicate-refund / netting-trap anomalies -- the one thing neither
     check_batch_anomalies (scoped to a single transaction_id) nor find_transactions_by_date (scoped
