@@ -140,8 +140,8 @@ Free rule → 7b → 14b → human, each tier handling only what the tier below 
 |---|---|---|---|---|
 | keyword rule | 6 | 0 | 0.0% | ~0 |
 | `qwen2.5:7b-instruct` | 54 | 12 | 22.2% | 2.64 |
-| `qwen2.5:14b-instruct` | 0 | — | — | — |
-| human | 0 | — | — | — |
+| `qwen2.5:14b-instruct` | 0 | n/a | n/a | n/a |
+| human | 0 | n/a | n/a | n/a |
 
 20.0% end to end at 2.38s per case, worse than free parsimony and equal to running 7b on everything.
 Two design errors, both mine. The model tiers escalate on verification failure, which in choice mode
@@ -161,9 +161,9 @@ Reproduce: `python scripts/generate_cascade_evidence.py`. Raw:
 | Match rate, real provider | 99.3% of settlement value, 7 escalations of 120 |
 | Match rate, mock provider | 86.0%, 18 escalations of 120 |
 | Throughput | 5,508 tx/sec mock at 50k scale; 2.58 tx/sec with a real LLM |
-| `netting_trap` | 59 distinct real cases, 98.3%, Wilson lower bound 91.0% |
-| `duplicate_refund` | 37 distinct real cases, 100% |
-| `genuine_error` | 80.3%, never auto-resolves by design |
+| `netting_trap` | 59 distinct real cases, 98.3% [91.0, 99.7] |
+| `duplicate_refund` | 37 distinct real cases, 100% [90.6, 100.0] |
+| `genuine_error` | 66 distinct real cases, 80.3% [69.2, 88.1], never auto-resolves by design |
 | Auto-resolved with no human review | ₹4,86,473.13 across 59 distinct cases |
 | Adversarial stress batch | 40/40 handled, 0 wrongly auto-resolved |
 

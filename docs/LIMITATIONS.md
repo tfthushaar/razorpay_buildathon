@@ -1,6 +1,20 @@
 # What this can't do
 
-Eight limits, ordered by how much they constrain the claims here.
+Nine limits, ordered by how much they constrain the claims here.
+
+## Every reading result rests on one model family
+
+`qwen2.5:7b-instruct` and `qwen2.5:14b-instruct`. Two sizes, one family. "A model reads better than a
+rule" is really "qwen reads better than a rule" until a second family is measured on the same cases.
+
+The harness for that exists and works. `app/resolver/cycle_reader.py` and
+`scripts/generate_reading_evidence.py` both take `--groq-model`, and live calls against
+`openai/gpt-oss-20b` return correct verdicts on held-out phrasing where the regex returns nothing. The
+measurement is blocked on Groq's free-tier daily token quota, which this session had already partly
+consumed: 199,913 of 200,000 tokens used. A first attempt also produced a column that scored
+identically to its baseline in both conditions, because a missing key was being swallowed as "no
+reading available" (see [WHAT_BROKE.md](WHAT_BROKE.md)). That is fixed, and the run is a quota reset
+away, but the second-family number is not measured and no claim rests on one.
 
 ## The held-out phrasing is held out from the parser, not from me
 
