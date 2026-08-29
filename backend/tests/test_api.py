@@ -588,3 +588,24 @@ def test_concurrent_runs_never_desync_the_three_state_fields(isolated_app_state)
         sys.setswitchinterval(original_interval)
 
     assert not violations, f"state desynced {len(violations)} times (sample of orphaned-key counts: {violations[:5]})"
+
+
+def test_forecast_backtest_works_before_any_run():
+    """Regression: this endpoint 404'd until a run had happened on the same process, which was an
+    incidental dependency -- it regenerates the batch from a seed and never needed prior state. The
+    404 became visible when the frontend started shipping a committed sample run: a judge landing on
+    the Evidence page saw a panel calling an endpoint that failed, because the frontend had a run and
+    the backend did not."""
+    fresh = TestClient(app)
+    response = fresh.get("/api/forecast/backtest")
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["n"] > 0
+    assert 0.0 <= body["interval_coverage"] <= 1.0
+
+
+def test_forecast_backtest_accepts_explicit_seed_and_n():
+    fresh = TestClient(app)
+    response = fresh.get("/api/forecast/backtest?seed=42&n=30")
+    assert response.status_code == 200, response.text
+    assert response.json()["n"] == 30

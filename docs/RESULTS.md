@@ -207,7 +207,7 @@ hardware claim as much as a code claim, so the baseline is recorded rather than 
 
 A real model runs at 2.58 tx/sec, about 8,000 times slower than deterministic matching. That gap is
 the argument for the architecture. For a merchant at 100,000 transactions a day at realistic density,
-98,900 resolve deterministically in about 5 seconds and the 1,100 reaching a model take 7 minutes.
+98,880 resolve deterministically in about 5 seconds and the 1,120 reaching a model take 7 minutes.
 Running everything through the model would take 10.8 hours. At the demo's inflated exception rate the
 same day costs 97 minutes of model time.
 
@@ -255,7 +255,7 @@ auto-resolving an admittedly-unexplained case correct. A 20-line rule with zero 
 ## Verify it yourself
 
 ```bash
-cd backend && python -m pytest tests/ -v                 # 348 tests
+cd backend && python -m pytest tests/ -v                 # 350 tests
 python scripts/generate_reading_evidence.py
 python scripts/generate_three_source_evidence.py
 python scripts/audit_calibration.py --db ../docs/evidence/verified_calibration_history.db

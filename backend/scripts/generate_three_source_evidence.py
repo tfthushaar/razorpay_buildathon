@@ -32,7 +32,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from app.calibration.significance import compare_paired, robustness_p  # noqa: E402
 from app.calibration.wilson import wilson_score_interval  # noqa: E402
 from app.data_gen.three_source import generate_three_source_batch  # noqa: E402
-from app.narrator.groq_preflight import GroqBudgetError, check_groq_budget  # noqa: E402
+from app.narrator.preflight import GroqBudgetError, check_groq_budget, check_ollama_available  # noqa: E402
 from app.resolver.cycle_reader import model_cycle_agrees  # noqa: E402
 from app.resolver.entity_resolution import match_all  # noqa: E402
 
@@ -115,6 +115,9 @@ def main() -> None:
             )
         except GroqBudgetError as e:
             raise SystemExit(f"Refusing to start: {e}")
+
+    if not args.no_model:
+        check_ollama_available([args.model or "qwen2.5:7b-instruct"])
 
     conditions = {}
     for label, held_out in (("seen_phrasing", False), ("held_out_phrasing", True)):

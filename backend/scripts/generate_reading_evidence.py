@@ -38,7 +38,7 @@ from app.data_gen.generate import SyntheticDataGenerator  # noqa: E402
 from app.data_gen.schemas import SyntheticBatch  # noqa: E402
 from app.narrator.attribution import _READER_CAUSES, READER_SYSTEM_PROMPT, _strip_fences  # noqa: E402
 from app.calibration.wilson import wilson_score_interval  # noqa: E402
-from app.narrator.groq_preflight import GroqBudgetError, check_groq_budget  # noqa: E402
+from app.narrator.preflight import GroqBudgetError, check_groq_budget, check_ollama_available  # noqa: E402
 from app.resolver.keyword_baseline import read_advice  # noqa: E402
 
 CAUSES = list(_READER_CAUSES)
@@ -190,10 +190,12 @@ def main() -> None:
         except GroqBudgetError as e:
             raise SystemExit(f"Refusing to start: {e}")
 
+    models = [m.strip() for m in args.models.split(",") if m.strip()]
+    check_ollama_available(models)
+
     from ollama import Client
 
     client = Client(timeout=180.0)
-    models = [m.strip() for m in args.models.split(",") if m.strip()]
 
     results = {}
     for condition, held_out in (("seen", False), ("held_out", True)):

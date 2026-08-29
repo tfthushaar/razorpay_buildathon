@@ -31,7 +31,7 @@ is computed rather than argued.
 
 The economics follow from the same fact. Chains and matching run at 20,513 tx/sec on a realistic
 97%-clean batch. A real model runs at 2.58 tx/sec, about 8,000 times slower. At 100,000 transactions a
-day, 98,900 resolve deterministically in about 5 seconds and the 1,100 reaching a model take 7
+day, 98,880 resolve deterministically in about 5 seconds and the 1,120 reaching a model take 7
 minutes. Running everything through the model would take 10.8 hours. The resolver is what makes both
 the economics and the accuracy figures work.
 
@@ -92,9 +92,9 @@ Full numbers with reproduce commands: [RESULTS.md](docs/RESULTS.md).
 ## Verify it yourself
 
 ```bash
-cd backend && python -m pytest tests/ -v                 # 348 tests
-python scripts/generate_reading_evidence.py              # the table above
-python scripts/generate_three_source_evidence.py         # the McNemar result
+cd backend && python -m pytest tests/ -v                 # 350 tests — needs nothing but Python
+python scripts/generate_reading_evidence.py              # the table above  (needs Ollama)
+python scripts/generate_three_source_evidence.py         # the McNemar result (needs Ollama)
 ```
 
 ## What this can't do
@@ -128,7 +128,9 @@ Eleven incidents with sourced attribution: [WHAT_BROKE.md](docs/WHAT_BROKE.md).
 
 ```bash
 git clone https://github.com/tfthushaar/razorpay_buildathon.git && cd razorpay_buildathon
-cd backend && python -m venv .venv && .venv/Scripts/activate && pip install -r requirements.txt
+cd backend && python -m venv .venv
+source .venv/bin/activate          # Windows: .venv\Scripts\activate
+pip install -r requirements.txt
 python -m uvicorn app.main:app --port 8000    # then: cd ../frontend && npm install && npm run dev
 ```
 

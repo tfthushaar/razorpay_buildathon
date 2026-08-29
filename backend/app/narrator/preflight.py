@@ -31,6 +31,35 @@ class GroqBudgetError(RuntimeError):
     """Raised when the daily token budget cannot cover the requested run."""
 
 
+def check_ollama_available(models: list[str]) -> None:
+    """Fail with something actionable when Ollama is not running or a model is not pulled.
+
+    The same class of problem as the Groq budget, from the other direction. Two of the three commands
+    in the README's "Verify it yourself" block call a local model, and without Ollama installed they
+    used to end in an `ollama._client.ConnectionError` traceback. Most people running this repo for
+    the first time do not have Ollama, so that traceback was the second thing they saw.
+    """
+    try:
+        from ollama import Client
+
+        available = {m.model for m in Client(timeout=10.0).list().models}
+    except Exception as e:  # noqa: BLE001 -- any failure here means "not usable", not "crash"
+        raise SystemExit(
+            f"Ollama is not reachable ({type(e).__name__}). This script needs a local model.\n"
+            f"  Install: https://ollama.com/download\n"
+            f"  Then:    ollama pull {models[0] if models else 'qwen2.5:7b-instruct'}\n"
+            f"  Or run the checks that need no model: python -m pytest tests/ -q"
+        )
+
+    missing = [m for m in models if m not in available]
+    if missing:
+        raise SystemExit(
+            f"Ollama is running but these models are not pulled: {', '.join(missing)}\n"
+            f"  Pull them: {'; '.join('ollama pull ' + m for m in missing)}\n"
+            f"  Available here: {', '.join(sorted(available)) or '(none)'}"
+        )
+
+
 def _daily_usage_from_error(text: str) -> tuple[int, int] | None:
     """Groq reports daily usage only inside the 429 body, e.g. 'Limit 200000, Used 199966'."""
     limit = re.search(r"Limit (\d+)", text)
