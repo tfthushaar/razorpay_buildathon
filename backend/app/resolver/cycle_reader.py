@@ -13,6 +13,8 @@ that number, the movement is the value of reading; if it doesn't, that is equall
 import json
 import os
 
+from dotenv import load_dotenv
+
 _SYSTEM_PROMPT = """You read bank statement descriptions for settlement reconciliation.
 
 A payment gateway pays a merchant in numbered settlement cycles: a date plus a slot letter (A, B, C \
@@ -33,19 +35,59 @@ Use "not_stated" when the description carries no cycle information at all. Do no
 the value date alone -- several cycles share a date, and the slot letter is what distinguishes them."""
 
 
+def _prompt(description: str, cycle_ref: str) -> str:
+    return f"Settlement cycle: {cycle_ref}\nBank description: {description}"
+
+
 def _ask_ollama(model: str, description: str, cycle_ref: str) -> str:
     from ollama import Client
 
     client = Client(timeout=120.0)
-    prompt = f"Settlement cycle: {cycle_ref}\nBank description: {description}"
     return (
         client.chat(
             model=model,
-            messages=[{"role": "system", "content": _SYSTEM_PROMPT}, {"role": "user", "content": prompt}],
+            messages=[{"role": "system", "content": _SYSTEM_PROMPT}, {"role": "user", "content": _prompt(description, cycle_ref)}],
             options={"temperature": 0.0},
         ).message.content
         or ""
     )
+
+
+def _ask_groq(model: str, description: str, cycle_ref: str, max_retries: int = 5) -> str:
+    """Groq's free tier rate-limits by tokens-per-minute, and a sweep of a few hundred calls hits it
+    reliably. Backing off and retrying is the difference between measuring the model and measuring
+    the quota -- this project has already once mistaken a 429 for a capability finding, so a
+    rate-limit failure here waits rather than being recorded as an unreadable description."""
+    import time
+
+    from groq import Groq
+
+    load_dotenv()
+    if not os.environ.get("GROQ_API_KEY"):
+        raise RuntimeError("GROQ_API_KEY is not set — refusing to run a Groq column that would silently measure nothing")
+
+    client = Groq(api_key=os.environ["GROQ_API_KEY"])
+    delay = 4.0
+    last: Exception | None = None
+    for _ in range(max_retries):
+        try:
+            return (
+                client.chat.completions.create(
+                    model=model,
+                    messages=[{"role": "system", "content": _SYSTEM_PROMPT}, {"role": "user", "content": _prompt(description, cycle_ref)}],
+                    temperature=0.0,
+                )
+                .choices[0]
+                .message.content
+                or ""
+            )
+        except Exception as e:  # noqa: BLE001 -- rate limits surface as several exception types
+            last = e
+            if "rate" not in str(e).lower() and "429" not in str(e):
+                raise
+            time.sleep(delay)
+            delay *= 2
+    raise last if last else RuntimeError("groq call failed")
 
 
 def _strip(raw: str) -> str:
@@ -54,7 +96,7 @@ def _strip(raw: str) -> str:
     return text[start : end + 1] if start != -1 and end > start else text
 
 
-def model_cycle_agrees(cycle_ref: str, description: str, model: str | None = None) -> bool | None:
+def model_cycle_agrees(cycle_ref: str, description: str, model: str | None = None, provider: str = "ollama") -> bool | None:
     """True / False / None, matching `_cycle_agrees`'s contract exactly.
 
     A failed call or an unparseable answer returns None -- "not stated" -- rather than a guess. That
@@ -63,9 +105,14 @@ def model_cycle_agrees(cycle_ref: str, description: str, model: str | None = Non
     """
     if not cycle_ref:
         return None
-    model = model or os.environ.get("OLLAMA_MODEL", "qwen2.5:7b-instruct")
+    if provider == "groq":
+        model = model or "openai/gpt-oss-20b"
+        ask = _ask_groq
+    else:
+        model = model or os.environ.get("OLLAMA_MODEL", "qwen2.5:7b-instruct")
+        ask = _ask_ollama
     try:
-        parsed = json.loads(_strip(_ask_ollama(model, description, cycle_ref)))
+        parsed = json.loads(_strip(ask(model, description, cycle_ref)))
     except Exception:  # noqa: BLE001 -- provider failure or bad JSON both mean "no reading available"
         return None
     verdict = str(parsed.get("verdict", "")).lower().strip()

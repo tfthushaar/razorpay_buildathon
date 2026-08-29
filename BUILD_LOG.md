@@ -2,6 +2,18 @@
 
 Raw chronological journal, kept as an appendix. Curated version: [docs/WHAT_BROKE.md](docs/WHAT_BROKE.md).
 
+## What changed when
+
+| When | Inflection |
+|---|---|
+| 23 Aug | Synthetic generator with a hidden answer key. Causal chain per transaction, so a mismatch is located at a hop rather than reported as an unmatched row. |
+| 24 Aug | Calibrated autonomy. Wilson lower bound gates auto-resolve; an EWMA drift check revokes a category on recent regression while the all-time average still looks fine. |
+| 24 Aug | Real providers wired in. Found that mock-mode guesses could ride on trust a real provider had earned, and that the calibration gate was satisfiable with no LLM ever called. |
+| 25 Aug | Measured the rule I had been comparing against. A 20-line mock scores 519/519 on the three categories the narrator was reserved for. The LLM's value there is reliability under failure, not judgment. |
+| 29 Aug | Multi-way netting brought from a side experiment into the shipped product, eight phases. The first category a rule provably could not touch. Then a hash table touched it. |
+| 29 Aug | The inversion. Three categories had collapsed into rules, so the resolver runs first and the model works only on what it cannot finish. Output changed from a label to a verifiable decomposition. |
+| 29 Aug | Three-source matching, as a check on the inversion itself, plus paired significance testing after a three-case difference had been published as a finding. |
+
 Format per entry: **date/phase — what was attempted — what happened — resolution/status**.
 
 PROGRESS.md was a build-time tracker, since removed — the many mentions of it below are historical,

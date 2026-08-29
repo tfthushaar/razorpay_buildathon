@@ -37,6 +37,7 @@ from app.chain.builder import build_all_chains  # noqa: E402
 from app.data_gen.generate import SyntheticDataGenerator  # noqa: E402
 from app.data_gen.schemas import SyntheticBatch  # noqa: E402
 from app.narrator.attribution import _READER_CAUSES, READER_SYSTEM_PROMPT, _strip_fences  # noqa: E402
+from app.calibration.wilson import wilson_score_interval  # noqa: E402
 from app.resolver.keyword_baseline import read_advice  # noqa: E402
 
 CAUSES = list(_READER_CAUSES)
@@ -62,8 +63,65 @@ def rule_read(narration: str | None) -> dict[str, str]:
     return {c: ("applied" if r[c] else "not_applied") if c in r else "not_mentioned" for c in CAUSES}
 
 
+def _reader_prompt(narration: str | None) -> str:
+    return f"Remittance advice:\n  {narration or '(none provided)'}\n\nCharge types: {', '.join(CAUSES)}"
+
+
+def _parse_verdicts(raw: str) -> dict[str, str]:
+    try:
+        parsed = json.loads(_strip_fences(raw or ""))
+    except (json.JSONDecodeError, TypeError):
+        return {c: "PARSE_FAIL" for c in CAUSES}
+    return {c: str(parsed.get(c, "not_mentioned")).lower().replace(" ", "_") for c in CAUSES}
+
+
+def groq_read(model: str, narration: str | None) -> dict[str, str]:
+    """A second model FAMILY, not just a second size.
+
+    Every reading headline in this project has rested on qwen, which makes "a model reads better than
+    a rule" really "qwen reads better than a rule" -- a narrower claim than the docs were making.
+    Retries on rate limits rather than recording a 429 as an unreadable advice line: this project has
+    already once mistaken a quota failure for a capability finding, and that is a much worse error
+    than a slow run.
+    """
+    import os
+    import time
+
+    from dotenv import load_dotenv
+    from groq import Groq
+
+    load_dotenv()
+    if not os.environ.get("GROQ_API_KEY"):
+        raise RuntimeError("GROQ_API_KEY is not set. Refusing to run a column that would measure nothing.")
+
+    client = Groq(api_key=os.environ["GROQ_API_KEY"])
+    delay = 4.0
+    for _ in range(5):
+        try:
+            raw = (
+                client.chat.completions.create(
+                    model=model,
+                    messages=[
+                        {"role": "system", "content": READER_SYSTEM_PROMPT},
+                        {"role": "user", "content": _reader_prompt(narration)},
+                    ],
+                    temperature=0.0,
+                )
+                .choices[0]
+                .message.content
+                or ""
+            )
+            return _parse_verdicts(raw)
+        except Exception as e:  # noqa: BLE001 -- rate limits surface as several exception types
+            if "rate" not in str(e).lower() and "429" not in str(e):
+                return {c: "PARSE_FAIL" for c in CAUSES}
+            time.sleep(delay)
+            delay *= 2
+    return {c: "PARSE_FAIL" for c in CAUSES}
+
+
 def model_read(client, model: str, narration: str | None) -> dict[str, str]:
-    prompt = f"Remittance advice:\n  {narration or '(none provided)'}\n\nCharge types: {', '.join(CAUSES)}"
+    prompt = _reader_prompt(narration)
     raw = client.chat(
         model=model,
         messages=[{"role": "system", "content": READER_SYSTEM_PROMPT}, {"role": "user", "content": prompt}],
@@ -114,6 +172,7 @@ def main() -> None:
     ap.add_argument("--seed", type=int, default=42)
     ap.add_argument("--n", type=int, default=60)
     ap.add_argument("--models", default="qwen2.5:7b-instruct,qwen2.5:14b-instruct")
+    ap.add_argument("--groq-model", default=None, help="add a hosted column, e.g. openai/gpt-oss-20b")
     ap.add_argument("--out", default=None)
     args = ap.parse_args()
 
@@ -128,11 +187,18 @@ def main() -> None:
         readers = {"keyword_rule": rule_read}
         for m in models:
             readers[m] = (lambda mm: lambda nar: model_read(client, mm, nar))(m)
+        if args.groq_model:
+            readers[args.groq_model] = (lambda mm: lambda nar: groq_read(mm, nar))(args.groq_model)
         print(f"\n=== {condition} phrasing (n={args.n} cases x {len(CAUSES)} causes = {args.n * len(CAUSES)} judgements) ===", flush=True)
         scored = score(chains, truth, readers)
         results[condition] = scored
         for name, r in scored.items():
-            print(f"  {name:<24} {r['correct']:>4}/{r['total']:<4} = {r['accuracy'] * 100:5.1f}%", flush=True)
+            lo, hi = wilson_score_interval(r["correct"], r["total"])
+            print(
+                f"  {name:<24} {r['correct']:>4}/{r['total']:<4} = {r['accuracy'] * 100:5.1f}% "
+                f"[{lo * 100:.1f}, {hi * 100:.1f}]   dangerous={r['dangerous_errors']}",
+                flush=True,
+            )
 
     print("\n=== generalisation gap (seen -> held-out) ===")
     gaps = {}
