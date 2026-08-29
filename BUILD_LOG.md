@@ -4069,6 +4069,142 @@ test to match).
 
 ---
 
+## 2026-08-29 (IV) — Bringing multi-way netting into the product: an eight-phase build
+
+A fresh audit of the whole repo (every LLM-touching module grepped directly) confirmed the honest
+state of things going in: exactly 4 places the code ever calls an LLM (narrator, category discovery,
+Q&A agent, the multiway experiment), and on the narrator's primary loop the rule already matches the
+LLM exactly — the LLM earns its place there on reliability under failure, not judgment. The one place
+judgment had been measured to matter — multi-way netting, where `check_batch_anomalies` only checks
+pairs — sat in a side experiment, never wired into the shipped decision loop. This is the log of
+moving it in, and everything that came with doing that honestly.
+
+**Phase 0 — pure refactor.** Extracted `multiway_netting_experiment.py`'s own subset-sum uniqueness
+check into `app/data_gen/subset_sum.py` (no pydantic/chain imports), so the data generator could reuse
+it without a circular import back into the experiment module. Zero behavior change, confirmed by the
+full suite staying silent.
+
+**Phase 1 — `multiway_netting_trap`, a real product category.** New `TrueLabel`, a new
+`_gen_multiway_netting_trap` generator (a real N-way group plus distractors, uniqueness verified by
+brute force, raises rather than ships an ambiguous case), gated behind `enable_multiway_netting`
+(default off — every existing evidence file and number stays valid). `list_batch_deltas`/
+`verify_group_sum` — already built, tested, previously unused by production — wired into the real
+narrator's own `TOOL_SCHEMAS`/`_execute_tool`. Two real things found by verifying live rather than
+trusting the plumbing: the production narrator's 4-round tool-call budget was too tight for this task
+(a live Ollama call spent all 4 rounds on `check_batch_anomalies` + `list_batch_deltas` +
+`verify_group_sum` twice, never reaching a final answer) — raised to 6, confirmed a no-op for every
+other category, which already converges well under 4. And a live Groq run got the arithmetic right
+and the category wrong (predicted `netting_trap`, not `multiway_netting_trap`, despite its own
+reasoning correctly describing a multi-transaction cancellation) — one added sentence in the system
+prompt took a re-run from 3/7 to 6/7 correct. Measured, not assumed: mock 0/42 (structural, confirmed
+empirically, still 100% on every other category in the same batches), Ollama 5/7, Groq 6/7 on real
+generated batches. `enable_multiway_netting` and a matching checkbox threaded through `run_batch` ->
+`POST /api/run` -> `RunControls.tsx`, verified live (checkbox renders, a real Ollama run through the
+actual API produces and displays `multiway_netting_trap` escalations with real, correct reasoning).
+239 tests passing at the end of this phase (up from 221).
+
+**Phase 2 — the same task at real settlement-batch scale.** `app/narrator/multiway_netting_scale_
+experiment.py` runs the identical task at 20-800 transactions in one batch. The original hypothesis
+was that raw context size would be the wall; what was actually measured is two different failure
+modes. Ollama fails at every scale tested, 20 through 760 (0/36 across the whole sweep) — not context
+overflow, a reasoning-strategy limit: the raw tool-call traces show it accumulating an ever-growing
+candidate list across rounds instead of searching small subsets systematically, confirmed by Groq
+solving the identical n=20 case correctly on the first attempt. Groq does hit a real wall, later, as a
+hard `429` at n>=200 in this sweep's own committed run — but the actual error message
+("tokens per day (TPD): Limit 200000, Used 199594...") shows this was the account's free-tier DAILY
+quota, exhausted by this whole session's cumulative Groq usage, confounded with (not a clean
+substitute for) the real per-request context-size wall confirmed separately (`413 Request too large`)
+in an isolated manual check outside this committed sweep. A magnitude pre-filter doesn't cleanly
+rescue either failure mode: loose enough to rarely discard the real answer (10x tolerance), it barely
+narrows a large batch (494 of 499 shown at n=500); tight enough to actually shrink one (1.5x), it
+discards the real answer over 40% of the time.
+
+A real methodology bug found and fixed before shipping any evidence from this phase: the case
+construction always inserted the real cancelling group immediately after the target, so the brute-
+force solver's own timing measurement always found the answer at the front of iteration order,
+regardless of `n_total` — a dry run returning a suspiciously tiny combinations-checked count at
+n=200 is what caught it, not the number being trusted. Fixed by shuffling the batch's own transaction
+order with the case's own seeded RNG before it's ever exposed to a solver; real per-size timing now
+visibly scales (733 combinations checked at n=50, 25,929 at n=300).
+
+**Phase 3 — the strongest deterministic rule actually built.** Real k-sum algorithms
+(`app/narrator/multiway_netting_optimal_solver.py`) instead of a bigger brute-force budget: 2-sum via
+a hash pass (O(n)), 3-sum via sort + two-pointer (O(n²)), 4-sum via meet-in-the-middle (O(n²)),
+correctness-checked against the brute-force solver on identical inputs before any speed claim was
+trusted. Real result: instant (under half a millisecond) up to n_total=5,000, where brute force alone
+was already impractical past ~800. The real frontier isn't compute time, it's disambiguation: at this
+project's own delta range, the solver reliably finds the TRUE constructed group up to n_total=1,000
+(100% across 30 seeds), then degrades — 77% at 2,000, 53% at 3,000, 27% by 5,000 — because a
+spurious-but-genuinely-valid coincidental match becomes more likely than the real one, a birthday-
+paradox effect in a finite integer range, not a speed problem.
+
+**Phase 4 — breaking the "shared author" problem.** On the clean `duplicate_refund`/`netting_trap`
+patterns, mock scores 100% because the same author wrote both the generator's injectors and
+`check_batch_anomalies`'s detector to the same exact-match definition. Held-out near-miss variants
+(`_gen_duplicate_refund_near_miss`, `_gen_netting_trap_near_miss`, `enable_held_out_variants`) are
+still genuinely the same true category, perturbed by a small, disclosed epsilon the exact-match rule
+can never confirm. Measured, not hoped: mock 0/101 (expected), and Ollama does NOT generalize past it
+either — 0/21 on a real run. The raw reasoning traces show a more interesting failure than "can't do
+arithmetic": several traces correctly notice the near-cancellation, then the model's own
+`verify_group_sum` call — a strict exact-zero check, correct for `multiway_netting_trap` — reports the
+candidate doesn't cancel exactly, and the model, following its own instruction to never assert an
+unverified explanation, appropriately declines rather than guesses. The same cautious tool-use
+discipline this project credits elsewhere works against success on this specific task — a real
+tool-design tension, not a reasoning failure, disclosed as the actual finding rather than smoothed
+over.
+
+**Phase 5 — a category that genuinely requires reading.** New `Settlement.bank_narration` field
+(threaded through `CausalChain`), `_gen_narration_explained` (a fee-waiver reason recorded only in
+realistically messy free text, eight varied templates so no fixed keyword catches all of them), new
+`read_bank_narration` tool wired into the real narrator the same way Phase 1's tools were. mock fails
+structurally (0/64, never calls the tool); Ollama succeeds cleanly (10/10, real live run) — no
+tool-design conflict here, so the model's own reading comprehension is free to work.
+
+**Phase 6 — which model, measured, not an anecdote.** Pulled and confirmed running
+`qwen2.5:14b-instruct` locally alongside the existing `qwen2.5:7b-instruct`, compared on the two
+categories actually shown to be hard (deliberately not re-sweeping the three easy ones, where every
+model size already scores ~100%). Real, surprising result: the larger model does WORSE on
+`multiway_netting_trap` (1/7 vs 7b's 4/7) — reading the raw traces, 14b explores more per case
+(redundant `recall_similar_resolutions` calls, checking irrelevant tools) and more often runs out of
+the same 6-round budget before converging. On `narration_explained`, a pure reading task with no such
+budget tension, 14b does score slightly better (5/5 vs 4/5). `gpt-oss-120b` not included — no
+verified hosted or local path was confirmed available, and no claim is made that it was tested.
+
+**Phase 7 — default experience.** A fresh clone's default path used to be `mock` — zero LLM calls,
+the version of the system where the AI does nothing. `RunControls.tsx` now defaults to `ollama`;
+`mock` is still one click away for the zero-setup path. Verified live: the dropdown's default
+selection is `ollama` on page load.
+
+**Phase 8 — scoped.** Full Phase 8 (Postgres + worker-pool narration + a load test + a webhook
+receiver) was the lowest-priority, highest-effort item in the plan. Built the two genuinely tractable
+pieces with real evidence rather than a speculative migration with no measured problem to justify it:
+a real webhook receiver (`app/webhooks/razorpay.py`, `POST /api/webhooks/razorpay`) — HMAC-SHA256
+signature verification and `settlement.processed` event parsing, payload shape and signature scheme
+verified against Razorpay's own current docs before writing this, refuses to run unverified (401/500
+on a missing secret or bad signature), verified live against a real running server with a real signed
+request — and a real load test (`scripts/load_test.py`) against a genuinely running server, not the
+in-process `TestClient` tests already use: 100% success at every concurrency level tested, 1 through
+32 concurrent `POST /api/run`, zero errors, latency degrading gracefully (2.157s -> 4.750s mean).
+Doesn't prove SQLite scales indefinitely; means "this would fall over under real concurrent load"
+isn't supported by what was actually measured in this range.
+
+**A real debugging incident along the way, worth recording precisely.** A Phase 4 evidence script
+that should have taken minutes ran for 20+ minutes with no output. `tasklist`'s CPU-time column
+showed almost no CPU used (consistent with I/O-wait, not a spin), but `netstat` showed the process's
+two open connections in `CLOSE_WAIT` — looking exactly like a client-side hang. A follow-up isolated
+Groq call succeeded in half a second, seemingly ruling Groq out entirely. The real cause only became
+clear from the account's own Groq dashboard: real, repeated `429`s recurring every 7-8 minutes under
+sustained load — a fact no amount of local process introspection was going to surface alone. Not a
+code bug to patch: evidence scripts touching Groq now skip it by default (`--with-groq` to opt in),
+Ollama and mock carry the default evidence in every new script this pass.
+
+280/280 tests passing at the end of this entry (up from 221 at the start of Phase 1) — every
+production code path this entry describes is test-covered; every LLM-facing number is either a
+committed evidence file or a live-verified spot check, the same posture this project has held for
+every real-provider claim throughout its build.
+
+---
+
 ## On the audit rounds and the scores
 
 Roughly every few hours during the build, a deliberate adversarial pass ran over the project's own

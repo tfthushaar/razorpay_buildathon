@@ -109,12 +109,171 @@ this task. The real-provider call earns autonomy here for reliability under cond
 faces (API failures, malformed tool arguments, a hallucinated id), not for resolving a case the rule
 genuinely couldn't.
 
-## One task the rule provably can't do
+## A task the rule provably can't do, shipped as a real product category
 
 `check_batch_anomalies` only checks pairs — a netting pattern spanning 3+ transactions, where no
-single pair cancels, is invisible to it by construction. Measured against a hand-built case (a target
-transaction plus 10 others — one real 2-member group, 8 distractors — deltas varying per seed, no
-other subset coincidentally cancelling, verified by brute force):
+single pair cancels, is invisible to it by construction. `multiway_netting_trap`
+(`app/data_gen/generate.py`, opt-in via `enable_multiway_netting`) brings this into the real decision
+loop: `list_batch_deltas`/`verify_group_sum` wired into the production narrator's own `TOOL_SCHEMAS`,
+gated behind calibration like every other category. Measured on real generated batches (150
+transactions each, small dedicated groups — not the hand-built stress test below):
+
+| Provider | Accuracy |
+|---|---|
+| mock | 0/42 — structural, confirmed empirically (still 100% on every other category in the same batches) |
+| Ollama (`qwen2.5:7b-instruct`) | 5/7 |
+| Groq (`openai/gpt-oss-20b`) | 6/7 |
+
+Reproduce: `python scripts/measure_mock_narrator_accuracy_multiway.py`,
+`python scripts/generate_multiway_netting_trap_production_evidence.py`. Raw evidence:
+[`multiway-netting-trap-production-2026-08-29.json`](evidence/multiway-netting-trap-production-2026-08-29.json).
+
+## The same task, at real settlement-batch scale (500-800 transactions)
+
+The product category above uses small, dedicated groups by design (calibration needs many
+independent small cases, not one giant puzzle — see [ARCHITECTURE.md](ARCHITECTURE.md)). A separate
+experiment (`app/narrator/multiway_netting_scale_experiment.py`) tests the same underlying capability
+at a scale a real high-volume merchant's settlement batch could actually have. The original
+hypothesis was that raw context size would be the wall; what was actually measured is two different
+failure modes on two different providers:
+
+- **Ollama fails at every scale tested (20 through 760 transactions), 0/36 across the whole sweep** —
+  and not from context overflow. The raw tool-call traces show it accumulating an ever-growing
+  candidate list across rounds instead of searching small subsets systematically, confirmed as a
+  reasoning-strategy limit (not a token-budget one) by Groq solving the identical n=20 case correctly
+  on the first attempt.
+- **Groq hits a real, literal wall — later, and as a hard error, though not the exact one first
+  assumed.** Solves n=20 correctly (2/2), gives a mix of correct answers and empty/unparseable
+  responses by n=100, then at n≥200 every call in this sweep returned a real `429` — but the error
+  message itself (`"Rate limit reached... on tokens per day (TPD): Limit 200000, Used 199594..."`)
+  shows this is the account's free-tier **daily token quota**, exhausted by this session's own
+  cumulative Groq usage across every earlier phase, not a per-request context-size limit specific to
+  large batches. A genuinely isolated n=400 call (fresh quota) does return `413 Request too large`
+  for `openai/gpt-oss-20b` — confirmed directly in an earlier manual check — so the context-size wall
+  is real too, just confounded with quota exhaustion in this particular sweep's own committed run.
+  Disclosed as the honest, if messier, finding rather than smoothed into a single clean threshold.
+- **A magnitude pre-filter does not cleanly rescue either failure mode**, measured directly: loose
+  enough to rarely discard the real answer (10x tolerance), it barely narrows the candidate set
+  against this experiment's own uniformly-distributed distractor deltas (494 of 499 shown at n=500).
+  Tight enough to actually shrink the request (1.5x) pushes the real-answer discard rate over 40%.
+
+Reproduce: `python scripts/generate_multiway_netting_scale_evidence.py`. Raw evidence:
+[`multiway-netting-scale-experiment-2026-08-29.json`](evidence/multiway-netting-scale-experiment-2026-08-29.json).
+
+## The strongest deterministic rule actually built for this task
+
+Not a claim that a rule "could theoretically be extended" — real k-sum algorithms
+(`app/narrator/multiway_netting_optimal_solver.py`): 2-sum via a hash pass (O(n)), 3-sum via sort +
+two-pointer (O(n²)), 4-sum via meet-in-the-middle (O(n²)) — replacing brute force's O(n^k), correctness-
+checked against the brute-force solver on identical inputs before any speed claim was trusted.
+
+| n_total | Optimal solver | Brute force |
+|---|---|---|
+| 100 | 0.00002s | 0.0005s |
+| 500 | 0.00007s | 0.0213s |
+| 1,000 | 0.00006s | skipped — already shown impractical |
+| 5,000 | 0.00039s | skipped |
+
+The real frontier isn't compute time, it's disambiguation. At this project's own delta range
+(±999,931 paise), the optimal solver reliably finds the TRUE constructed group up to `n_total=1000`
+(100% across 30 seeds), then degrades — 77% at 2,000, 53% at 3,000, 27% by 5,000 — because a
+spurious-but-genuinely-valid coincidental match becomes more likely than the real one (a
+birthday-paradox effect in a finite integer range, not a speed problem; every "wrong" answer still
+genuinely cancels the target, just isn't the one constructed).
+
+Reproduce: `python scripts/generate_multiway_netting_optimal_solver_evidence.py`. Raw evidence:
+[`multiway-netting-optimal-solver-2026-08-29.json`](evidence/multiway-netting-optimal-solver-2026-08-29.json).
+
+## Breaking the "shared author" problem
+
+On `duplicate_refund`/`netting_trap`, mock scores 100% because the same author wrote both the
+generator's injectors and `check_batch_anomalies`'s detector to the same exact-match definition — see
+"Where the rule beats the LLM" below. Held-out near-miss variants
+(`enable_held_out_variants`, `app/data_gen/generate.py`) are still genuinely the same true category,
+perturbed by a small, disclosed epsilon the exact-match rule can never confirm:
+
+| Provider | Accuracy |
+|---|---|
+| mock | 0/101 — expected, confirmed empirically |
+| Ollama (`qwen2.5:7b-instruct`) | 0/21 |
+
+Ollama does **not** generalize past the rule's brittleness here either — but the raw reasoning traces
+show a more interesting failure than "can't do arithmetic": several traces correctly notice the
+near-cancellation, then the model's own `verify_group_sum` call (a strict exact-zero check, correct
+for `multiway_netting_trap`) reports the candidate doesn't cancel exactly, and the model — following
+its own instruction to never assert an unverified explanation — appropriately declines rather than
+guess. The same cautious tool-use discipline this project credits elsewhere works against success on
+this specific task, a real tool-design tension, not a reasoning failure.
+
+Reproduce: `python scripts/generate_held_out_variant_evidence.py`. Raw evidence:
+[`held-out-variant-evidence-2026-08-29.json`](evidence/held-out-variant-evidence-2026-08-29.json).
+
+## A category that genuinely requires reading, not a lookup
+
+`narration_explained` (`enable_narration_explained`): a delta explained only by the settlement's own
+free-text remarks field (`Settlement.bank_narration`, eight varied, realistically messy templates) —
+never by any structured field or delta-arithmetic a rule could check at any scale, not even the
+combinatorial `multiway_netting_trap` machinery.
+
+| Provider | Accuracy |
+|---|---|
+| mock | 0/64 — never calls `read_bank_narration`, structural |
+| Ollama (`qwen2.5:7b-instruct`) | **10/10** |
+
+No tool-design tension here (unlike the held-out variants above) — reading comprehension over free
+text has no strict-verification step to conflict with, so the model's own capability is free to work,
+cleanly.
+
+Reproduce: `python scripts/generate_narration_explained_evidence.py`. Raw evidence:
+[`narration-explained-evidence-2026-08-29.json`](evidence/narration-explained-evidence-2026-08-29.json).
+
+## Which model, measured — not an anecdote
+
+Compares `qwen2.5:7b-instruct` against `qwen2.5:14b-instruct` (both confirmed pulled/running locally)
+on the two categories actually shown to be hard above — deliberately not re-sweeping the easy
+categories, where every model size is already expected to score ~100%.
+
+| Category | 7b | 14b |
+|---|---|---|
+| `multiway_netting_trap` | 4/7 | **1/7** |
+| `narration_explained` | 4/5 | 5/5 |
+
+The larger model does *worse* on the tool-budget-constrained task: reading the raw traces, 14b
+explores more per case (redundant `recall_similar_resolutions` calls, checking irrelevant tools) and
+more often runs out of the same 6-round budget before converging. On the pure-reading task, with no
+budget tension, the larger model's extra capacity has room to help. Reported as measured, not tuned —
+the honest, apples-to-apples comparison under an identical budget is the finding, not a number to
+optimize away.
+
+Reproduce: `python scripts/generate_multi_model_evidence.py`. Raw evidence:
+[`multi-model-evidence-2026-08-29.json`](evidence/multi-model-evidence-2026-08-29.json).
+
+## Real load, measured against a live server
+
+Not the in-process `TestClient` concurrency tests already use — real HTTP requests against a
+genuinely running server (`scripts/load_test.py`), `POST /api/run`, 3 requests per worker at each
+concurrency level:
+
+| Concurrency | Requests | Succeeded | Errors | Mean latency |
+|---|---|---|---|---|
+| 1 | 3 | 3 | 0 | 2.157s |
+| 8 | 24 | 24 | 0 | 2.726s |
+| 32 | 96 | 96 | 0 | 4.750s |
+
+100% success at every concurrency level tested, zero errors. Latency degrades gracefully (roughly
+2.2x at 32x the concurrency), not catastrophically. This doesn't prove single-instance SQLite scales
+indefinitely — it means "this architecture would fall over under real concurrent load" isn't
+supported by what was actually measured in this range (see [LIMITATIONS.md](LIMITATIONS.md)).
+
+Reproduce: start the server, then `python scripts/load_test.py`. Full table:
+[`load-test-2026-08-29.txt`](evidence/load-test-2026-08-29.txt).
+
+## The original hand-built experiment, kept for context
+
+Before `multiway_netting_trap` shipped as a real category, this project measured the same underlying
+task with a smaller, hand-built stress case (a target transaction plus 10 others — one real 2-member
+group, 8 distractors — deltas varying per seed, no other subset coincidentally cancelling, verified
+by brute force):
 
 | Provider | Without a verification tool | With `verify_group_sum` |
 |---|---|---|
@@ -148,10 +307,14 @@ Reproduce: `python scripts/generate_multiway_netting_evidence.py`.
 ## Verify it yourself
 
 ```bash
-cd backend && python -m pytest tests/ -v                                          # 221 tests
+cd backend && python -m pytest tests/ -v                                          # 280 tests
 python scripts/audit_calibration.py --db ../docs/evidence/verified_calibration_history.db
 python scripts/measure_mock_narrator_accuracy.py
-python scripts/generate_multiway_netting_evidence.py
+python scripts/measure_mock_narrator_accuracy_multiway.py
+python scripts/generate_multiway_netting_trap_production_evidence.py
+python scripts/generate_multiway_netting_optimal_solver_evidence.py
+python scripts/generate_held_out_variant_evidence.py
+python scripts/generate_narration_explained_evidence.py
 ```
 
 Full reproduction notes, including why `backend/data/*.db` is gitignored and what to use instead:

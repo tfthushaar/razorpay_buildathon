@@ -1,6 +1,6 @@
 # What broke, and how it was fixed
 
-Twelve incidents, chosen from a much longer chronological journal ([`BUILD_LOG.md`](../BUILD_LOG.md))
+Fifteen incidents, chosen from a much longer chronological journal ([`BUILD_LOG.md`](../BUILD_LOG.md))
 as the ones that actually changed how the system works, or how it was built. Same fixed format
 throughout, so this stays scannable instead of becoming a second wall of text.
 
@@ -60,6 +60,55 @@ trivial grader. Current numbers, both conditions: [RESULTS.md](RESULTS.md).
 
 **Prevented:** `test_different_seeds_produce_genuinely_different_arithmetic`,
 `test_construction_raises_if_ever_ambiguous_rather_than_silently_shipping_a_bad_case`.
+
+---
+
+### A brute-force timing experiment's own construction defeated the thing it was measuring
+
+**Symptom:** The real-settlement-batch-scale experiment's exhaustive solver was supposed to show
+real wall-clock cost growing with transaction count. Instead, every measurement came back near-
+instant regardless of `n_total` — a handful of milliseconds even at 800 transactions, which
+contradicted the combinatorial growth the whole experiment existed to demonstrate.
+
+**Root cause:** Construction always inserted the real cancelling group's members immediately after
+the target, before any distractors. In the flat list the solver iterates with
+`itertools.combinations`, the true answer sat at the very front of iteration order every time, found
+on the first or second combination checked no matter how large the batch was. The timing measurement
+was accidentally clocking "how fast is the first combination checked," not "how fast is the real
+search" — caught by a dry run at `n_total=200` returning a combinations-checked count in the single
+digits, which is what prompted reading the construction code directly rather than trusting the number.
+
+**Fix:** Shuffle the batch's own transaction order (with the case's own seeded RNG, so results stay
+reproducible) before it's ever exposed to a solver. Confirmed: real per-size timing now visibly
+scales with `n_total` (733 combinations checked at n=50, 25,929 at n=300 — real combinatorial growth,
+not a flat near-zero).
+
+**Prevented:** No dedicated regression test for the ordering itself — the fix is structural, in
+construction, not a separately-testable invariant. The guard that actually caught this was reading a
+suspiciously-too-good number instead of trusting it.
+
+---
+
+### A live model got the arithmetic right and the category wrong — one sentence fixed it
+
+**Symptom:** Wiring the multi-way netting capability into the real production narrator, a live Groq
+run found the correct explaining pair and said so in its own reasoning text ("two other batch
+transactions... which together cancel the delta") — then output the category `netting_trap`, not
+`multiway_netting_trap`. The same mistake recurred on a second case in the same run: 3 of 7 correct,
+worse than the underlying reasoning capability actually was.
+
+**Root cause:** The system prompt described the new category's existence but never said explicitly
+which output string a genuinely multi-transaction match should produce. The model, correctly
+recognizing "a netting pattern" in the general sense, defaulted to the more familiar existing label
+instead of the specific new one — a labeling gap, not a reasoning failure.
+
+**Fix:** Added one explicit sentence: "If `verify_group_sum` confirms cancellation against a candidate
+group of TWO OR MORE other transactions, the category is `multiway_netting_trap`, never
+`netting_trap`." Re-ran the identical seeds live: 3/7 became 6/7 correct — the fix, not a re-roll.
+
+**Prevented:** No dedicated unit test — a system-prompt wording change, verified live against a real
+model the same way every other prompt-tuning finding in this project has been, re-confirmed via the
+committed production evidence file.
 
 ---
 
@@ -255,3 +304,31 @@ one name, genuinely different cases still return `null`.
 
 **Prevented:** `test_describe_evidence_omits_the_prior_proposals_block_entirely_when_nothing_named_exists`,
 `test_describe_prior_proposals_is_none_with_no_prior_proposals`
+
+---
+
+### A hang that wasn't a hang — real rate-limiting, diagnosed by network state, not assumption
+
+**Symptom:** An evidence-generation script that should have taken a few minutes ran for over 20
+minutes with zero output. `tasklist`'s CPU-time column showed the process barely using any CPU
+(consistent with waiting on I/O, not spinning), but `netstat` showed its two open connections sitting
+in `CLOSE_WAIT` — the remote side had already closed them, and the process hadn't noticed.
+
+**Root cause, investigated in the wrong order at first:** `CLOSE_WAIT` looked exactly like a genuine
+client-side hang, a dead connection the code failed to detect. A follow-up isolated test — one bare
+Groq API call — succeeded in half a second, which seemed to rule Groq out entirely. The real cause
+only became clear from the account's own Groq dashboard: real, repeated HTTP 429s recurring every
+7-8 minutes under sustained sequential load, invisible from a single isolated call or from local
+process state alone — a fact no amount of `netstat`/`tasklist` introspection was going to surface on
+its own.
+
+**Fix:** Not a code bug to patch — a real, already-partially-documented constraint (BUILD_LOG's own
+earlier entries note real Groq batches taking 11-70 minutes on the free tier). Evidence scripts that
+call Groq now skip it by default (`--with-groq` to opt in deliberately), so a routine run doesn't
+stall on a known external rate limit; Ollama and mock, both fast and free, carry the default evidence
+in every new evidence script this pass.
+
+**Prevented:** Nothing to regression-test — an external rate limit, not a code defect. The actual
+guard is procedural, recorded here rather than in a test: check the provider's own dashboard before
+concluding a stall is a code hang, and don't chase a phantom connection-handling bug when the real
+cause is outside the process entirely.

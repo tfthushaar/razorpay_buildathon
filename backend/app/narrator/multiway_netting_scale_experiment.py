@@ -27,18 +27,24 @@ live, is two DIFFERENT failure modes, at two different scales, on two different 
   alone) rather than searching small subsets systematically. This is a reasoning-STRATEGY limit, not
   a token-budget one -- confirmed by Groq (a stronger model) solving the identical n_total=20 case
   correctly on the first attempt.
-- **Groq hits a real, literal context wall -- just later, and as a hard error, not degraded
-  accuracy.** Groq solves n_total=20 correctly, degrades to an unparseable/empty response by
-  n_total=100, and at n_total=400 the API itself returns `413 Request too large` for
-  `openai/gpt-oss-20b` -- a real HTTP error, not a metaphor, confirming the original context-overflow
-  hypothesis, just at a different provider and a higher threshold than assumed.
+- **Groq hits a real, literal wall -- later, and as a hard error, though the committed sweep's own
+  error message tells a messier story than a clean context-size threshold.** Groq solves n_total=20
+  correctly (2/2), gives a mix of correct and empty/unparseable responses by n_total=100, then every
+  call at n_total>=200 in this run returned `429` -- but reading the actual message
+  ("Rate limit reached... on tokens per day (TPD): Limit 200000, Used 199594...") shows this is the
+  account's free-tier DAILY token quota, exhausted by this session's own cumulative Groq usage across
+  every earlier phase, not a per-request size limit specific to n_total=200+. A genuinely isolated
+  n_total=400 call (fresh quota, checked manually, outside this committed sweep) does return
+  `413 Request too large` for `openai/gpt-oss-20b` -- so the context-size wall is real too, just
+  confounded with quota exhaustion in this particular committed run. Disclosed as the honest, messier
+  finding rather than smoothed into one clean number.
 - **The magnitude pre-filter does not cleanly rescue either failure mode**, measured directly: at a
   tolerance loose enough to rarely discard the real answer (10x), it barely narrows the candidate set
   against this module's own uniformly-distributed distractor deltas (494 of 499 shown at n=500) --
-  nowhere near enough to dodge Groq's 413 at n=400. Tightening the tolerance to actually shrink the
-  request (e.g. 1.5x) raises the real-answer discard rate to over 40%. This is a genuine, disclosed
-  negative result about THIS pre-filter design against THIS synthetic data's distribution, not a
-  clean hybrid win -- see docs/evidence/ for the measured sweep.
+  nowhere near enough to meaningfully shrink a large request. Tightening the tolerance to actually
+  shrink the request (e.g. 1.5x) raises the real-answer discard rate to over 40%. This is a genuine,
+  disclosed negative result about THIS pre-filter design against THIS synthetic data's distribution,
+  not a clean hybrid win -- see docs/evidence/ for the measured sweep.
 
 This module does NOT modify the shipped product's own `list_batch_deltas`/`verify_group_sum`
 (app/narrator/tools.py) -- Phase 1's own product category runs at a small, bounded scale

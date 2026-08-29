@@ -4,13 +4,25 @@ The complete list. README keeps the five most load-bearing of these as one-line 
 the full picture, including the ones that didn't make the cut for space, not because they matter
 less.
 
-**Not horizontally scaled.** One FastAPI instance, SQLite. Worker-pool narration and a move to
-Postgres are identified next steps, deliberately deferred rather than built speculatively — nothing
-in the current design blocks either, but neither is exercised or measured yet.
+**Not horizontally scaled, though a real load test found no acute problem within the range tested.**
+One FastAPI instance, SQLite. A real load test against a genuinely running server (not the in-process
+`TestClient` tests use) measured 100% success and gracefully-degrading latency at 1 through 32
+concurrent `POST /api/run` requests (2.157s mean at concurrency=1, 4.750s at concurrency=32 — see
+[RESULTS.md](RESULTS.md)) — this doesn't mean SQLite scales indefinitely, it means "this would fall
+over under real concurrent load" isn't supported by what was actually measured. Worker-pool narration
+and a move to Postgres remain real next steps for load well beyond this range, deliberately deferred
+as unmeasured-as-necessary rather than built speculatively against a problem not shown to exist yet.
 
-**No real settlement-ledger webhook.** `POST /api/transactions/evaluate` is the integration point a
-real webhook consumer would call — the endpoint and its full pipeline are real and tested, but the
-webhook receiver itself isn't wired to any actual Razorpay event stream.
+**The Razorpay webhook receiver verifies and parses; it does not reconcile on its own.**
+`POST /api/webhooks/razorpay` (`app/webhooks/razorpay.py`) does real HMAC-SHA256 signature
+verification and real `settlement.processed` event parsing, both checked against Razorpay's own
+current docs, not guessed — the actual gap this limitation used to name. What it structurally can't
+do: reconstruct a full causal chain from a settlement-only webhook, since the order/payment/ledger
+side of a real transaction lives in the merchant's own separate integration (order creation, payment
+capture callbacks), never in a settlement event alone. A real merchant integration would take the
+parsed, verified settlement here and feed it, alongside its own already-known order/payment/ledger
+data, into the existing `/api/transactions/evaluate` pipeline — that hand-off is the integration's own
+job, not something a settlement-only payload can supply by itself.
 
 **`recall_similar_resolutions`'s persisted history doesn't separate mock from real-provider
 confidence.** Now that it persists across runs (see [ARCHITECTURE.md](ARCHITECTURE.md)), the
@@ -81,13 +93,54 @@ reasonable question like "how many transactions were escalated?" — falls back 
 first 3 transactions in the batch, with an honest label pointing at `ollama`/`groq` for a real
 answer. Disclosed here rather than left to surprise a judge on a default-provider run.
 
-**On the multi-way netting experiment** ([RESULTS.md](RESULTS.md)): even with a verification tool
-available, the smaller local model (`qwen2.5:7b-instruct`) solved only 1 of 8 hand-constructed cases
-— and 4 of those 8 never converged on any answer at all, so the real capability gap is narrower than
-"1/8" alone suggests but still real: of the runs that produced an answer, most were wrong. "An LLM
-helps here" depends heavily on which model — this project's own local-first default is not the
-strongest option for genuinely hard compositional reasoning, only for the deterministic-oracle
-classification task the shipped narrator actually performs day to day. One Ollama run also
-hallucinated a transaction id, received a real tool error back, and narrated that error as a
-confirmed finding rather than recognizing the lookup had failed — see RESULTS.md for the exact
-case.
+**On the original, hand-built multi-way netting experiment** ([RESULTS.md](RESULTS.md)): even with a
+verification tool available, the smaller local model (`qwen2.5:7b-instruct`) solved only 1 of 8
+hand-constructed cases — and 4 of those 8 never converged on any answer at all, so the real capability
+gap is narrower than "1/8" alone suggests but still real: of the runs that produced an answer, most
+were wrong. One Ollama run also hallucinated a transaction id, received a real tool error back, and
+narrated that error as a confirmed finding rather than recognizing the lookup had failed — see
+RESULTS.md for the exact case.
+
+**`multiway_netting_trap`, now a real shipped category, still can't use the recommended zero-cost
+default.** `narrate_mock` fails structurally by construction (0/42, measured, not assumed — it never
+calls the tools this category needs). Real providers do solve it on real generated batches (Ollama
+5/7, Groq 6/7 — see [RESULTS.md](RESULTS.md)), so this category will very plausibly never clear
+calibration's own auto-resolve bar under the mock-default demo path, and may take real accumulated
+evidence to clear it even under Ollama. That's the honest, disclosed shape of the tradeoff, not
+something worked around: a category the rule genuinely can't touch necessarily depends on the
+real-provider path this project's whole "calibrated autonomy" story is built to require anyway.
+
+**At real settlement-batch scale (hundreds of transactions in one batch), neither real provider holds
+up cleanly, for two different reasons.** Ollama fails at every scale tested, 20 through 760
+transactions (0/36) — not from context overflow, but a reasoning-strategy limit: it accumulates an
+ever-growing candidate list across tool-call rounds instead of searching small subsets
+systematically. Groq does solve the smallest case (n=20) but degrades quickly, and by n≥200 in this
+project's own committed sweep every call returned a real `429` — though reading the actual error
+message shows this was the account's free-tier **daily token quota** (200,000 tokens/day), exhausted
+by cumulative Groq usage across this whole session's own earlier phases, confounded with (not a clean
+substitute for) the genuine per-request context-size wall confirmed separately in an isolated check.
+A magnitude-based pre-filter, tried as a fix, doesn't cleanly rescue either failure mode: loose enough
+to rarely discard the real answer, it barely narrows a large request; tight enough to actually shrink
+one, it discards the real answer over 40% of the time. See [RESULTS.md](RESULTS.md) for the full,
+disclosed sweep.
+
+**A bigger local model is not automatically a better one on a tool-budget-constrained task.**
+`qwen2.5:14b-instruct` scores *worse* than `qwen2.5:7b-instruct` on `multiway_netting_trap` (1/7 vs
+4/7) — it explores more per case (redundant tool calls, checking irrelevant ones) and more often runs
+out of the same fixed round budget before converging. On `narration_explained`, a pure reading task
+with no such budget tension, the larger model does score slightly better (5/5 vs 4/5). "Bigger model"
+is not a substitute for measuring the actual task; see [RESULTS.md](RESULTS.md) for both real
+comparisons. `gpt-oss-120b` was never included in any of this project's own comparisons — no verified
+hosted or local path was confirmed available in this environment, and no claim is made that it was
+tested.
+
+**The held-out near-miss patterns show a real tool-design tension, not just a hard task.** Perturbed
+`duplicate_refund`/`netting_trap` cases the exact-match rule can never confirm (built specifically to
+break the "same author wrote the rule and the injector" problem) are also not solved by Ollama (0/21).
+Reading the raw traces shows why: the model's own `verify_group_sum` tool is a strict exact-zero check
+— correct and necessary for `multiway_netting_trap` — and it correctly reports a near-miss candidate
+as NOT cancelling, so a model following its own instruction to never assert an unverified explanation
+appropriately declines rather than guesses. The discipline this project credits elsewhere (a cautious
+"I don't know" over a confident wrong guess) actively works against success on this specific task — a
+real, disclosed limitation of the current tool design, not a smoothed-over negative result. See
+[RESULTS.md](RESULTS.md) and [WHAT_BROKE.md](WHAT_BROKE.md).

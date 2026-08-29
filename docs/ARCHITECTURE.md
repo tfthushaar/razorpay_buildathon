@@ -77,10 +77,11 @@ matches         │        category + confidence + reasoning + tool-call trace
 ```
 
 Deterministic Pass 1/2 resolves the large majority of a batch with zero LLM calls — that's the
-design, not a shortfall. The narrator is reserved for the three categories that need real judgment,
-and its own accuracy on that classification task is measured honestly, not assumed — see
-[RESULTS.md](RESULTS.md) for what the rule alone already gets right, and where the LLM's real value
-actually is.
+design, not a shortfall. The narrator's original three categories don't need real judgment, and its
+own accuracy on that classification task is measured honestly, not assumed. Two later categories,
+`multiway_netting_trap` and `narration_explained`, genuinely do — see [RESULTS.md](RESULTS.md) for
+what the rule alone already gets right, where the LLM's real value actually is, and "Where genuine
+judgment lives" below for what that looks like once it's a shipped category, not an anecdote.
 
 ## Core components
 
@@ -93,10 +94,13 @@ still needs a full causal chain built regardless. Kept as a tested capability fo
 actually helps — ledger and settlement data living in separate services, where the pre-filter avoids
 the fetch, not just an already-cheap in-memory comparison.
 
-**Agentic narrator** (`app/narrator/`). A tool-calling loop, not a single completion, over four
+**Agentic narrator** (`app/narrator/`). A tool-calling loop, not a single completion, over six
 tools: `lookup_fee_schedule`, `check_sla_window`, `check_batch_anomalies` (duplicate-refund and
 netting-trap detection, consolidated into one tool once both turned out to need the same
-cross-transaction lookup), and `recall_similar_resolutions`. The last one persists across runs: when
+cross-transaction lookup), `recall_similar_resolutions`, and — brought in once `multiway_netting_trap`
+and `narration_explained` shipped as real categories — `list_batch_deltas`/`verify_group_sum` (a group
+of other transactions that collectively cancels a delta) and `read_bank_narration` (the settlement's
+own free-text remarks field). `recall_similar_resolutions` persists across runs: when
 `build_tool_context` is given the same `AuditLogger` the run will log its own decisions to, it first
 seeds the in-run audit log with every categorized decision that logger has ever recorded, so a
 brand-new run's very first transaction already has real cross-run memory, not just whatever
@@ -125,6 +129,46 @@ no LLM, reported side by side with the full system's own result.
 **Audit logger.** Every decision — matched, escalated, auto-resolved — with timestamp, reasoning,
 tool-call trace, and a link back to the source ledger/settlement rows, so a reviewer can click
 through and verify a decision instead of taking the narration on faith.
+
+## Where genuine judgment lives in the product
+
+On the original three categories, the deterministic rule already matches the LLM exactly (see
+[RESULTS.md](RESULTS.md)) — no genuine ambiguity is left for a classifier to resolve, so the LLM's
+value there is reliability under failure, not judgment. Two categories exist specifically because the
+rule structurally cannot resolve them at any scale, brought in from side experiments into the real,
+calibration-gated decision loop, not left beside the product:
+
+**`multiway_netting_trap`.** `check_batch_anomalies` only ever checks pairs — a discrepancy explained
+only by a *group* of 3+ other transactions collectively cancelling it is invisible to a pairwise
+check by construction. `app/data_gen/generate.py`'s `_gen_multiway_netting_trap` injects a real,
+brute-force-verified-unique group (opt-in, `enable_multiway_netting`, default off so existing
+evidence stays valid); `list_batch_deltas`/`verify_group_sum` let a real provider search for and
+verify a hypothesis. `mock` fails structurally (never calls either tool); real providers solve most
+of it. A separate, harder experiment (`app/narrator/multiway_netting_scale_experiment.py`) tests the
+same task at real settlement-batch scale (hundreds of transactions) and finds two distinct failure
+modes, not a clean degradation curve — see [RESULTS.md](RESULTS.md). A third module
+(`app/narrator/multiway_netting_optimal_solver.py`) builds the strongest deterministic rule actually
+worth building for this task — real O(n)/O(n²) k-sum algorithms, not brute force — and finds the
+honest frontier is disambiguation at scale, not compute time.
+
+**`narration_explained`.** A delta explained only by the settlement's own free-text remarks field
+(`Settlement.bank_narration`, new field, eight varied realistic templates) — never by any structured
+field or delta-arithmetic a rule could check at any scale, not even the combinatorial machinery
+above. `read_bank_narration` exposes the raw text; `mock` never calls it, structurally; a real
+provider reads it cleanly (see [RESULTS.md](RESULTS.md)) — no tool-design tension here, unlike the
+held-out variants below, since reading comprehension has no strict-verification step to conflict with.
+
+**Held-out near-miss variants**, separately, target the "shared author" problem directly:
+`enable_held_out_variants` perturbs `duplicate_refund`/`netting_trap` cases by a small, disclosed
+epsilon `check_batch_anomalies`'s exact-match check can never confirm, while the true category stays
+the same. Neither `mock` nor the recommended local model solves these — reading the real reasoning
+traces shows why in [RESULTS.md](RESULTS.md), a genuine tool-design tension rather than a reasoning
+gap.
+
+None of these are auto-adopted by fiat — every one earns auto-resolve through `CalibrationHistory`'s
+own accumulated real evidence exactly like the original three, and `multiway_netting_trap` may never
+clear that bar under the zero-cost `mock` default given it fails there by construction. That's the
+disclosed, expected shape of a category the rule genuinely cannot touch, not something worked around.
 
 ## Beyond reconciliation: the other three Track 04 directions
 
@@ -185,9 +229,20 @@ settlement, doesn't exist here because it structurally can't: verified against R
 documentation that test-mode payments are excluded from the real settlement pipeline, on any account,
 permanently. The synthetic generator covers the settlement leg alone, for exactly this reason.
 
+**Webhook receiver.** `app/webhooks/razorpay.py`, `POST /api/webhooks/razorpay` — real HMAC-SHA256
+signature verification and real `settlement.processed` event parsing, both checked against
+Razorpay's own current docs before writing this, not guessed. Refuses to run unverified (401 on a
+missing/wrong signature, 500 if no webhook secret is configured), constant-time comparison on the
+security-critical check. Verifies and parses; doesn't pretend a settlement-only event can
+reconstruct a full causal chain on its own — see [LIMITATIONS.md](LIMITATIONS.md) for that boundary.
+
 ## Tech stack
 
 Python + FastAPI, SQLite, React 19 + TypeScript. LLM: Ollama (local `qwen2.5:7b-instruct`) as the
 zero-cost, zero-rate-limit default, Groq (`openai/gpt-oss-20b`) as a second hosted option — chosen
 after a full free-tier survey (Cerebras, Gemini, DeepSeek, GLM, SambaNova, OpenRouter, GitHub Models,
 Mistral) found every other hosted option rate- or credit-capped too tightly for a real batch.
+`qwen2.5:14b-instruct` was pulled and measured too, specifically to make "which model" a real
+comparison rather than an anecdote — it does not universally beat the smaller default (see
+[RESULTS.md](RESULTS.md)). `gpt-oss-120b` was never included in any comparison in this project — no
+verified hosted or local path was confirmed available, and no claim is made that it was tested.

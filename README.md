@@ -19,6 +19,7 @@ what it has measured itself accurate on.
 | Per-category accuracy | `netting_trap` 98.3% (91.0% Wilson lower bound), `duplicate_refund` 100%, `genuine_error` 80.3% (never auto-resolves) | same command |
 | Adversarial stress batch | 40/40 correctly handled, 0 wrongly auto-resolved | [raw output](docs/evidence/verified-ollama-run-2026-08-25.json) |
 | Auto-resolved with zero human review | ₹4,86,473.13, 59 distinct real cases | same command |
+| `multiway_netting_trap` — genuine judgment, real category | rule 0/42 (structural), Ollama 5/7, Groq 6/7 | `python scripts/generate_multiway_netting_trap_production_evidence.py` |
 
 Full numbers, every claim in this file: [RESULTS.md](docs/RESULTS.md).
 
@@ -40,21 +41,27 @@ amount before a payment settles. Detail: [ARCHITECTURE.md](docs/ARCHITECTURE.md)
 
 ## Where the LLM sits, including where it doesn't
 
-85% of a batch resolves deterministically, zero LLM calls. The three categories the model is
-reserved for aren't ambiguous to the tools that gather evidence for them: a 20-line rule with zero
-LLM calls scores 100.0% across 519 real cases. The real narrator doesn't match that (98.3%/80.3%
-above) — on this task, the rule is a strict upgrade over the LLM. The real-provider call earns
-autonomy for reliability under conditions the rule never faces (API failures, malformed tool
-arguments, a hallucinated id), not for resolving a case the rule genuinely couldn't.
+85% of a batch resolves deterministically, zero LLM calls. The three original categories the model
+is reserved for aren't ambiguous to the tools that gather evidence for them: a 20-line rule with zero
+LLM calls scores 100.0% across 519 real cases, matching the real narrator on that task. There, the
+LLM earns its place on reliability under conditions the rule never faces (API failures, malformed
+tool arguments, a hallucinated id), not on resolving a case the rule genuinely couldn't.
 
-For a case the rule provably can't resolve — a netting pattern across 3+ transactions, invisible to
-a pairwise-only detector by construction — Groq solved 8/8 with a verification tool available; a
-smaller local model solved 1/8. Full numbers and raw evidence: [RESULTS.md](docs/RESULTS.md).
+`multiway_netting_trap` is the case the rule genuinely can't resolve — a netting pattern across 3+
+transactions, invisible to a pairwise-only detector by construction — and it's now a real, shipped,
+calibration-gated category, not a side experiment: `mock` fails structurally (0/42, confirmed), real
+providers solve most of it on real generated batches (Ollama 5/7, Groq 6/7). A separate, harder test
+at real settlement-batch scale (500-800 transactions) finds the honest edges of that — two different
+failure modes on two different providers, a magnitude pre-filter that doesn't cleanly fix either, and
+a larger local model that does *worse*, not better, once the task gets tool-budget-constrained. A
+second category, `narration_explained`, requires reading a messy free-text field no rule can parse at
+any scale — mock 0/64, Ollama a clean 10/10, no tool-design tension to fight. Full numbers, every
+raw evidence file: [RESULTS.md](docs/RESULTS.md).
 
 ## Verify it yourself
 
 ```bash
-cd backend && python -m pytest tests/ -v                 # 221 tests
+cd backend && python -m pytest tests/ -v                 # 280 tests
 python scripts/audit_calibration.py --db ../docs/evidence/verified_calibration_history.db
 python scripts/measure_mock_narrator_accuracy.py
 ```
@@ -63,16 +70,19 @@ All three work on a genuinely fresh clone. Full reproduction notes: [RESULTS.md]
 
 ## What this can't do
 
-- Not horizontally scaled — one FastAPI instance, SQLite.
+- Not horizontally scaled — one FastAPI instance, SQLite. A real load test found no acute problem up
+  to 32 concurrent requests (100% success, latency degrading gracefully); Postgres/worker-pool
+  narration remain deferred as unmeasured-as-necessary, not built speculatively.
 - Settlement is structurally unavailable in Razorpay's test mode, on any account — 4 of 5
   causal-chain hops are real API objects; the fifth is synthetic for exactly this reason.
 - The forecaster is exact by construction on ~73% of transactions (the merchant's own known fee/SLA
   schedule, not a learned model). A separate, genuinely-blind backtest against a hidden schedule
   drift shows why that matters: amount error stays under 0.2%, but date-window coverage swings
   3%–100% seed to seed.
-- Category discovery clusters proposals within one run, not across separate runs.
-- No real settlement-ledger webhook — `POST /api/transactions/evaluate` is the integration point one
-  would call.
+- `multiway_netting_trap` breaks down at real settlement-batch scale (500+ transactions) — two
+  different failure modes on two different providers, neither fixed by a magnitude pre-filter.
+- The real Razorpay webhook receiver verifies and parses; it can't reconcile a settlement-only event
+  on its own — the order/payment/ledger side lives in the merchant's own separate integration.
 
 Full list: [LIMITATIONS.md](docs/LIMITATIONS.md).
 
@@ -86,8 +96,10 @@ Full list: [LIMITATIONS.md](docs/LIMITATIONS.md).
 - The flagship multi-way netting experiment's own first result (Groq 8/8) turned out to have a
   leaked strategy and a trivially-satisfiable grader; corrected, Groq needed a verification tool to
   earn 8/8 again — honestly, this time.
+- Wiring that same category into the real product, a live Groq run got the arithmetic right and the
+  category wrong; one added sentence in the system prompt took it from 3/7 correct to 6/7.
 
-Twelve incidents, fixed format: [WHAT_BROKE.md](docs/WHAT_BROKE.md).
+Fifteen incidents, fixed format: [WHAT_BROKE.md](docs/WHAT_BROKE.md).
 
 ## Get it running
 
