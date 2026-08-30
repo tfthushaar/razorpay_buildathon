@@ -10,10 +10,31 @@ deciding which mismatches are explained, which need a human, and which are money
 
 This system does that triage. It closes 98.9% of a realistic 97%-clean batch deterministically (85.0%
 at the demo's denser default), escalates the rest with the evidence attached, and refuses to
-auto-resolve any category it has not measured itself accurate on. It also audits the fee against the
+auto-resolve any category it has not measured itself accurate on. Today that means it refuses all of
+them, which is the next section. It also audits the fee against the
 merchant's contract, because a wrongly-charged fee reconciles perfectly.
 
 Live: [razorpay-buildathon-five.vercel.app](https://razorpay-buildathon-five.vercel.app)
+
+## The gate says no
+
+Nothing in this system currently has autonomy, and that is the result rather than a gap in it.
+
+The trust gate recomputed a Wilson lower bound after every batch and granted autonomy the first time
+it cleared 90%. Wilson's coverage holds at a fixed n; re-checking and stopping at the first crossing
+is optional stopping, and the guarantee does not survive it. Tested against what the bound actually
+promises, P(bound > true accuracy) at most 5%, it came out at 9.72%, 10.12% and 8.77% across true
+accuracies of 88%, 90% and 92%. About twice its stated level, in the direction that hands out
+autonomy nothing earned.
+
+The gate now uses a confidence sequence, valid at every stopping time by construction. Under it
+`netting_trap` scores 88.4% and `duplicate_refund` 85.6% against a 90% bar, and both escalate. Forty
+perfect decisions were worth 91.2% under the old bound and are worth 86.6% under this one.
+
+A payments company should want a gate that refuses on 37 samples. The mechanism, the measurement, and
+the fact that the corrected version says no are the contribution; a gate that has never refused has
+never been tested. What the system can safely automate today is 59.3% of decisions at a 1.0% error
+rate, at a threshold it is honest about rather than one it cleared by being asked repeatedly.
 
 ## Where AI belongs
 
@@ -64,7 +85,9 @@ structural prior.
 
 On three-source matching every structured field is exhausted by construction, leaving only the
 free-text settlement cycle. On held-out phrasing the regex scores 88.0%, identical to not parsing at
-all, and the local model scores 94.0% (exact McNemar p = 0.049).
+all, and the local model scores 94.0% (exact McNemar p = 0.049). Re-weighting the structured fields by
+log-odds estimated from data rather than by constants I chose lifts that baseline to 91.3%, so the
+model's margin is 2.7 points and not 6.
 
 The settlement Q&A agent splits the same way. Across nine questions with ground truth computed from
 the batch, a keyword router scores 87.5% on my phrasing and **0.0%** on held-out phrasing; the model

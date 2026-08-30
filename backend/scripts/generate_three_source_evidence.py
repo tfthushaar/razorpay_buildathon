@@ -35,6 +35,7 @@ from app.data_gen.three_source import generate_three_source_batch  # noqa: E402
 from app.narrator.preflight import GroqBudgetError, check_groq_budget, check_ollama_available  # noqa: E402
 from app.resolver.cycle_reader import model_cycle_agrees  # noqa: E402
 from app.resolver.entity_resolution import match_all  # noqa: E402
+from app.resolver.fellegi_sunter import fit_weights, match_all_weighted  # noqa: E402
 
 
 def cached_model_reader(model: str | None, provider: str = "ollama"):
@@ -126,6 +127,19 @@ def main() -> None:
 
         columns = {}
         columns["no_cycle_parsing"] = score(batch, match_all(batch.settlements, batch.bank_rows, use_cycle_ref=False))
+
+        # A structured-only column whose weights were estimated rather than chosen. Fitted on a
+        # DIFFERENT seed, because estimating m and u from the pairs you then score is memorisation.
+        # This exists so "the structured fields tie" is a claim about the problem and not about the
+        # constants I picked; it carries no cycle term, so it compares to no_cycle_parsing alone.
+        fit_batch = generate_three_source_batch(seed=args.seed + 100, n=args.n, held_out_cycle_phrasing=held_out)
+        fs_weights = fit_weights(fit_batch.settlements, fit_batch.bank_rows, fit_batch.truth)
+        columns["fellegi_sunter_no_cycle"] = score(batch, match_all_weighted(batch.settlements, batch.bank_rows, fs_weights))
+        columns["fellegi_sunter_no_cycle"]["fitted_on_seed"] = args.seed + 100
+        columns["fellegi_sunter_no_cycle"]["weights"] = {
+            f: {"m": w.m, "u": w.u, "agree": w.agree_weight, "disagree": w.disagree_weight}
+            for f, w in fs_weights.fields.items()
+        }
         columns["regex_cycle_parser"] = score(batch, match_all(batch.settlements, batch.bank_rows, use_cycle_ref=True))
         readers = [] if args.no_model else [("ollama", args.model, "ollama")]
         if args.groq_model:

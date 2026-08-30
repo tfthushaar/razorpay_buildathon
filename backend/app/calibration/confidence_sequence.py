@@ -5,17 +5,23 @@ every decision accumulated so far, after every batch, and grants autonomy the fi
 90%. Wilson's coverage guarantee holds for a FIXED n. Checking repeatedly and stopping at the first
 crossing is optional stopping, and the guarantee does not survive it.
 
-It fails in the dangerous direction. Simulating the real gate, 90% threshold, checked every 5
-decisions up to n=300:
+It fails in the dangerous direction, and the right way to show that is to test the guarantee itself. A
+95% lower bound promises P(bound > true accuracy) <= 5%. Simulating the real gate, checked every 5
+decisions to n=300, that promise is broken at every accuracy tried:
 
-    true accuracy    crossed by peeking    crossed at a fixed check
-        88%                 3.12%                    0.12%
-        90%                10.12%                    1.55%
-        92%                35.70%                   17.18%
+    true accuracy    P(bound > truth)    P(gate opens at 90%)    same, at a fixed check
+        88%               9.72%                  3.12%                   0.12%
+        90%              10.12%                 10.12%                   1.55%
+        92%               8.77%                 35.70%                  17.18%
 
-A cause whose true accuracy is 88%, genuinely below the bar, was being granted autonomy roughly 25
-times more often than a 5% guarantee suggests. This is the gate that lets a machine close a case
-about money without a human, so it is the wrong place to be quietly anti-conservative.
+The middle column is what the gate does; the first is what the bound claims. Reading across the 88%
+row: only 3.12% of runs open a 90% gate, which is under 5% and looks safe, but 9.72% of runs produce a
+bound ABOVE the true accuracy, which is the guarantee failing at twice its stated level. An earlier
+version of this file compared 3.12% to the 5% figure. Those are different quantities, and the
+comparison flattered the bug: the real violation is uniform, not confined to one row.
+
+This is the gate that lets a machine close a case about money without a human, so it is the wrong
+place to be quietly anti-conservative.
 
 THE FIX. A confidence sequence is a bound valid at ALL stopping times simultaneously, which is
 exactly the guarantee the calibration loop needs and Wilson does not provide. This implements the

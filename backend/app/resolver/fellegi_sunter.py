@@ -146,3 +146,52 @@ def fit_weights(
 
 def _clamp(p: float) -> float:
     return min(max(p, _EPSILON), 1.0 - _EPSILON)
+
+
+def match_all_weighted(
+    settlements: list[SettlementRow],
+    bank_rows: list[BankRow],
+    weights: MatchWeights,
+) -> dict[str, "MatchResult"]:
+    """Score every settlement with estimated weights, returning what `match_all` returns.
+
+    Same shape so the evidence script can score this column with the identical function it uses for
+    every other one. No cycle-reference term: this column exists to test whether the STRUCTURED
+    fields can be weighted better, and adding a reader would confound that with the reading result.
+    """
+    from app.resolver.entity_resolution import MatchCandidate, MatchResult, _name_similarity, _utr_match
+
+    out: dict[str, MatchResult] = {}
+    for settlement in settlements:
+        candidates: list[MatchCandidate] = []
+        for row in bank_rows:
+            comparisons = compare(settlement, row)
+            if comparisons is None:
+                continue
+            _, evidence = _utr_match(settlement.utr, row.description)
+            candidates.append(
+                MatchCandidate(
+                    bank_row_id=row.bank_row_id,
+                    score=round(weights.score(comparisons), 4),
+                    utr_evidence=evidence,
+                    amount_delta=row.credit_amount - settlement.amount,
+                    date_slip_days=(row.value_date.date() - settlement.value_date.date()).days,
+                    name_similarity=round(_name_similarity(settlement.merchant_id, row.description), 4),
+                    cycle_agrees=None,
+                )
+            )
+        if not candidates:
+            out[settlement.settlement_id] = MatchResult(
+                settlement_id=settlement.settlement_id, status="UNMATCHED", candidates=[], tied_at_top=0
+            )
+            continue
+        candidates.sort(key=lambda c: (-c.score, c.bank_row_id))
+        top = candidates[0].score
+        tied = sum(1 for c in candidates if c.score == top)
+        out[settlement.settlement_id] = MatchResult(
+            settlement_id=settlement.settlement_id,
+            status="RESOLVED" if tied == 1 else "UNDER_DETERMINED",
+            candidates=candidates,
+            tied_at_top=tied,
+        )
+    return out

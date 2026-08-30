@@ -67,6 +67,7 @@ columns.
 | Cycle reader | Seen phrasing | Held-out phrasing | Gap |
 |---|---|---|---|
 | none | 91.3% [85.7, 94.9] | 88.0% [81.8, 92.3] | -3.3 |
+| none, weights estimated not chosen | 90.0% [84.2, 93.8] | 91.3% [85.7, 94.9] | +1.3 |
 | best regex parser | 98.7% [95.3, 99.6] | 88.0% [81.8, 92.3] | -10.7 |
 | `qwen2.5:7b-instruct` | 98.0% [94.3, 99.3] | 94.0% [89.0, 96.8] | -4.0 |
 
@@ -78,24 +79,36 @@ cycle at all, because its patterns match zero descriptions. The model wins 13 pa
 4, exact McNemar **p = 0.049**. Conceding 2 cases to the regex takes that to p = 0.33, so the result
 is significant but not robust to a couple of mis-scored cases.
 
-The structured weights are no longer mine. Scoring by hand-chosen constants is the standing criticism
-of fuzzy matching, so the comparators are now weighted by log-odds estimated from a calibration batch,
-fitted on one seed and scored on others.
+The shipped matcher uses weights I chose, and scoring by hand-chosen constants is the standing
+criticism of fuzzy matching. The second row answers it: the same comparators, the same candidate
+filter, no cycle term, weighted instead by log-odds estimated from a calibration batch on a different
+seed from the one it is scored on.
 
-| Field | Hand-chosen | Estimated |
-|---|---|---|
-| exact UTR | 2.0 | **9.02** |
-| exact amount | 1.0 | 0.52 |
-| exact date | 0.5 | 0.46 |
-| merchant name | up to 1.0 | **0.01** |
+| Field | Hand-chosen | Estimated | m | u |
+|---|---|---|---|---|
+| exact UTR | 2.0 | **9.02** | 0.519 | 0.001 |
+| exact amount | 1.0 | 0.52 | 0.999 | 0.695 |
+| exact date | 0.5 | 0.46 | 0.674 | 0.492 |
+| merchant name | up to 1.0 | **0.01** | 0.770 | 0.763 |
 
-Merchant-name similarity agrees on 77% of true matches and 76% of false ones, so it carries almost no
-information, and the old scorer added up to a full point of it to every candidate. The estimated
-weights beat the hand-tuned ones with no reader at all: 90.4% against 89.8% on seed 42, 91.4% against
-89.3% on seed 43. That raises the baseline the model is compared against, which is the reason to do it.
+Merchant-name similarity agrees on 77% of true matches and 76% of false ones, so it separates almost
+nothing, and the hand-tuned scorer was adding up to a full point of it to every candidate. An exact
+UTR is worth nine, not two.
 
-Reproduce: `python scripts/generate_three_source_evidence.py`. Raw:
-[`three-source-2026-08-29.json`](evidence/three-source-2026-08-29.json).
+The effect is real and one-directional rather than a clean win. On held-out phrasing the estimated
+weights take the structured-only baseline from 88.0% to 91.3%, beating the regex parser on 5 cases
+and losing none, though at p = 0.0625 that is not significant at this n. On seen phrasing they are
+worse, 90.0% against 91.3%: the hand-chosen weights were tuned against phrasing I had seen, which is
+the same effect the reading experiment measures one layer up.
+
+What it buys is the argument, not the number. The model's 94.0% on held-out phrasing is now measured
+against a best structured baseline of 91.3% rather than 88.0%, so its margin is 2.7 points and not 6.
+"Even with weights estimated from the data, the structured fields tie" is a claim about the problem;
+"with my weights, they tie" was a claim about me.
+
+Reproduce: `python scripts/generate_three_source_evidence.py --n 120`. The three original columns
+reproduce their published values exactly at that n, which is what makes the fourth comparable. Raw:
+[`three-source-2026-08-30.json`](evidence/three-source-2026-08-30.json).
 
 ## End to end on the residual
 
@@ -322,7 +335,7 @@ Reproduce: `python scripts/generate_qa_evidence.py`. Raw:
 | `netting_trap` | 59 distinct real cases, 98.3% [91.0, 99.7] |
 | `duplicate_refund` | 37 distinct real cases, 100% [90.6, 100.0] |
 | `genuine_error` | 66 distinct real cases, 80.3% [69.2, 88.1], never auto-resolves by design |
-| Auto-resolved with no human review | 59 distinct cases, ₹4,86,473.13 of synthetic value |
+| Auto-resolved with no human review, under the superseded fixed-n gate | 59 distinct cases, ₹4,86,473.13 of synthetic value. Under the anytime-valid gate that replaced it, none of these would have been auto-resolved |
 | Adversarial stress batch | 40/40 handled, 0 wrongly auto-resolved |
 
 These rows are at the generator's demo density of 60% clean, denser than reality so every category
@@ -355,8 +368,10 @@ perfect at 37 of 37 and still scores a lower bound than `netting_trap` at 58 of 
 rewards evidence and not only accuracy, so a stricter bar drops the flawless category and keeps the
 flawed one.
 
-Simulated at a 90% gate checked every 5 decisions to n=300, a cause genuinely at 88% crossed 3.12% of
-the time under repeated checking against 0.12% at a single check. Forty perfect decisions are worth
+A 95% lower bound promises P(bound > true accuracy) at most 5%. Checked every 5 decisions to n=300
+it delivered 9.72%, 10.12% and 8.77% at true accuracies of 88%, 90% and 92%: a uniform violation,
+not one bad row. The gate opening at 90% is a separate number, 3.12% at a true 88% against 0.12%
+for a single check. Forty perfect decisions are worth
 91.2% under Wilson and 86.6% under a valid bound; 55 is the first n that qualifies.
 
 Reproduce: `GET /api/risk-coverage`.
@@ -367,7 +382,7 @@ Reproduce: `python scripts/audit_calibration.py --db ../docs/evidence/verified_c
 
 | Result | Number | Reproduce |
 |---|---|---|
-| Time-to-revocation drill | 1 wrong decision revoked a category, aggregate still 97.6% | `POST /api/drift/drill` |
+| Time-to-revocation drill | 1 wrong decision revoked a category, aggregate still 97.6%. Seeds its own synthetic category to 60 clean decisions first, because nothing in the committed history holds autonomy to revoke | `POST /api/drift/drill` |
 | Realized regret | ₹0 across 8 real auto-resolved transactions | `GET /api/regret` |
 | GSTR-2B match | 120 matched, 30 exceptions across 3 disjoint kinds | `GET /api/gstr2b` |
 | Blind backtest, seeds 1-20 | median amount error 0.17%, coverage 56.5% (range 3%-100%) | `GET /api/forecast/blind-backtest` |

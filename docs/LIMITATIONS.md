@@ -70,8 +70,8 @@ against each other.
 
 The gate itself was also wrong, in the dangerous direction. It recomputed a Wilson lower bound after
 every batch and granted autonomy on the first crossing, which is optional stopping, and Wilson's
-coverage holds at a fixed n. Simulated at a 90% threshold, a cause genuinely at 88% crossed 25 times
-more often than a 5% guarantee implies. The gate now uses a confidence sequence valid at every
+coverage holds at a fixed n. Tested against what the bound promises, P(bound > true accuracy) at most 5%, it came out at 9.72%,
+10.12% and 8.77% across true accuracies of 88%, 90% and 92%, about twice its stated level. The gate now uses a confidence sequence valid at every
 stopping time, and under it no category in the committed history auto-resolves: 88.4% for
 `netting_trap` and 85.6% for `duplicate_refund` against a 90% bar.
 
