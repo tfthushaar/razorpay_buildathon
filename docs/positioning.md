@@ -16,7 +16,7 @@ output either product already produces.
 
 The regulatory correction behind the fee-leak detector's design (checking a merchant's own
 contracted rate rather than a blanket legal claim) is covered in
-[the architecture doc](ARCHITECTURE.md#beyond-reconciliation-the-other-three-track-04-directions).
+[the architecture doc](ARCHITECTURE.md#other-loops).
 
 ## One trajectory worth naming
 

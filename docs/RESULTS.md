@@ -65,8 +65,8 @@ The regex wins on seen phrasing. On held-out it scores 88.0%, identical to not p
 all, because its patterns match zero descriptions; the model wins 13 paired cases and loses 4, exact
 McNemar **p = 0.049**, moving to p = 0.33 if two cases are conceded. Row two replaces my hand-chosen
 match weights with log-odds estimated from data, lifting the structured-only baseline to 91.3%, so
-the model's real margin is 2.7 points and not 6 ([METHODS.md](METHODS.md#match-weights-estimated-
-instead-of-chosen)).
+the model's real margin is 2.7 points and not 6
+([METHODS.md](METHODS.md#match-weights-estimated-instead-of-chosen)).
 
 Reproduce: `python scripts/generate_three_source_evidence.py --n 120`. The three original columns
 reproduce their published values exactly at that n, which is what makes the fourth comparable. Raw:
@@ -219,8 +219,8 @@ reliability under failure.
 **Nothing currently clears the gate.** Both were reported as having cleared 90% after 8 batches,
 measured with a Wilson bound recomputed after every batch, which is optional stopping. Under a bound
 valid at every stopping time they are 88.4% and 85.6%. What the system can safely automate is 59.3%
-of decisions at a 1.0% error rate, at a gate of 0.85 ([METHODS.md](METHODS.md#the-autonomy-gate-and-
-why-wilson-was-the-wrong-bound)).
+of decisions at a 1.0% error rate, at a gate of 0.85
+([METHODS.md](METHODS.md#the-autonomy-gate-and-why-wilson-was-the-wrong-bound)).
 
 Reproduce: `python scripts/audit_calibration.py --db ../docs/evidence/verified_calibration_history.db`.
 
