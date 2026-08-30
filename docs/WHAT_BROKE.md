@@ -1,7 +1,27 @@
 # What broke
 
-Thirteen incidents that changed how the system works, newest first. Longer journal:
+Fourteen incidents that changed how the system works, newest first. Longer journal:
 [`BUILD_LOG.md`](../BUILD_LOG.md).
+
+---
+
+## A 10,000x speedup on a function that runs on ten items
+
+Symptom. None. That is the problem.
+
+Cause. Reading the literature on reconciliation matching turned up Horowitz and Sahni's
+meet-in-the-middle, and `subset_sum.py` was an O(n^4) loop over `itertools.combinations`. I measured
+the brute force at 25.3s for n=200 and roughly 70 hours projected at n=2,000, wrote the O(n^2)
+version, tested it for exact equivalence, and measured it at 0.012s and 23.7s. Then I profiled the
+call sites, which is what I should have done first. There are two, and they pass pools of five and
+ten items. The one place n is genuinely large, the scale experiment, does not call this function at
+all; it has its own k-sum solver.
+
+Fix. Kept, because it is equivalence-tested against the original and removes a cliff if a caller ever
+passes a real batch, but the module docstring now says plainly that it earns no speed claim. The
+speedup is real in a microbenchmark and worth nothing here.
+
+Found by: profiling after the rewrite instead of before it.
 
 ---
 
