@@ -48,5 +48,5 @@ def test_different_qualifying_categories_can_each_be_drilled():
     for category in ("netting_trap", "duplicate_refund"):
         report = run_revocation_drill(category=category)
         assert report.category == category
-        assert report.qualifying_decision_count == 40
+        assert report.qualifying_decision_count == 60
         assert report.revoked is True

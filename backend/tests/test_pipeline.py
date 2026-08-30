@@ -259,7 +259,7 @@ def test_accumulated_real_provider_decisions_can_clear_threshold():
                 ScoredDecision(
                     transaction_id=f"real{i}", predicted_category="netting_trap", true_label="netting_trap", amount=400_00, provider="groq"
                 )
-                for i in range(40)
+                for i in range(60)
             ],
             source="batch",
         )
@@ -268,7 +268,7 @@ def test_accumulated_real_provider_decisions_can_clear_threshold():
 
     netting = next(c for c in report.categories if c.category == "netting_trap")
     assert netting.decision == "auto_resolve"
-    assert netting.n == 40
+    assert netting.n == 60
 
 
 def test_provider_gate_applies_per_decision_not_just_per_category():
@@ -286,7 +286,7 @@ def test_provider_gate_applies_per_decision_not_just_per_category():
                 ScoredDecision(
                     transaction_id=f"real{i}", predicted_category="netting_trap", true_label="netting_trap", amount=400_00, provider="groq"
                 )
-                for i in range(40)
+                for i in range(60)
             ],
             source="batch",
         )

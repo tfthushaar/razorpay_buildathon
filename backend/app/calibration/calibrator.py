@@ -27,6 +27,7 @@ from typing import Literal
 from pydantic import BaseModel
 
 from app.calibration.drift import detect_drift
+from app.calibration.confidence_sequence import lower_bound_from_outcomes
 from app.calibration.wilson import wilson_score_interval
 
 # Escalation *is* the correct resolution for genuine_error by definition ("a genuinely
@@ -67,6 +68,11 @@ class CategoryCalibration(BaseModel):
     accuracy: float
     ci_lower: float
     ci_upper: float
+    sequence_lower: float  # anytime-valid lower bound, and the one the gate actually uses.
+    # ci_lower is a Wilson bound, whose 95% coverage holds at a FIXED n. This gate is re-checked
+    # after every batch and fires on the first crossing, which is optional stopping, and Wilson does
+    # not survive it: simulated at an 88% true accuracy against a 90% gate, repeated checking granted
+    # autonomy 25x more often than a single check. Wilson stays reported so the difference is visible.
     decision: Literal["auto_resolve", "escalate"]
     reason: str
     amount_total: int  # total amount across ALL decisions (real + mock), for reporting -- NOTE: a
@@ -134,6 +140,9 @@ def calibrate(decisions: list[ScoredDecision], threshold: float = DEFAULT_THRESH
         # detection is meaningless on shuffled input, so that ordering guarantee is load-bearing.
         outcomes = [d.predicted_category == d.true_label for d in real_items]
         drift = detect_drift(outcomes, target=accuracy)
+        # Same chronological ordering the drift detector relies on, which is what makes the bound
+        # legitimate: a confidence sequence is a statement about a sequence, not about a count.
+        sequence_lower = lower_bound_from_outcomes(outcomes)
 
         if category in NEVER_AUTO_RESOLVE:
             decision: Literal["auto_resolve", "escalate"] = "escalate"
@@ -157,17 +166,19 @@ def calibrate(decisions: list[ScoredDecision], threshold: float = DEFAULT_THRESH
                 f"({accuracy:.1%}) still looks fine — this category may be genuinely regressing right "
                 f"now, not just historically noisy; escalating until recent decisions recover"
             )
-        elif ci_lower >= threshold:
+        elif sequence_lower >= threshold:
             decision = "auto_resolve"
             reason = (
-                f"95% CI lower bound {ci_lower:.1%} clears the {threshold:.0%} threshold "
-                f"(n={n} real-provider decisions across {distinct_transaction_count} distinct transactions)"
+                f"anytime-valid lower bound {sequence_lower:.1%} clears the {threshold:.0%} threshold "
+                f"(n={n} real-provider decisions across {distinct_transaction_count} distinct transactions; "
+                f"Wilson would have said {ci_lower:.1%})"
             )
         else:
             decision = "escalate"
             reason = (
-                f"95% CI lower bound {ci_lower:.1%} has not cleared {threshold:.0%} yet "
-                f"(n={n} real-provider decisions across {distinct_transaction_count} distinct transactions)"
+                f"anytime-valid lower bound {sequence_lower:.1%} has not cleared {threshold:.0%} yet "
+                f"(n={n} real-provider decisions across {distinct_transaction_count} distinct transactions; "
+                f"Wilson would have said {ci_lower:.1%})"
             )
 
         amount_at_risk = round((1 - accuracy) * distinct_amount_total) if decision == "auto_resolve" else 0
@@ -180,6 +191,7 @@ def calibrate(decisions: list[ScoredDecision], threshold: float = DEFAULT_THRESH
                 accuracy=accuracy,
                 ci_lower=ci_lower,
                 ci_upper=ci_upper,
+                sequence_lower=sequence_lower,
                 decision=decision,
                 reason=reason,
                 amount_total=amount_total,

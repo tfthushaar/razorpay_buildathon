@@ -15,10 +15,11 @@ from pydantic import BaseModel
 from app.calibration.calibrator import DEFAULT_THRESHOLD, NEVER_AUTO_RESOLVE, ScoredDecision
 from app.calibration.history import CalibrationHistory
 
-DEFAULT_QUALIFYING_DECISIONS = 40  # verified directly (wilson_score_interval(40, 40) = 91.2%): the
-# smallest round number comfortably past both MIN_DISTINCT_TRANSACTIONS_FOR_AUTO_RESOLVE (15) and the
-# 90% Wilson lower bound at 100% accuracy -- 35 is the actual minimum (90.1%), too tight a margin for
-# a reliable demo fixture.
+DEFAULT_QUALIFYING_DECISIONS = 60  # was 40, when the gate used a Wilson bound. 40 perfect decisions
+# give Wilson 91.2% and clear a 90% gate, but the gate is re-checked after every batch, so it needs a
+# bound valid at every stopping time (app/calibration/confidence_sequence.py). Under that bound 40
+# perfect decisions are worth 86.6%, and 55 is the first n that clears 90%. 60 keeps a margin, the
+# same reason 40 was chosen over the old 35.
 DEFAULT_REGRESSION_BUDGET = 50  # how many deliberately-wrong decisions the drill is willing to replay before giving up
 DEFAULT_AMOUNT_PER_DECISION = 50_000  # smallest-currency-unit amount per synthetic decision, an arbitrary but disclosed constant
 

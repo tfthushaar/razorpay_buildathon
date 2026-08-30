@@ -145,7 +145,7 @@ Full setup, providers, deployment: [SETUP.md](docs/SETUP.md).
 
 ## Further reading
 
-[Architecture](docs/ARCHITECTURE.md) · [Results](docs/RESULTS.md) ·
+[Architecture](docs/ARCHITECTURE.md) · [Results](docs/RESULTS.md) · [Credit](docs/CREDITS.md) ·
 [Superseded experiments](docs/RESULTS_SUPERSEDED.md) · [What broke](docs/WHAT_BROKE.md) ·
 [Limitations](docs/LIMITATIONS.md) · [Positioning](docs/positioning.md) ·
 [Screenshots](docs/screenshots.md) · [Evidence](docs/evidence/) · [Build log](BUILD_LOG.md)

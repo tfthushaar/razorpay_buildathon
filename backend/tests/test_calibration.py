@@ -103,7 +103,7 @@ def test_live_threshold_dial_changes_decision_without_new_data():
         )
         for i in range(20)
     ]
-    loose = calibrate(decisions, threshold=0.60)
+    loose = calibrate(decisions, threshold=0.55)  # 0.55, not 0.60: the anytime-valid bound at 17/20 is 58.5%
     strict = calibrate(decisions, threshold=0.95)
     loose_decision = next(c for c in loose.categories if c.category == "duplicate_refund").decision
     strict_decision = next(c for c in strict.categories if c.category == "duplicate_refund").decision
@@ -121,8 +121,9 @@ def test_human_feedback_loop_can_flip_a_category_across_threshold():
     before = calibrate(decisions, threshold=0.85)
     assert next(c for c in before.categories if c.category == "netting_trap").decision == "escalate"
 
-    # human resolves more escalated netting_trap cases and confirms the model was right each time
-    for i in range(4, 30):
+    # human resolves more escalated netting_trap cases and confirms the model was right each time.
+    # 40, not 30: under an anytime-valid bound 30 perfect decisions are worth 82.7%, short of 85%.
+    for i in range(4, 40):
         decisions.append(
             ScoredDecision(transaction_id=f"t{i}", predicted_category="netting_trap", true_label="netting_trap", amount=400_00, provider="groq")
         )
@@ -172,11 +173,11 @@ def test_amount_total_and_amount_at_risk_are_not_inflated_by_repeated_rescoring(
     an old already-priced-in miss rather than a live drift regression (same convention as the
     high-accuracy auto-resolve test above). amount_total inflates 3x as expected;
     distinct_amount_total and amount_at_risk must NOT."""
-    distinct_ids = [f"case{i}" for i in range(20)]
+    distinct_ids = [f"case{i}" for i in range(30)]
     decisions = [
         ScoredDecision(transaction_id=tid, predicted_category="netting_trap", true_label="netting_trap", amount=1_000_00, provider="groq")
         for tid in distinct_ids
-        for _ in range(3)  # each of the 20 real cases re-scored 3 times -> n=60
+        for _ in range(3)  # each of the 30 real cases re-scored 3 times -> n=90
     ]
     decisions[30] = ScoredDecision(  # one wrong observation, placed mid-sequence
         transaction_id=decisions[30].transaction_id, predicted_category="netting_trap", true_label="duplicate_refund", amount=1_000_00, provider="groq"
@@ -184,12 +185,12 @@ def test_amount_total_and_amount_at_risk_are_not_inflated_by_repeated_rescoring(
     report = calibrate(decisions, threshold=0.90)
     nt = next(c for c in report.categories if c.category == "netting_trap")
 
-    assert nt.n == 60
-    assert nt.correct == 59
-    assert nt.distinct_transaction_count == 20
-    assert nt.decision == "auto_resolve", "sanity check: 59/60 correct should clear the 90% CI lower bound (91.1%, verified separately)"
-    assert nt.amount_total == 60 * 1_000_00, "amount_total legitimately counts every observation, inflation included"
-    assert nt.distinct_amount_total == 20 * 1_000_00, "distinct money must count each transaction exactly once, not once per re-score"
+    assert nt.n == 90
+    assert nt.correct == 89
+    assert nt.distinct_transaction_count == 30
+    assert nt.decision == "auto_resolve", "sanity check: 89/90 clears the 90% gate under the anytime-valid bound (92.2%)"
+    assert nt.amount_total == 90 * 1_000_00, "amount_total legitimately counts every observation, inflation included"
+    assert nt.distinct_amount_total == 30 * 1_000_00, "distinct money must count each transaction exactly once, not once per re-score"
     assert nt.amount_at_risk == round((1 - nt.accuracy) * nt.distinct_amount_total)
     assert nt.amount_at_risk != round((1 - nt.accuracy) * nt.amount_total), "sanity check: the two formulas must actually differ here, or this test isn't exercising the bug"
 
@@ -201,12 +202,12 @@ def test_genuinely_distinct_cases_can_still_auto_resolve_past_the_floor():
     still auto-resolve exactly as before this fix."""
     decisions = [
         ScoredDecision(transaction_id=f"distinct{i}", predicted_category="duplicate_refund", true_label="duplicate_refund", amount=500_00, provider="groq")
-        for i in range(40)
+        for i in range(60)
     ]
     report = calibrate(decisions, threshold=0.90)
     dup = next(c for c in report.categories if c.category == "duplicate_refund")
-    assert dup.n == 40
-    assert dup.distinct_transaction_count == 40
+    assert dup.n == 60
+    assert dup.distinct_transaction_count == 60
     assert dup.decision == "auto_resolve"
 
 

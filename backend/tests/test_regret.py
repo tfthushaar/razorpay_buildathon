@@ -42,7 +42,7 @@ def test_decisions_before_a_category_qualifies_are_never_regret():
 
 
 def test_a_wrong_decision_after_qualifying_is_realized_regret():
-    n = MIN_DISTINCT_TRANSACTIONS_FOR_AUTO_RESOLVE + 20
+    n = MIN_DISTINCT_TRANSACTIONS_FOR_AUTO_RESOLVE + 45  # 60 decisions: the anytime-valid gate needs 55
     with tempfile.TemporaryDirectory() as tmp:
         history = CalibrationHistory(db_path=Path(tmp) / "history.db")
         history.add(
@@ -60,7 +60,7 @@ def test_a_wrong_decision_after_qualifying_is_realized_regret():
 def test_mock_decisions_are_never_counted_as_auto_resolved_or_regret():
     """pipeline.py's _final_decision requires provider != 'mock' even when a category qualifies --
     a mock decision is never actually auto-resolved, so it can never be realized regret either."""
-    n = MIN_DISTINCT_TRANSACTIONS_FOR_AUTO_RESOLVE + 20
+    n = MIN_DISTINCT_TRANSACTIONS_FOR_AUTO_RESOLVE + 45  # 60 decisions: the anytime-valid gate needs 55
     with tempfile.TemporaryDirectory() as tmp:
         history = CalibrationHistory(db_path=Path(tmp) / "history.db")
         history.add(
@@ -76,7 +76,7 @@ def test_mock_decisions_are_never_counted_as_auto_resolved_or_regret():
 def test_a_transaction_rescored_across_multiple_batches_is_not_double_counted():
     """Same discipline as calibrator.py's distinct_amount_total -- a case re-scored across multiple
     runs must contribute to realized regret at most once, not once per re-scoring."""
-    n = MIN_DISTINCT_TRANSACTIONS_FOR_AUTO_RESOLVE + 20
+    n = MIN_DISTINCT_TRANSACTIONS_FOR_AUTO_RESOLVE + 45  # 60 decisions: the anytime-valid gate needs 55
     with tempfile.TemporaryDirectory() as tmp:
         history = CalibrationHistory(db_path=Path(tmp) / "history.db")
         history.add(

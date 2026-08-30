@@ -52,13 +52,14 @@ def main() -> None:
     print(f"app.calibration.calibrator.calibrate() over {len(decisions)} scored_decisions rows from {args.db}\n")
 
     report = calibrate(decisions, threshold=args.threshold)
-    print(f"{'Category':<20} {'N (real)':>9} {'Distinct':>9} {'Accuracy':>9} {'95% CI':>18} {'EWMA':>8} {'Decision':>14}")
+    print(f"{'Category':<20} {'N (real)':>9} {'Distinct':>9} {'Accuracy':>9} {'Wilson CI':>18} {'anytime-valid':>14} {'EWMA':>8} {'Decision':>14}")
     for c in report.categories:
         ci = f"[{c.ci_lower:.1%}, {c.ci_upper:.1%}]"
+        seq = f"{c.sequence_lower:.1%}"
         drift_flag = " *DRIFT*" if c.drift_alert else ""
         print(
             f"{c.category:<20} {c.n:>9} {c.distinct_transaction_count:>9} {c.accuracy:>8.1%} "
-            f"{ci:>18} {c.ewma_accuracy:>7.1%} {c.decision:>14}{drift_flag}"
+            f"{ci:>18} {seq:>14} {c.ewma_accuracy:>7.1%} {c.decision:>14}{drift_flag}"
         )
         # distinct_amount_total, not amount_total -- the latter sums the same transaction's amount
         # once per re-scoring, not once per distinct transaction (a real external review caught this

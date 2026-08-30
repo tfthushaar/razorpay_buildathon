@@ -31,6 +31,7 @@ gate, because omitting a cause escalates a case, and escalating is always safe.
 
 from pydantic import BaseModel, computed_field
 
+from app.calibration.confidence_sequence import accuracy_lower_bound
 from app.calibration.wilson import wilson_score_interval
 
 DEFAULT_THRESHOLD = 0.90
@@ -64,6 +65,7 @@ class CauseCalibration(BaseModel):
     accuracy: float
     ci_lower: float
     ci_upper: float
+    sequence_lower: float  # the bound the gate uses; see app/calibration/confidence_sequence.py
     omitted: int  # times this cause was genuinely present and NOT proposed
     recall: float | None
     decision: str
@@ -100,16 +102,20 @@ def calibrate_causes(scored: list[ScoredAttribution], threshold: float = DEFAULT
         correct = sum(1 for i in real if i.correct)
         accuracy = correct / n if n else 0.0
         lower, upper = wilson_score_interval(correct, n) if n else (0.0, 0.0)
+        # The gate is re-checked every batch, so it needs a bound valid at every stopping time.
+        sequence_lower = accuracy_lower_bound(correct, n) if n else 0.0
         recall = correct / (correct + omitted) if (correct + omitted) else None
 
         if cause in NEVER_AUTO_ATTRIBUTE:
             decision, reason = "escalate", "policy: this cause never auto-attributes, whatever the measured accuracy"
         elif n == 0:
             decision, reason = "escalate", "no real-provider assertions of this cause yet"
-        elif lower >= threshold:
-            decision, reason = "auto_attribute", f"Wilson lower bound {lower:.1%} >= threshold {threshold:.0%} over n={n}"
+        elif sequence_lower >= threshold:
+            decision = "auto_attribute"
+            reason = f"anytime-valid lower bound {sequence_lower:.1%} >= threshold {threshold:.0%} over n={n} (Wilson: {lower:.1%})"
         else:
-            decision, reason = "escalate", f"Wilson lower bound {lower:.1%} < threshold {threshold:.0%} over n={n}"
+            decision = "escalate"
+            reason = f"anytime-valid lower bound {sequence_lower:.1%} < threshold {threshold:.0%} over n={n} (Wilson: {lower:.1%})"
 
         out.append(
             CauseCalibration(
@@ -119,6 +125,7 @@ def calibrate_causes(scored: list[ScoredAttribution], threshold: float = DEFAULT
                 accuracy=round(accuracy, 4),
                 ci_lower=round(lower, 4),
                 ci_upper=round(upper, 4),
+                sequence_lower=round(sequence_lower, 4),
                 omitted=omitted,
                 recall=round(recall, 4) if recall is not None else None,
                 decision=decision,
