@@ -1,0 +1,81 @@
+{
+  "generated_on": "2026-08-30",
+  "seed": 42,
+  "n": 60,
+  "causes": [
+    "fee_rate_mismatch",
+    "gst_on_fee_mismatch",
+    "duplicate_refund",
+    "tds_deduction",
+    "rolling_reserve",
+    "fx_rounding",
+    "promotional_waiver"
+  ],
+  "conditions": {
+    "seen": {
+      "keyword_rule": {
+        "correct": 400,
+        "total": 420,
+        "accuracy": 0.9524,
+        "dangerous_errors": 6,
+        "dangerous_error_rate": 0.0143,
+        "conservative_errors": 0,
+        "errors": {
+          "not_mentioned->not_applied": 14,
+          "not_applied->applied": 5,
+          "not_mentioned->applied": 1
+        }
+      },
+      "openai/gpt-oss-20b": {
+        "correct": 387,
+        "total": 420,
+        "accuracy": 0.9214,
+        "dangerous_errors": 5,
+        "dangerous_error_rate": 0.0119,
+        "conservative_errors": 13,
+        "errors": {
+          "applied->not_mentioned": 7,
+          "not_applied->not_mentioned": 6,
+          "not_applied->applied": 5,
+          "not_mentioned->not_applied": 5,
+          "not_mentioned->PARSE_FAIL": 4,
+          "applied->not_applied": 3,
+          "not_applied->PARSE_FAIL": 2,
+          "applied->PARSE_FAIL": 1
+        }
+      }
+    },
+    "held_out": {
+      "keyword_rule": {
+        "correct": 259,
+        "total": 420,
+        "accuracy": 0.6167,
+        "dangerous_errors": 161,
+        "dangerous_error_rate": 0.3833,
+        "conservative_errors": 0,
+        "errors": {
+          "not_applied->applied": 142,
+          "not_mentioned->applied": 19
+        }
+      },
+      "openai/gpt-oss-20b": {
+        "correct": 404,
+        "total": 420,
+        "accuracy": 0.9619,
+        "dangerous_errors": 1,
+        "dangerous_error_rate": 0.0024,
+        "conservative_errors": 14,
+        "errors": {
+          "not_applied->not_mentioned": 7,
+          "applied->not_mentioned": 7,
+          "not_applied->applied": 1,
+          "not_mentioned->not_applied": 1
+        }
+      }
+    }
+  },
+  "generalisation_gap": {
+    "keyword_rule": -0.3357,
+    "openai/gpt-oss-20b": 0.0405
+  }
+}

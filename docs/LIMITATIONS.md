@@ -2,21 +2,21 @@
 
 Twelve limits, ordered by how much they constrain the claims here.
 
-## Every reading result rests on one model family
+## The second model family is one run, and the rest are still qwen
 
-`qwen2.5:7b-instruct` and `qwen2.5:14b-instruct`. Two sizes, one family. "A model reads better than a
-rule" is really "qwen reads better than a rule" until a second family is measured on the same cases.
+`openai/gpt-oss-20b` now has a reading column: 92.1% on seen phrasing and 96.2% on held-out, against
+the rule's 61.7%. Its `keyword_rule` column reproduces the committed one exactly, so both runs scored
+the identical case set, and 7 of its 420 seen judgements came back unparseable and count as wrong.
 
-The harness works and the path is verified: `scripts/generate_reading_evidence.py --groq-model` runs
-the column, and live single calls against `openai/gpt-oss-20b` return correct verdicts on held-out
-phrasing where the regex returns nothing.
+That closes the reading headline as a claim about models. It does not close the rest. Three-source
+matching, the compound residual, cascade routing and the Q&A agent are all still measured on qwen
+alone, and the second family has one run behind it at 60 cases rather than a repeated measurement.
 
-The column is still not measured. The most recent attempt passed preflight for 120 calls, ran for two
-hours without completing a condition, and a second attempt was refused at 199,672 of 200,000 daily
-tokens used. Groq's free tier exposes per-minute headroom in its headers and no daily remaining, so a
-preflight that probes with one realistic request can clear a run that cannot finish. It refuses
-correctly once the daily cap is actually hit, which is why no partial column was ever recorded, but
-it cannot predict exhaustion in advance. No claim in this repo rests on a second family.
+The client is also the reason this took three attempts. `groq_read` fires as fast as it can, saturates
+a 7,500 tokens-per-minute ceiling, and falls back on exponential backoff, so a run can consume a day's
+budget without finishing. Pacing the calls would fix it and would change which judgements come back
+unparseable, so it needs its own re-run rather than a quiet edit to the script that produced these
+numbers.
 
 ## The held-out phrasing is held out from the parser, not from me
 

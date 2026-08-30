@@ -19,9 +19,19 @@ assembled with full sight of the generator's phrasing.
 | best keyword rule | 95.2% [92.8, 96.9] | 61.7% [56.9, 66.2] | -33.6 |
 | `qwen2.5:7b-instruct` | 79.8% [75.7, 83.3] | 72.6% [68.2, 76.7] | -7.1 |
 | `qwen2.5:14b-instruct` | 86.9% [83.3, 89.8] | 81.7% [77.7, 85.1] | -5.2 |
+| `openai/gpt-oss-20b` | 92.1% [89.2, 94.4] | 96.2% [93.9, 97.6] | +4.0 |
 
 60 cases x 7 charge types = 420 judgements per cell, 95% Wilson intervals. On held-out phrasing the
-rule's interval does not overlap either model's.
+rule's interval does not overlap any model's.
+
+`openai/gpt-oss-20b` is a second model family, run separately once the daily quota allowed it. Its
+`keyword_rule` column reproduces the committed one exactly, 400/420 and 259/420 with the same 6 and
+161 dangerous errors, so the two runs scored the identical case set. 7 of its 420 seen judgements came
+back unparseable and are counted as wrong; its held-out column had none.
+
+It is the only reader that does not lose ground on unfamiliar phrasing. I would not read much into a
+4-point gain at 60 cases; what matters is that a second family clears the rule on held-out phrasing by
+34.5 points, so the finding is about models rather than about qwen.
 
 Held-out phrasing keeps TDS, RSV, GST and MDR recognisable, changing only how applied-versus-not is
 said: abeyance, rescinded, held over, zero-rated, struck off, stood down, lapsed, contra. A test
@@ -35,13 +45,16 @@ The two failure modes carry different consequences.
 | keyword rule | held-out | 161 (**38.3%**) | 0 |
 | `qwen2.5:7b` | held-out | 15 (3.6%) | 69 |
 | `qwen2.5:14b` | held-out | 14 (3.3%) | 47 |
+| `openai/gpt-oss-20b` | held-out | 1 (0.2%) | 14 |
 
 On unfamiliar phrasing the rule asserts a charge the text explicitly denies in 38.3% of judgements,
-eleven times either model's rate. In a system that files recovery claims against an acquirer, that
+against 3.6% for 7b, 3.3% for 14b and 0.2% for gpt-oss-20b. In a system that files recovery claims against an acquirer, that
 is a false claim about money. The models miss the mention instead, which escalates the case.
 
-Reproduce: `python scripts/generate_reading_evidence.py`. Raw:
-[`advice-reading-2026-08-29.json`](evidence/advice-reading-2026-08-29.json).
+Reproduce: `python scripts/generate_reading_evidence.py`, and for the second family
+`python scripts/generate_reading_evidence.py --models "" --groq-model openai/gpt-oss-20b`. Raw:
+[`advice-reading-2026-08-29.json`](evidence/advice-reading-2026-08-29.json),
+[`advice-reading-gpt-oss-20b-2026-08-30.json`](evidence/advice-reading-gpt-oss-20b-2026-08-30.json).
 
 ## Three-source matching
 

@@ -46,13 +46,14 @@ phrasing, with the domain vocabulary intact so the rule could not fail on a miss
 | best rule I could write | 95.2% [92.8, 96.9] | 61.7% [56.9, 66.2] |
 | `qwen2.5:7b-instruct` | 79.8% [75.7, 83.3] | 72.6% [68.2, 76.7] |
 | `qwen2.5:14b-instruct` | 86.9% [83.3, 89.8] | 81.7% [77.7, 85.1] |
+| `openai/gpt-oss-20b` | 92.1% [89.2, 94.4] | 96.2% [93.9, 97.6] |
 
 420 judgements per cell, and the intervals do not overlap on held-out phrasing. Most of the rule's
-advantage was authorship, not reading.
+advantage was authorship, not reading. Two model families, so the finding is not about qwen.
 
 The accuracy gap understates it. On unfamiliar phrasing the rule reads a denial as a confirmation in
-**38.3%** of judgements, asserting charges the text says were not applied. Both models sit at 3.3% to
-3.6%, and their dominant error runs the other way: they miss the mention, so the case escalates.
+**38.3%** of judgements, asserting charges the text says were not applied. The models sit between 0.2%
+and 3.6%, and their dominant error runs the other way: they miss the mention, so the case escalates.
 Wrong, but safe.
 
 ## Where that pays, and where it does not
