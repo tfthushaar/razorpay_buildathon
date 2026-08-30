@@ -50,14 +50,33 @@ model sizes.
 20.0% end to end, worse than free parsimony, for 2.4s per case. Both escalation gates were wrong. The
 model tiers escalate on verification failure, which in choice mode never happens, so the 14b tier
 absorbed zero cases. Tier 0's gate measures whether the advice discriminated, not whether the reading
-was correct. No signal I tried correlates with correctness.
+was correct.
 
-## The residual numbers rest on n≈60, and no cause has earned autonomy
+A fourth signal has since been measured rather than guessed at. Semantic entropy resamples the reader
+five times and scores how much it disagrees with itself. On 59 under-determined cases mean entropy is
+0.227 on correct readings against 0.426 on wrong ones, AUROC 0.633, and a permutation test over 20,000
+label shuffles gives p = 0.0505. At this n it is not distinguishable from chance, and 0.633 is short of
+what a gate needs regardless. Suggestive, not established.
 
-Enough to separate a 38.3% dangerous-error rate from 3.4%, not enough to rank two models against each
-other. A per-cause Wilson lower bound rarely clears the 90% gate at this sample size, so
-`auto_attribute_causes` is usually empty. Per-cause autonomy is a mechanism with real numbers behind
-it, and not yet a system that has earned autonomy here.
+That run also found something about the architecture rather than the signal: on 41 of 59 cases the
+deterministic scorer mapped every resampled reading onto the same decomposition. The scorer absorbs
+the model's variation before it reaches an answer, which is why entropy over the final choice is
+exactly zero and had to be measured over the readings.
+
+## The autonomy gate was anti-conservative, and no cause has earned autonomy
+
+n=60 is enough to separate a 38.3% dangerous-error rate from 3.4%, not enough to rank two models
+against each other.
+
+The gate itself was also wrong, in the dangerous direction. It recomputed a Wilson lower bound after
+every batch and granted autonomy on the first crossing, which is optional stopping, and Wilson's
+coverage holds at a fixed n. Simulated at a 90% threshold, a cause genuinely at 88% crossed 25 times
+more often than a 5% guarantee implies. The gate now uses a confidence sequence valid at every
+stopping time, and under it no category in the committed history auto-resolves: 88.4% for
+`netting_trap` and 85.6% for `duplicate_refund` against a 90% bar.
+
+Per-cause autonomy is a mechanism with real numbers behind it, and not a system that has earned
+autonomy here.
 
 ## Three-source matching sits beside the product, not inside it
 

@@ -18,6 +18,11 @@ is vendored or linked.
 | Smoothed conformal predictors (tie-breaking by uniform draw) | Vovk et al. (2005) | n/a | **Considered and declined** | see [LIMITATIONS.md](LIMITATIONS.md) |
 | Wilson score interval | Wilson (1927) | n/a | Method | `app/calibration/wilson.py` |
 | Exact McNemar test for paired comparisons | McNemar (1947) | n/a | Method | `app/calibration/significance.py` |
+| Betting confidence sequences, valid under optional stopping | Waudby-Smith & Ramdas, *Estimating means of bounded random variables by betting* (2023); Howard, Ramdas, McAuliffe & Sekhon, *Time-uniform Chernoff bounds* (2021) | n/a | Method | `app/calibration/confidence_sequence.py` |
+| Risk-coverage curves for selective prediction | El-Yaniv & Wiener (2010); Geifman & El-Yaniv (2017) | n/a | Method | `app/calibration/risk_coverage.py` |
+| Semantic entropy for detecting unreliable model output | Farquhar, Kossen, Kuhn & Gal, *Nature* (2024) | n/a | Method | `app/resolver/semantic_entropy.py` |
+| Fellegi-Sunter probabilistic record linkage | Fellegi & Sunter (1969) | n/a | Method | `app/resolver/fellegi_sunter.py` |
+| Meet-in-the-middle subset sum | Horowitz & Sahni (1974) | n/a | Method | `app/data_gen/subset_sum.py` |
 
 ## Comparable projects surveyed
 
@@ -26,7 +31,7 @@ Read for design ideas. No code taken from any of them.
 | Project | Licence | What it contributed |
 |---|---|---|
 | [juspay/hyperswitch](https://github.com/juspay/hyperswitch) | Apache-2.0 | Its two-leg reconciliation model (order→PSP at 1:1, PSP→bank at N:1) named a structure this project does not have: a bank statement shows one credit per settlement batch, not one row per transaction. Recorded in [LIMITATIONS.md](LIMITATIONS.md). |
-| [moj-analytical-services/splink](https://github.com/moj-analytical-services/splink) | MIT | Its argument that fuzzy matching uses arbitrary weights while probabilistic linkage estimates them from data. |
+| [moj-analytical-services/splink](https://github.com/moj-analytical-services/splink) | MIT | Its argument that fuzzy matching uses arbitrary weights while probabilistic linkage estimates them from data. Acted on: `app/resolver/fellegi_sunter.py` replaces the hand-chosen three-source weights with log-odds estimated from a calibration batch. Splink itself is not a dependency; the model is about sixty lines for this case, and this project ships without an ORM or a query engine. |
 | [Manu6259/financial-reconciliation-agent](https://github.com/Manu6259/financial-reconciliation-agent) | not stated | Closest peer. Confirms the deterministic-first shape independently. |
 
 ## Not used, and why
@@ -35,6 +40,7 @@ Recording these so the choice is visible rather than looking like an oversight.
 
 | Considered | Licence | Why not |
 |---|---|---|
+| [gostevehoward/confseq](https://github.com/gostevehoward/confseq) | MIT | Reference implementation by one of the papers' authors. Not linked: this repository needs one bounded-mean lower bound, not a library, and implementing it from the papers keeps the dependency list where it is. |
 | [jakorostami/expectation](https://github.com/jakorostami/expectation) | **GPL-3.0** | Copyleft. Linking it would impose GPL on this repository. The confidence-sequence method is implemented from the papers instead. |
 | [sebastienrousseau/bankstatementparser](https://github.com/sebastienrousseau/bankstatementparser) | **NOASSERTION** | GitHub cannot identify a standard licence, so the terms of reuse are unclear. |
 

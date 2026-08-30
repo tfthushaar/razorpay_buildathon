@@ -107,7 +107,7 @@ Full numbers with reproduce commands: [RESULTS.md](docs/RESULTS.md).
 ## Verify it yourself
 
 ```bash
-cd backend && python -m pytest tests/ -v                 # 404 tests — needs nothing but Python
+cd backend && python -m pytest tests/ -v                 # 494 tests — needs nothing but Python
 python scripts/generate_reading_evidence.py              # the table above  (needs Ollama)
 python scripts/generate_three_source_evidence.py         # the McNemar result (needs Ollama)
 ```

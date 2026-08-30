@@ -78,6 +78,22 @@ cycle at all, because its patterns match zero descriptions. The model wins 13 pa
 4, exact McNemar **p = 0.049**. Conceding 2 cases to the regex takes that to p = 0.33, so the result
 is significant but not robust to a couple of mis-scored cases.
 
+The structured weights are no longer mine. Scoring by hand-chosen constants is the standing criticism
+of fuzzy matching, so the comparators are now weighted by log-odds estimated from a calibration batch,
+fitted on one seed and scored on others.
+
+| Field | Hand-chosen | Estimated |
+|---|---|---|
+| exact UTR | 2.0 | **9.02** |
+| exact amount | 1.0 | 0.52 |
+| exact date | 0.5 | 0.46 |
+| merchant name | up to 1.0 | **0.01** |
+
+Merchant-name similarity agrees on 77% of true matches and 76% of false ones, so it carries almost no
+information, and the old scorer added up to a full point of it to every candidate. The estimated
+weights beat the hand-tuned ones with no reader at all: 90.4% against 89.8% on seed 42, 91.4% against
+89.3% on seed 43. That raises the baseline the model is compared against, which is the reason to do it.
+
 Reproduce: `python scripts/generate_three_source_evidence.py`. Raw:
 [`three-source-2026-08-29.json`](evidence/three-source-2026-08-29.json).
 
@@ -313,10 +329,37 @@ These rows are at the generator's demo density of 60% clean, denser than reality
 is exercised at n=120. The 98.9% figure above is the same pipeline at 97%-clean density. Different
 denominators, both measured. Every rupee figure is generated; the mechanism is the claim.
 
-After 8 accumulated Ollama batches, `netting_trap` and `duplicate_refund` cleared the 90% trust
-threshold. `genuine_error` sat at 80.3% and stayed escalated, because no accuracy figure makes auto-
-resolving an unexplained case correct. A 20-line rule with zero LLM calls scores 519/519 on those
-three categories, which is why the model's value there is reliability under failure.
+Neither category currently clears the gate. `netting_trap` and `duplicate_refund` were reported as
+having cleared 90% after 8 accumulated batches, measured with a Wilson bound recomputed after every
+batch. Wilson holds at a fixed n, and re-checking then stopping at the first crossing is optional
+stopping. Under a bound valid at every stopping time they are 88.4% and 85.6%, and both escalate.
+`genuine_error` stays escalated at any bound, because no accuracy figure makes auto-resolving an
+unexplained case correct.
+
+A 20-line rule with zero LLM calls scores 519/519 on those three categories, which is why the model's
+value there is reliability under failure.
+
+### What the threshold buys
+
+Escalating what a machine is unsure of is selective prediction, so the honest report is coverage
+against risk rather than one pass/fail.
+
+| Gate | Coverage | Selective risk | Automated |
+|---|---|---|---|
+| up to 0.85 | 59.3% | 1.0% | `duplicate_refund`, `netting_trap` |
+| 0.86 to 0.88 | 36.4% | **1.7%** | `netting_trap` |
+| 0.89 and above | 0.0% | n/a | none |
+
+The middle row is what a single threshold hides: raising the gate raised risk. `duplicate_refund` is
+perfect at 37 of 37 and still scores a lower bound than `netting_trap` at 58 of 59, because the bound
+rewards evidence and not only accuracy, so a stricter bar drops the flawless category and keeps the
+flawed one.
+
+Simulated at a 90% gate checked every 5 decisions to n=300, a cause genuinely at 88% crossed 3.12% of
+the time under repeated checking against 0.12% at a single check. Forty perfect decisions are worth
+91.2% under Wilson and 86.6% under a valid bound; 55 is the first n that qualifies.
+
+Reproduce: `GET /api/risk-coverage`.
 
 Reproduce: `python scripts/audit_calibration.py --db ../docs/evidence/verified_calibration_history.db`.
 

@@ -163,8 +163,31 @@ def main() -> None:
         if subset:
             print(f"  mean entropy on {label:<8} readings  {statistics.mean(subset):.4f}  (n={len(subset)})")
 
+    # An AUROC above 0.5 on 59 cases is easy to get by luck. Shuffling the correctness labels and
+    # re-scoring says how easy, which is the difference between a signal and a hopeful number.
+    permutation_p = None
+    if entropy_auroc is not None:
+        import random as _random
+
+        rng = _random.Random(7)
+        shuffles = 20_000
+        at_least_as_extreme = 0
+        for _ in range(shuffles):
+            shuffled = labels[:]
+            rng.shuffle(shuffled)
+            value = auroc([r["entropy"] for r in rows], shuffled)
+            if value is not None and value >= entropy_auroc:
+                at_least_as_extreme += 1
+        permutation_p = round((at_least_as_extreme + 1) / (shuffles + 1), 4)
+        print(f"  permutation test on the AUROC     p = {permutation_p} ({shuffles:,} label shuffles)")
+
     if entropy_auroc is None:
         verdict = "every case fell on one side; AUROC undefined"
+    elif permutation_p is not None and permutation_p >= 0.05:
+        verdict = (
+            f"AUROC {entropy_auroc} is not distinguishable from chance at this n "
+            f"(permutation p = {permutation_p}); suggestive, not established"
+        )
     elif entropy_auroc >= 0.70:
         verdict = "entropy separates correct from incorrect well enough to gate on"
     elif entropy_auroc >= 0.60:
@@ -185,6 +208,8 @@ def main() -> None:
         "modal_answer_accuracy": round(n_correct / len(rows), 4),
         "auroc_entropy": entropy_auroc,
         "auroc_one_minus_modal_share": modal_auroc,
+        "permutation_p": permutation_p,
+        "scorer_collapsed_to_one_choice": sum(1 for r in rows if r["n_distinct_choices"] == 1),
         "verdict": verdict,
         "elapsed_seconds": round(time.perf_counter() - started, 1),
         "cases": rows,
