@@ -166,6 +166,18 @@ python -m uvicorn app.main:app --port 8000    # then: cd ../frontend && npm inst
 
 Full setup, providers, deployment: [SETUP.md](docs/SETUP.md).
 
+## What to read, if you have fifteen minutes
+
+This file, then [RESULTS.md](docs/RESULTS.md) for the numbers and
+[LIMITATIONS.md](docs/LIMITATIONS.md) for what they do not support. That is the whole argument, about
+twenty minutes.
+
+Everything else is reference, opened when you want to argue with something specific:
+[METHODS.md](docs/METHODS.md) for the derivations behind the statistics,
+[WHAT_BROKE.md](docs/WHAT_BROKE.md) for fourteen incidents with sourced attribution,
+[ARCHITECTURE.md](docs/ARCHITECTURE.md) for how it fits together, and
+[CREDITS.md](docs/CREDITS.md) for every borrowed method with its licence.
+
 ## Further reading
 
 [Architecture](docs/ARCHITECTURE.md) · [Results](docs/RESULTS.md) · [Credit](docs/CREDITS.md) ·
