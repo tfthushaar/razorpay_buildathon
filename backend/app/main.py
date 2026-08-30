@@ -27,6 +27,7 @@ from app.audit.logger import AuditLogger
 from app.calibration.calibrator import CalibrationReport
 from app.calibration.history import CalibrationHistory
 from app.calibration.regret import RegretReport, compute_regret
+from app.calibration.risk_coverage import RiskCoverageCurve, risk_coverage_curve
 from app.calibration.revocation_drill import RevocationDrillReport, run_revocation_drill
 from app.chain.builder import build_all_chains
 from app.data_gen.generate import generate, generate_pending_batch
@@ -224,6 +225,17 @@ def api_calibration(threshold: float = Query(0.90, ge=0.0, le=1.0)) -> Calibrati
     return calibration_history.report(threshold=threshold)
 
 
+@app.get("/api/risk-coverage")
+def api_risk_coverage() -> RiskCoverageCurve:
+    """Coverage against selective risk as the autonomy threshold moves.
+
+    The dashboard has shown one pass/fail at 90%, which hides the shape of the trade-off and, on this
+    project's own history, hides that a stricter gate can raise risk: the bound rewards sample size,
+    so a small perfect category drops out before a large flawed one.
+    """
+    return risk_coverage_curve(calibration_history.all_decisions())
+
+
 @app.get("/api/regret")
 def api_regret(threshold: float = Query(0.90, ge=0.0, le=1.0)) -> RegretReport:
     """Regret in rupees (upgrade build Phase 4): the realized cost of calibrated autonomy, replayed
@@ -234,7 +246,7 @@ def api_regret(threshold: float = Query(0.90, ge=0.0, le=1.0)) -> RegretReport:
 class DrillRequest(BaseModel):
     category: Literal["duplicate_refund", "netting_trap"] = "netting_trap"  # genuine_error is in NEVER_AUTO_RESOLVE, never a valid drill target
     threshold: float = Field(0.90, ge=0.0, le=1.0)
-    n_qualifying: int = Field(40, ge=1, le=500)
+    n_qualifying: int = Field(60, ge=1, le=500)  # 60, not 40: the gate now uses an anytime-valid bound
     regression_budget: int = Field(50, ge=0, le=500)
 
 

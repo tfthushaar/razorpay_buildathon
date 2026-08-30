@@ -1,0 +1,70 @@
+{
+  "generated_on": "2026-08-30",
+  "model": "qwen2.5:7b-instruct",
+  "seed": 42,
+  "samples_per_case": 4,
+  "temperature": 0.7,
+  "n_cases": 5,
+  "modal_answer_accuracy": 0.2,
+  "auroc_entropy": 0.875,
+  "auroc_one_minus_modal_share": 0.875,
+  "verdict": "entropy separates correct from incorrect well enough to gate on",
+  "elapsed_seconds": 30.2,
+  "cases": [
+    {
+      "transaction_id": "order_21b8901398bb",
+      "choice_entropy": 0.0,
+      "n_distinct_choices": 1,
+      "entropy": 0.5623,
+      "normalised_entropy": 0.4056,
+      "n_distinct_answers": 2,
+      "modal_share": 0.75,
+      "failed_samples": 0,
+      "modal_answer_correct": false
+    },
+    {
+      "transaction_id": "order_d0ba84a167fe",
+      "choice_entropy": 0.0,
+      "n_distinct_choices": 1,
+      "entropy": 0.0,
+      "normalised_entropy": 0.0,
+      "n_distinct_answers": 1,
+      "modal_share": 1.0,
+      "failed_samples": 0,
+      "modal_answer_correct": true
+    },
+    {
+      "transaction_id": "order_d1cd1a801c36",
+      "choice_entropy": 0.0,
+      "n_distinct_choices": 1,
+      "entropy": 0.0,
+      "normalised_entropy": 0.0,
+      "n_distinct_answers": 1,
+      "modal_share": 1.0,
+      "failed_samples": 0,
+      "modal_answer_correct": false
+    },
+    {
+      "transaction_id": "order_d052f27b81fb",
+      "choice_entropy": 0.5623,
+      "n_distinct_choices": 2,
+      "entropy": 1.0397,
+      "normalised_entropy": 0.75,
+      "n_distinct_answers": 3,
+      "modal_share": 0.5,
+      "failed_samples": 0,
+      "modal_answer_correct": false
+    },
+    {
+      "transaction_id": "order_6d43c957a8cf",
+      "choice_entropy": 0.6931,
+      "n_distinct_choices": 2,
+      "entropy": 1.0397,
+      "normalised_entropy": 0.75,
+      "n_distinct_answers": 3,
+      "modal_share": 0.5,
+      "failed_samples": 0,
+      "modal_answer_correct": false
+    }
+  ]
+}
