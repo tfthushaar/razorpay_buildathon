@@ -99,8 +99,17 @@ window would model nothing, since 29.8% of settlements land on a weekend against
 
 Empirical coverage sits above nominal at every level, by as much as 7.5 points at the 70% mark. Safe
 in the direction that matters, and still miscalibration: a stated 70% delivering 77.5% is wider than a
-treasury team needs. Settlement lag is close to discrete at day granularity, so empirical quantiles
-snap to the same value.
+treasury team needs.
+
+Fitting quantiles on one batch and applying them to another is split conformal prediction, which is
+guaranteed to over-cover rather than under-cover, by at most 1/(n+1). At the n measured here that
+bound is +0.005 points against an observed +7.5, so the finite-sample term explains almost none of it.
+The cause is ties: lag takes 35 to 53 distinct values per rail across hundreds of observations, with
+single values carrying up to 9.8% of the mass, so a quantile cannot move a little without stepping
+across a whole block. Smoothed conformal predictors break ties with a uniform draw and would close
+most of the gap, at the cost of the same payment yielding a different window on each call. A finance
+tool that cannot reproduce its own answer is a worse trade than a conservative interval, so this stays
+as measured.
 
 The shipped default is the SLA tolerance window, which needs no settlement history and works on a
 merchant's first batch. It states no confidence level, so its 87.2% coverage is a hit rate. A blind

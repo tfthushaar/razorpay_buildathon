@@ -133,3 +133,33 @@ def test_the_panel_orders_its_own_quantiles():
     assert panel["worst_ape"] == 5.0
     assert panel["n_undefined_ape"] == 2
     assert panel["mape"] == pytest.approx(statistics.mean(values))
+
+
+# --- why the curve over-covers --------------------------------------------------------------------
+
+
+def test_the_fitted_lag_is_heavily_tied(model):
+    """The evidence behind the over-coverage claim.
+
+    Split conformal over-covers by at most 1/(n+1), which is a rounding error at this n. The rest is
+    ties, so the tie structure has to be real for that explanation to hold.
+    """
+    from app.forecast.calibrated_interval import lag_discreteness
+
+    stats = lag_discreteness(model)
+    assert stats, "no rails fitted"
+    for rail, d in stats.items():
+        assert d["distinct_values"] < d["n"] / 3, f"{rail} lag is not tied enough to explain over-coverage"
+        assert d["mean_observations_per_value"] > 1.0
+
+
+def test_over_coverage_dwarfs_the_finite_sample_term(model, batch):
+    """+7.5 points observed against a +0.005 bound is the whole argument, asserted here so a future
+    change that makes the curve look better cannot quietly invalidate the explanation."""
+    from app.forecast.calibrated_interval import reliability_curve
+
+    points = reliability_curve(model, batch)
+    n = max(p.n for p in points)
+    finite_sample_bound = 1.0 / (n + 1)
+    worst = max(abs(p.gap) for p in points)
+    assert worst > 20 * finite_sample_bound

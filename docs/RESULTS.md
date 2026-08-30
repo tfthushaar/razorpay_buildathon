@@ -246,6 +246,13 @@ measures memorisation.
 n=2,000 per batch, seeds 100-111. Coverage sits at or above nominal everywhere, so the stated
 confidence is conservative.
 
+Fitting on one batch and applying to another is split conformal prediction, which over-covers by at
+most 1/(n+1). Here that bound is +0.005 points against an observed +7.5, so the finite-sample term
+explains almost none of the gap. Ties do: lag takes 35 to 53 distinct values per rail across hundreds
+of observations, with one value carrying up to 9.8% of the mass, so a quantile steps across a whole
+block at once. Randomising to break ties would close most of it and would make the same payment yield
+a different window per call, which is the worse trade for a finance tool.
+
 ### What a better forecaster could not fix
 
 Attributed after the fact against the answer key the forecaster never sees: 125 date misses are

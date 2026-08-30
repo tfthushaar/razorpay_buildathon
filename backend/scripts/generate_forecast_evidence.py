@@ -37,7 +37,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from app.data_gen.generate import generate  # noqa: E402
-from app.forecast.calibrated_interval import NOMINAL_LEVELS, fit, reliability_curve  # noqa: E402
+from app.forecast.calibrated_interval import NOMINAL_LEVELS, fit, lag_discreteness, reliability_curve  # noqa: E402
 from app.forecast.backtest import ape_panel  # noqa: E402
 from app.forecast.forecastability import REFUSAL_REASONS, assess_batch  # noqa: E402
 from app.forecast.predictor import predict_settlement  # noqa: E402
@@ -119,6 +119,14 @@ def main() -> None:
             }
         )
         print(f"{level:>8.2f} {emp:>10.3f} {emp - level:>+8.3f} {width:>10.2f}")
+    # Why it over-covers. Split conformal's finite-sample term is 1/(n+1); everything above that is
+    # ties in the lag distribution, so the tie structure is published beside the curve.
+    discreteness = lag_discreteness(model)
+    print("\n=== why the curve over-covers: tie structure in the fitted lag ===")
+    print(f"  {'rail':<12} {'n':>6} {'distinct':>9} {'heaviest tie':>13} {'obs/value':>10}")
+    for rail, d in discreteness.items():
+        print(f"  {rail:<12} {d['n']:>6} {d['distinct_values']:>9} {d['heaviest_tie_share'] * 100:>12.1f}% {d['mean_observations_per_value']:>10.2f}")
+
     worst = max(curve, key=lambda p: abs(p["gap"]))
     print(f"largest deviation from nominal: {worst['gap']:+.3f} at the {worst['nominal']:.0%} level")
 
@@ -276,6 +284,11 @@ def main() -> None:
         "fitted_90pct_window_days": {r: list(model.interval_days(r, 0.90)) for r in sorted(model.per_rail)},
         "reliability_curve": curve,
         "interval_head_to_head": head_to_head,
+        "lag_discreteness": {
+            "note": "split conformal over-covers by at most 1/(n+1); the rest is ties in a near-discrete lag",
+            "finite_sample_bound_points": round(100 / (sum(c["n"] for c in curve) / len(curve) + 1), 4),
+            "per_rail": discreteness,
+        },
         "residual_error_by_pattern": {
             "note": "post-hoc attribution against the generator's answer key, which the forecaster never sees",
             "amount_wrong": dict(sorted(amount_miss.items(), key=lambda kv: -kv[1])),

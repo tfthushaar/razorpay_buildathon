@@ -101,6 +101,30 @@
       "mean_width_days": 3.57
     }
   ],
+  "lag_discreteness": {
+    "note": "split conformal over-covers by at most 1/(n+1); the rest is ties in a near-discrete lag",
+    "finite_sample_bound_points": 0.0046,
+    "per_rail": {
+      "card": {
+        "n": 698,
+        "distinct_values": 35,
+        "heaviest_tie_share": 0.096,
+        "mean_observations_per_value": 19.94
+      },
+      "netbanking": {
+        "n": 284,
+        "distinct_values": 53,
+        "heaviest_tie_share": 0.0458,
+        "mean_observations_per_value": 5.36
+      },
+      "upi": {
+        "n": 1018,
+        "distinct_values": 41,
+        "heaviest_tie_share": 0.0982,
+        "mean_observations_per_value": 24.83
+      }
+    }
+  },
   "residual_error_by_pattern": {
     "note": "post-hoc attribution against the generator's answer key, which the forecaster never sees",
     "amount_wrong": {
@@ -185,5 +209,5 @@
     },
     "verdict": "refusing improves one of MAPE and coverage, not both"
   },
-  "throughput_predictions_per_sec": 398557
+  "throughput_predictions_per_sec": 398256
 }
