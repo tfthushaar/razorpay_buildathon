@@ -13,6 +13,7 @@ import uuid
 from pydantic import BaseModel, computed_field
 
 from app.audit.logger import AuditEntry, AuditLogger
+from app.calibration.disposition import DispositionReport, score_dispositions
 from app.calibration.calibrator import CalibrationReport, ScoredDecision, calibrate
 from app.calibration.history import CalibrationHistory
 from app.chain.builder import CausalChain, build_all_chains
@@ -61,6 +62,8 @@ class BatchRunResult(BaseModel):
     # good deterministic engineering, rather than only comparing against a naive strawman. Added
     # 2026-08-24 after an external audit noted this data was already computed internally but never
     # surfaced as its own number.
+    disposition: DispositionReport | None = None  # was each transaction handled correctly, which
+    # is not the same question as whether it was resolved -- see app/calibration/disposition.py
     deterministic_only_resolved_count: int
     deterministic_only_amount_reconciled: int
 
@@ -326,6 +329,23 @@ def run_batch(
         1 for txn_id, label in gt_by_id.items() if label == "currency_rounding" and not baseline_results[txn_id].clean
     )
 
+    # Was each transaction handled correctly, which is a different question from whether it was
+    # resolved. The predicted category is the engine's own for a deterministic close and the
+    # narrator's for anything escalated, so this measures the decisions actually made rather than
+    # assuming the engine was right.
+    escalated_ids = {e.transaction_id for e in escalations}
+    disposition = score_dispositions(
+        [
+            (
+                gt_by_id[txn_id],
+                (result.category if result.resolution != "needs_narration" else narrator_outputs[txn_id].category)
+                or "unknown",
+                txn_id not in escalated_ids,
+            )
+            for txn_id, result in match_results.items()
+        ]
+    )
+
     stress = _stress_scorecard(stress_batch, provider, auto_resolve_categories, audit_logger=audit_logger)
 
     # Independent of seed's main/stress streams (generate_fee_leak_batch uses seed+2 internally,
@@ -342,6 +362,7 @@ def run_batch(
         total_amount=total_amount,
         amount_reconciled=amount_reconciled,
         escalated_count=escalated_count,
+        disposition=disposition,
         calibration=calibration_report,
         escalations=triage(escalations),
         baseline_clean_count=baseline_clean_count,

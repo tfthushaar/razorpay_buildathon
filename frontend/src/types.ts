@@ -129,6 +129,13 @@ export interface BatchRunResult {
   total_amount: number;
   amount_reconciled: number;
   escalated_count: number;
+  disposition: {
+    total: number;
+    correctly_resolved: number;
+    wrongly_resolved: number;
+    missed: number;
+    correctly_escalated: number;
+  } | null;
   calibration: CalibrationReport;
   escalations: EscalationItem[];
   baseline_clean_count: number;

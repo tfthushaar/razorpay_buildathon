@@ -8,6 +8,11 @@ export function BaselineComparison({ result }: { result: BatchRunResult }) {
   const lift = ourResolvedRate - baselineRate;
   const narratorLift = ourResolvedRate - deterministicOnlyRate;
 
+  const d = result.disposition;
+  // Correct disposition counts a correct escalation as a right answer, which the strict rate does
+  // not. Both are shown: this is an addition to the headline, not a replacement for it.
+  const dispositionRate = d ? (d.correctly_resolved + d.correctly_escalated) / d.total : null;
+
   return (
     <section className="panel">
       <h2>Baseline comparison</h2>
@@ -34,6 +39,18 @@ export function BaselineComparison({ result }: { result: BatchRunResult }) {
           </>
         )}
       </p>
+      {d && dispositionRate !== null && (
+        <p className="pitch-line">
+          Counted strictly, every escalation is a transaction it did not close:{" "}
+          <strong>{pct(ourResolvedRate)}</strong>. But {d.correctly_escalated} of them are{" "}
+          <code>genuine_error</code>, a category the policy forbids closing at any accuracy, so
+          escalating them is the right answer. Scored on whether each transaction was handled
+          correctly, it reaches <strong>{pct(dispositionRate)}</strong> with{" "}
+          <strong>{d.wrongly_resolved}</strong> wrongly auto-resolved. Auto-resolving a forbidden
+          category counts against this number, never for it.
+        </p>
+      )}
+
       <div className="bar-compare">
         <div className="bar-row">
           <span className="bar-row-label">
