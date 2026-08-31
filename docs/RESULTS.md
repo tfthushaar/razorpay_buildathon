@@ -136,6 +136,30 @@ blind spot cannot quietly grow.
 Reproduce: `python scripts/generate_generalization_evidence.py`. Raw:
 [`generalization-2026-09-01.json`](evidence/generalization-2026-09-01.json).
 
+## What each tier is worth
+
+Cumulative, because that is how the pipeline works: Layer 0 only sees what the matching engine could
+not close, and a model only sees what Layer 0 could not finish. 900 transactions, seeds 1-3.
+
+| Tier | Resolved | Marginal | Wrongly resolved | tx/sec |
+|---|---|---|---|---|
+| 1 matching engine | 765 | 765 | **0** | 431,179 |
+| 2 + Layer 0 residual | 765 | 0 | **0** | 587 |
+| 3 + a model on what is left | 765 | 0 | **0** | 2.58 |
+
+Layer 0 resolves nothing outright here and **bounds 116**: it turns "no explanation" into "one of k
+enumerated, arithmetically valid explanations", which is what makes the 1/k chance baseline
+computable rather than argued. Reporting it as zero marginal resolutions without that column would
+make it look like dead weight.
+
+The model is credited with no resolutions in this table. Whether it is right is measured in the
+reading and residual experiments; asserting it in an ablation would be circular. What the table
+prices is the cost: 135 transactions reach it, 52 seconds at a measured 2.58 tx/sec, against a
+whole-batch deterministic pass in well under a second.
+
+Reproduce: `python scripts/generate_ablation_evidence.py`. Raw:
+[`ablation-2026-09-01.json`](evidence/ablation-2026-09-01.json).
+
 ## What the tuning actually buys
 
 RESULTS says the system is built to escalate rather than guess. That is a claim about constants

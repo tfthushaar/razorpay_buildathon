@@ -1,0 +1,83 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install
+        run: pip install -r requirements.txt
+
+      # Everything below runs without an API key. The mock provider is a real keyword rule, not a
+      # stub, so the deterministic half of this project is fully exercised on a machine with no
+      # model available at all.
+      - name: Test suite
+        run: python -m pytest tests -q
+
+      # The claim the architecture rests on: a case a rule could solve is taken by the rule, so it
+      # cannot sit inside a model's accuracy figure.
+      - name: The residual boundary holds
+        run: python -m pytest tests/test_residual_boundary.py -q
+
+      # Not an accuracy floor. Escalating every unfamiliar shape passes; one wrong resolution fails.
+      - name: No wrong resolution on shapes the matcher was never designed for
+        run: python scripts/generate_generalization_evidence.py
+
+      - name: Nothing is wrongly auto-resolved
+        run: |
+          python - <<'PY'
+          import sys
+          sys.path.insert(0, ".")
+          from app.pipeline import run_batch
+
+          result = run_batch(seed=42, main_n=120, stress_n=40, provider="mock")
+          wrong = result.disposition.wrongly_resolved
+          stress_wrong = result.stress.wrongly_auto_resolved
+          rate = result.disposition.correct_disposition_rate
+          print(f"wrongly resolved {wrong}, stress {stress_wrong}, correct disposition {rate:.1%}")
+          if wrong or stress_wrong:
+              raise SystemExit(f"GATE FAILED: {wrong} wrongly resolved, {stress_wrong} in the stress batch")
+          if rate < 0.85:
+              raise SystemExit(f"GATE FAILED: correct disposition {rate:.1%} below the 85% floor")
+          PY
+
+      # A run that cannot reproduce itself cannot be audited. The mock provider is deterministic by
+      # construction, so any divergence here is a real defect rather than model variance.
+      - name: Two identical runs produce identical reports
+        run: |
+          python - <<'PY'
+          import sys
+          sys.path.insert(0, ".")
+          from app.pipeline import run_batch
+
+          def report(r):
+              return {
+                  "resolved": r.deterministic_only_resolved_count,
+                  "escalated": r.escalated_count,
+                  "amount": r.amount_reconciled,
+                  "disposition": r.disposition.model_dump(),
+                  "controls": [f.model_dump() for f in r.control_findings],
+                  "categories": sorted((c.category, c.n, c.correct) for c in r.calibration.categories),
+              }
+
+          a = report(run_batch(seed=42, main_n=120, stress_n=0, provider="mock"))
+          b = report(run_batch(seed=42, main_n=120, stress_n=0, provider="mock"))
+          if a != b:
+              print("run a:", a)
+              print("run b:", b)
+              raise SystemExit("GATE FAILED: two identical runs diverged")
+          print("determinism check passed")
+          PY

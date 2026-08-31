@@ -1,0 +1,40 @@
+{
+  "generated_on": "2026-09-01",
+  "seeds": [
+    1,
+    2,
+    3
+  ],
+  "n_per_batch": 300,
+  "total_transactions": 900,
+  "reaching_a_model": 135,
+  "bounded_by_layer0": 116,
+  "rows": [
+    {
+      "tier": "1 matching engine",
+      "cumulative_resolved": 765,
+      "marginal_resolved": 765,
+      "wrongly_resolved": 0,
+      "seconds": 0.002,
+      "transactions_per_sec": 431179
+    },
+    {
+      "tier": "2 + Layer 0 residual",
+      "cumulative_resolved": 765,
+      "marginal_resolved": 0,
+      "wrongly_resolved": 0,
+      "bounded_not_resolved": 116,
+      "seconds": 1.534,
+      "transactions_per_sec": 587
+    },
+    {
+      "tier": "3 + a model on what is left",
+      "cumulative_resolved": 765,
+      "marginal_resolved": 0,
+      "wrongly_resolved": 0,
+      "seconds": null,
+      "transactions_per_sec": 2.58,
+      "note": "135 transactions reach it. At a measured 2.58 tx/sec that is 52s, against 0.00s for the whole batch deterministically. Resolutions are not credited here: whether the model is right is measured in the residual and reading experiments, not asserted in an ablation."
+    }
+  ]
+}
