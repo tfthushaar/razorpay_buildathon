@@ -28,7 +28,10 @@ Layer 3   VERIFIER and PER-CAUSE CALIBRATION score what comes back.
 Two consequences follow.
 
 A case a rule could solve is taken by the rule, so it cannot sit inside a model's accuracy figure.
-The exclusion is structural, and nothing about it depends on my discipline.
+The exclusion is structural, and nothing about it depends on my discipline. It is also tested rather
+than asserted: `tests/test_residual_boundary.py` spies on what the narrator is shown and fails if it
+intersects what Layer 0 closed, if the residual stops being a minority (15.0% at demo density, 1.1%
+at realistic), or if turning the model off moves a single deterministic answer.
 
 The baseline is computed. With k valid explanations and no basis to prefer any,
 blind choice scores exactly 1/k. `UNDER_DETERMINED` is the load-bearing half, because it cannot be
