@@ -112,26 +112,31 @@ wrong resolution, or a transaction in neither the resolved set nor the queue.
 | Shape | n | Resolved wrongly | Escalated | Flagged by a control |
 |---|---|---|---|---|
 | controls (`clean_match`) | 12 | 0 | 0 | 0 |
-| `bank_fee_deduction` | 8 | 0 | **8** | 0 |
-| `post_dated_settlement` | 8 | 0 | 0 | **8** |
-| `double_settlement` | 8 | 0 | 0 | **8** |
-| `stale_utr_reuse` | 8 | **8** | 0 | 0 |
+| `bank_fee_deduction` | 8 | **0** | 8 | 0 |
+| `post_dated_settlement` | 8 | **0** | 0 | 8 |
+| `double_settlement` | 8 | **0** | 0 | 8 |
+| `stale_utr_reuse` | 8 | **0** | 0 | 8 |
 
-**It failed on its first run**, and two of the failures were real. `build_all_chains` keys
-settlements by `payment_id` in a dict comprehension, so a payment settled inside two batches lost one
-silently and the chain tied perfectly against the survivor: a transaction paid twice, reported clean.
-And nothing read `settled_at`, so a settlement dated two days before its own capture also tied.
+**It failed on its first run**, 24 of 32 wrong, and finding that is what the suite is for. Three of
+those failures were real and all three are now closed.
 
-Both are now caught by `app/chain/controls.py` as data-integrity controls, which flag rather than
-resolve, and are silent on ordinary batches across three seeds. They are controls and not matching
-rules deliberately: tuning the matcher against shapes this suite invented would stop it measuring
-generalisation and start it measuring how fast a special case can be written.
+`build_all_chains` keyed settlements by `payment_id` in a dict comprehension, so a payment settled
+inside two batches lost one silently and the chain tied perfectly against the survivor: a transaction
+paid twice, reported clean. Nothing read `settled_at`, so a settlement dated two days before its own
+capture also tied. And two settlements could carry the same UTR with nothing noticing, which is a
+payout reference claimed twice.
 
-`stale_utr_reuse` is a **declared blind spot** rather than a fixed one. A causal chain carries no UTR
-at all, so a recycled reference naming an already-paid batch is undetectable here; it belongs to
-three-source matching, which does read UTRs. Adding a UTR check to the batch matcher to turn that row
-green would be special-casing the test. The gate fails on a wrong resolution anywhere else, so the
-blind spot cannot quietly grow.
+`app/chain/controls.py` catches all three. They are controls rather than matching rules deliberately:
+each asserts an invariant that must hold of the data whatever the matcher concludes, and each flags
+rather than resolves, because which of two payouts was the erroneous one is a question about the
+gateway rather than about this arithmetic. Silent on ordinary batches across three seeds.
+
+`stale_utr_reuse` was published as a declared blind spot in an earlier version of this table, on the
+argument that a causal chain carries no UTR. That was right about the chain and wrong about the
+batch: a settlement carries one, and "a payout reference identifies one payout" needs no matching
+heuristic to check. The declaration was also propping up a badly built shape, which gave each of
+those settlements a fresh random UTR and so contained no reuse to detect. There are no declared blind
+spots now.
 
 Reproduce: `python scripts/generate_generalization_evidence.py`. Raw:
 [`generalization-2026-09-01.json`](evidence/generalization-2026-09-01.json).

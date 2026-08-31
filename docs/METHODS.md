@@ -214,3 +214,23 @@ result is p = 0.049 and moves to p = 0.33 under that concession, so it is signif
 to a couple of judgement calls. Reporting only the first number would overstate it.
 
 See `app/calibration/significance.py`.
+
+## Data-integrity controls
+
+Three defects tie arithmetically and would reconcile clean, because the matching engine reconciles
+amounts and reads neither `settled_at` nor a UTR. Each is an invariant rather than a heuristic.
+
+| Control | Invariant | Found by |
+|---|---|---|
+| `duplicate_settlement` | a payment settles at most once | the generalisation suite, first run |
+| `impossible_timing` | money cannot arrive before the capture it settles | the generalisation suite, first run |
+| `recycled_reference` | a payout reference identifies one payout | the generalisation suite, after its own shape was fixed |
+
+All three flag rather than resolve: which of two payouts was erroneous is a question about the
+gateway's behaviour, not about the statement's arithmetic. All three are silent on ordinary batches
+across seeds 1, 42 and 100, because a control that fires on clean data trains the reader to ignore it.
+
+They are deliberately not matching rules. Tuning the matcher against shapes the generalisation suite
+invented would stop it measuring generalisation and start it measuring how fast a special case can be
+written, which is the one thing that suite exists to prevent.
+

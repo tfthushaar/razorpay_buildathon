@@ -5,12 +5,7 @@
   "passed": true,
   "novel_transactions": 32,
   "novel_resolved_wrongly": 0,
-  "blind_spots": {
-    "stale_utr_reuse": {
-      "reason": "the causal chain carries no UTR; this belongs to three-source matching",
-      "resolved_wrongly": 8
-    }
-  },
+  "blind_spots": {},
   "controls_resolved": 12,
   "controls_total": 12,
   "silently_dropped": 0,
@@ -35,13 +30,11 @@
     },
     "stale_utr_reuse": {
       "n": 8,
-      "resolved": 8,
-      "resolved_wrongly": 8,
+      "resolved": 0,
+      "resolved_wrongly": 0,
       "escalated": 0,
-      "flagged_by_control": 0,
-      "categories": {
-        "clean_match": 8
-      }
+      "flagged_by_control": 8,
+      "categories": {}
     },
     "post_dated_settlement": {
       "n": 8,

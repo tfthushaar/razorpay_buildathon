@@ -38,17 +38,16 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from app.chain.builder import build_all_chains  # noqa: E402
 from app.data_gen.novel_shapes import NOVEL_SHAPES, generate_novel_batch  # noqa: E402
 
-# A shape this subsystem provably cannot see, declared rather than deleted. A causal chain carries
-# no UTR at all -- app/matching/engine.py never reads one -- so a recycled reference naming an
-# already-paid batch ties arithmetically and resolves clean. Detecting it is a three-source problem
-# (app/resolver/entity_resolution.py, which does read UTRs), and adding a UTR check to the batch
-# matcher to make this table green would be special-casing the test rather than fixing anything.
-# The gate below fails on a wrong resolution ANYWHERE ELSE, so this cannot quietly grow.
-BLIND_SPOTS = {
-    "stale_utr_reuse": "the causal chain carries no UTR; this belongs to three-source matching",
-}
 from app.chain.controls import run_data_integrity_controls  # noqa: E402
 from app.matching.engine import run_matching_engine  # noqa: E402
+
+# No declared blind spots. An earlier version declared `stale_utr_reuse` unfixable here, on the
+# argument that a causal chain carries no UTR. That was right about the chain and wrong about the
+# batch: a settlement carries a UTR, and "a payout reference identifies one payout" is an invariant
+# checkable without any matching heuristic. The declaration was also propping up a badly built
+# shape -- the generator gave each of those settlements a fresh random UTR, so there was no reuse to
+# detect. Both fixed; the dict stays so a future blind spot has to be declared rather than ignored.
+BLIND_SPOTS: dict[str, str] = {}
 
 
 def main() -> None:

@@ -95,12 +95,18 @@ def _bank_fee_deduction(gen):
     return [order], [payment], [], [settlement], [ledger], [_gt(order, "genuine_error", f"bank levied {wire_fee} paise")]
 
 
+# Banks recycle reference strings, so the SAME UTR appears on more than one payout. A first version
+# of this shape gave each settlement a fresh random UTR, which is not reuse at all and made the
+# shape undetectable by construction rather than by any property of the system. The constant below
+# is what makes it a genuine collision.
+_RECYCLED_UTR = "UTR400271839"
+
+
 def _stale_utr_reuse(gen):
-    """A real, well-formed UTR naming a batch that was already paid. The evidence looks right."""
+    """A real, well-formed UTR that another payout is already using. The evidence looks right."""
     rail, amount, created_at, order, payment, net = _base(gen)
     settlement = gen._build_settlement(payment.payment_id, rail, net, payment.captured_at)
-    settlement.utr = "UTR" + "".join(str(gen.rng.randint(0, 9)) for _ in range(9))
-    settlement.settlement_batch_id = "batch_already_paid_in_full"
+    settlement.utr = _RECYCLED_UTR
     ledger = gen._build_ledger(order.order_id, net, created_at + timedelta(minutes=5))
     return [order], [payment], [], [settlement], [ledger], [_gt(order, "genuine_error", "recycled UTR")]
 
