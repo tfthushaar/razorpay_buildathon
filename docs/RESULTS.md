@@ -136,6 +136,34 @@ blind spot cannot quietly grow.
 Reproduce: `python scripts/generate_generalization_evidence.py`. Raw:
 [`generalization-2026-09-01.json`](evidence/generalization-2026-09-01.json).
 
+## What the tuning actually buys
+
+RESULTS says the system is built to escalate rather than guess. That is a claim about constants
+nobody had been shown, so each is swept across its usable range, one at a time.
+
+| Constant | Shipped | First wrong resolution | Margin |
+|---|---|---|---|
+| `ROUNDING_EPSILON` (matching engine) | 100 | **5,000** | 50x |
+| `DEFAULT_TOLERANCE_PAISE` (Layer 0) | 10 | never, in range | trades resolutions for admitted ambiguity |
+
+`ROUNDING_EPSILON` is the knob that governs correctness: the delta the engine will call FX noise and
+close without further evidence. At the shipped 100 it posts no wrong resolution across 900
+transactions; the first appears at 5,000, which is a fifty-fold margin. Below 3 it starts refusing
+work it could safely have done, so the operating point is wide rather than lucky.
+
+`DEFAULT_TOLERANCE_PAISE` does not trade correctness at all. It trades resolutions against
+under-determination: at 0 Layer 0 closes 12 cases and admits 99, and past 5 it closes none and admits
+116. Widening it does not buy wrong answers, it buys admitted ambiguity, which is the behaviour the
+architecture is supposed to have.
+
+**A first version of this sweep reported that `DEFAULT_TOLERANCE_PAISE` "does not govern
+correctness".** That was true only because the sweep scored it against the matching engine, which
+never calls the resolver: setting the constant to 99,999 leaves every matching-engine resolution
+byte-identical. The number was real and measured nothing. It now scores against Layer 0's own output.
+
+Reproduce: `python scripts/generate_sensitivity_evidence.py`. Raw:
+[`sensitivity-2026-09-01.json`](evidence/sensitivity-2026-09-01.json).
+
 ## Fee leakage and GST on fees
 
 A transaction can reconcile perfectly and still have been charged wrongly, because reconciliation

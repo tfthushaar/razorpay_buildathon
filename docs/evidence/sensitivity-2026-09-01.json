@@ -1,0 +1,145 @@
+{
+  "generated_on": "2026-09-01",
+  "seeds": [
+    1,
+    2,
+    3
+  ],
+  "n_per_batch": 300,
+  "sweeps": [
+    {
+      "constant": "ROUNDING_EPSILON",
+      "shipped_value": 100,
+      "first_wrong_resolution_at": 5000,
+      "governs_correctness": true,
+      "rows": [
+        {
+          "total": 900,
+          "resolved": 711,
+          "wrongly_resolved": 0,
+          "value": 0,
+          "shipped": false
+        },
+        {
+          "total": 900,
+          "resolved": 731,
+          "wrongly_resolved": 0,
+          "value": 1,
+          "shipped": false
+        },
+        {
+          "total": 900,
+          "resolved": 765,
+          "wrongly_resolved": 0,
+          "value": 3,
+          "shipped": false
+        },
+        {
+          "total": 900,
+          "resolved": 765,
+          "wrongly_resolved": 0,
+          "value": 5,
+          "shipped": false
+        },
+        {
+          "total": 900,
+          "resolved": 765,
+          "wrongly_resolved": 0,
+          "value": 10,
+          "shipped": false
+        },
+        {
+          "total": 900,
+          "resolved": 765,
+          "wrongly_resolved": 0,
+          "value": 50,
+          "shipped": false
+        },
+        {
+          "total": 900,
+          "resolved": 765,
+          "wrongly_resolved": 0,
+          "value": 100,
+          "shipped": true
+        },
+        {
+          "total": 900,
+          "resolved": 765,
+          "wrongly_resolved": 0,
+          "value": 200,
+          "shipped": false
+        },
+        {
+          "total": 900,
+          "resolved": 765,
+          "wrongly_resolved": 0,
+          "value": 1000,
+          "shipped": false
+        },
+        {
+          "total": 900,
+          "resolved": 789,
+          "wrongly_resolved": 24,
+          "value": 5000,
+          "shipped": false
+        }
+      ]
+    },
+    {
+      "constant": "DEFAULT_TOLERANCE_PAISE",
+      "shipped_value": 10,
+      "first_wrong_resolution_at": null,
+      "governs_correctness": false,
+      "rows": [
+        {
+          "total": 135,
+          "resolved": 12,
+          "under_determined": 99,
+          "unmatched": 24,
+          "value": 0,
+          "shipped": false
+        },
+        {
+          "total": 135,
+          "resolved": 0,
+          "under_determined": 116,
+          "unmatched": 19,
+          "value": 5,
+          "shipped": false
+        },
+        {
+          "total": 135,
+          "resolved": 0,
+          "under_determined": 116,
+          "unmatched": 19,
+          "value": 10,
+          "shipped": true
+        },
+        {
+          "total": 135,
+          "resolved": 0,
+          "under_determined": 116,
+          "unmatched": 19,
+          "value": 25,
+          "shipped": false
+        },
+        {
+          "total": 135,
+          "resolved": 1,
+          "under_determined": 116,
+          "unmatched": 18,
+          "value": 100,
+          "shipped": false
+        },
+        {
+          "total": 135,
+          "resolved": 0,
+          "under_determined": 120,
+          "unmatched": 15,
+          "value": 500,
+          "shipped": false
+        }
+      ]
+    }
+  ]
+}
