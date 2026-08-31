@@ -9,7 +9,7 @@ import math
 
 import pytest
 
-from app.resolver.semantic_entropy import auroc, choice_entropy, components_signature
+from experiments.semantic_entropy import auroc, choice_entropy, components_signature
 
 
 class _Component:

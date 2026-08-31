@@ -31,10 +31,18 @@ The gate now uses a confidence sequence, valid at every stopping time by constru
 `netting_trap` scores 88.4% and `duplicate_refund` 85.6% against a 90% bar, and both escalate. Forty
 perfect decisions were worth 91.2% under the old bound and are worth 86.6% under this one.
 
-A payments company should want a gate that refuses on 37 samples. The mechanism, the measurement, and
-the fact that the corrected version says no are the contribution; a gate that has never refused has
-never been tested. What the system can safely automate today is 59.3% of decisions at a 1.0% error
-rate, at a threshold it is honest about rather than one it cleared by being asked repeatedly.
+Two different things are being counted, and the difference matters. **Deterministic closure** is the
+resolver settling a case by arithmetic, and it needs no trust at all: 98.9% of a realistic batch
+closes that way, today, with no model involved and no gate consulted. **Model autonomy** is letting
+the model close a case without a human, and that is what nothing has earned. The product an analyst
+opens still clears the overwhelming majority of the work; what it will not do is let a model sign off
+unsupervised on the strength of 37 samples.
+
+A payments company should want a gate that refuses at that n. The mechanism, the measurement, and the
+fact that the corrected version says no are the contribution; a gate that has never refused has never
+been tested. If the bar were 0.85 rather than 0.90 the same evidence would automate 59.3% of
+escalations at a 1.0% error rate, and that number is available in the product rather than argued for
+in a document.
 
 ## Where AI belongs
 
@@ -130,7 +138,7 @@ Full numbers with reproduce commands: [RESULTS.md](docs/RESULTS.md).
 ## Verify it yourself
 
 ```bash
-cd backend && python -m pytest tests/ -v                 # 494 tests — needs nothing but Python
+cd backend && python -m pytest tests/ -v                 # 543 tests — needs nothing but Python
 python scripts/generate_reading_evidence.py              # the table above  (needs Ollama)
 python scripts/generate_three_source_evidence.py         # the McNemar result (needs Ollama)
 ```
@@ -138,9 +146,11 @@ python scripts/generate_three_source_evidence.py         # the McNemar result (n
 ## What this can't do
 
 I wrote both phrase banks, so the held-out phrasing is held out from the parser and not from me.
-Cascade routing is built, measured at 20.0%, and does not work. Three-source matching runs from its
-own script rather than the shipped batch loop. Settlement is structurally unavailable in Razorpay's
-test mode, so four of five causal-chain hops are real API objects and the fifth is synthetic.
+Cascade routing is built, measured at 20.0%, and does not work; it and the semantic-entropy signal
+live in `backend/experiments/` rather than in the shipped tree, with their numbers in
+[experiments/README.md](backend/experiments/README.md). Settlement is structurally unavailable in
+Razorpay's test mode, so four of five causal-chain hops are real API objects and the fifth is
+synthetic.
 
 Full list: [LIMITATIONS.md](docs/LIMITATIONS.md).
 

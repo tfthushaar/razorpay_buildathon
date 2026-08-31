@@ -37,7 +37,12 @@ export function RunControls({ onRun, loading, error }: Props) {
   const [enableMultiwayNetting, setEnableMultiwayNetting] = useState(false);
   const [enableHeldOutVariants, setEnableHeldOutVariants] = useState(false);
   const [enableNarrationExplained, setEnableNarrationExplained] = useState(false);
-  const [enableCompoundDelta, setEnableCompoundDelta] = useState(false);
+  // Defaults ON here while the API default stays OFF, and the split is deliberate. The API default
+  // governs what every committed evidence file and reproduce command replays, so flipping it would
+  // silently change published numbers. The dashboard default governs what a reader sees on the first
+  // click, and the residual architecture is the centre of the project: shipping it switched off means
+  // the demo does not show the thing the docs argue for.
+  const [enableCompoundDelta, setEnableCompoundDelta] = useState(true);
   const [heldOutAdvicePhrasing, setHeldOutAdvicePhrasing] = useState(false);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);

@@ -22,7 +22,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from app.resolver import resolve  # noqa: E402
-from app.resolver.cascade import route  # noqa: E402
+from experiments.cascade import route  # noqa: E402
 
 from scripts.generate_residual_evidence import build_compound_batch, truth_multiset  # noqa: E402
 

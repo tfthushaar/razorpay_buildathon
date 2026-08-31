@@ -1,6 +1,6 @@
 """An escalation signal for the cascade, after the three it already had turned out not to work.
 
-`app/resolver/cascade.py` routes cases up a ladder of readers and is measured at 20.0% end to end,
+`experiments/cascade.py` routes cases up a ladder of readers and is measured at 20.0% end to end,
 worse than free parsimony. LIMITATIONS records why: no signal tried correlates with correctness.
 Self-reported confidence is high on wrong answers as readily as right ones. The verifier is trivially
 satisfied in choice mode, so the model tiers never escalate at all. The tie count measures whether

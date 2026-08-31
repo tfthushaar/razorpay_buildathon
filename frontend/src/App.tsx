@@ -9,6 +9,7 @@ import { CalibrationPanel } from "./components/CalibrationPanel";
 import { EscalationQueue } from "./components/EscalationQueue";
 import { StressScorecard } from "./components/StressScorecard";
 import { FeeLeakAnalysis } from "./components/FeeLeakAnalysis";
+import { ThreeSourcePanel } from "./components/ThreeSourcePanel";
 import { ForecastPanel } from "./components/ForecastPanel";
 import { ResidualPanel } from "./components/ResidualPanel";
 import { ErpExport } from "./components/ErpExport";
@@ -172,6 +173,7 @@ function App() {
               <BaselineComparison result={result} />
               <StressScorecard stress={result.stress} />
             </div>
+            <ThreeSourcePanel />
             <ForecastPanel refreshKey={refreshKey} />
             <ErpExport result={result} />
           </>

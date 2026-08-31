@@ -20,7 +20,7 @@ is vendored or linked.
 | Exact McNemar test for paired comparisons | McNemar (1947) | n/a | Method | `app/calibration/significance.py` |
 | Betting confidence sequences, valid under optional stopping | Waudby-Smith & Ramdas, *Estimating means of bounded random variables by betting* (2023); Howard, Ramdas, McAuliffe & Sekhon, *Time-uniform Chernoff bounds* (2021) | n/a | Method | `app/calibration/confidence_sequence.py` |
 | Risk-coverage curves for selective prediction | El-Yaniv & Wiener (2010); Geifman & El-Yaniv (2017) | n/a | Method | `app/calibration/risk_coverage.py` |
-| Semantic entropy for detecting unreliable model output | Farquhar, Kossen, Kuhn & Gal, *Nature* (2024) | n/a | Method | `app/resolver/semantic_entropy.py` |
+| Semantic entropy for detecting unreliable model output | Farquhar, Kossen, Kuhn & Gal, *Nature* (2024) | n/a | Method | `experiments/semantic_entropy.py` |
 | Fellegi-Sunter probabilistic record linkage | Fellegi & Sunter (1969) | n/a | Method | `app/resolver/fellegi_sunter.py` |
 | Meet-in-the-middle subset sum | Horowitz & Sahni (1974) | n/a | Method | `app/data_gen/subset_sum.py` |
 

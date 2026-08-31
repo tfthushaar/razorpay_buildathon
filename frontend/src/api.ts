@@ -62,6 +62,32 @@ export const getLatestRun = () => request<BatchRunResult>("/api/runs/latest");
 
 export const getHealth = () => request<{ status: string }>("/api/health");
 
+export interface ThreeSourceColumn {
+  column: string;
+  correct: number;
+  total: number;
+  accuracy: number;
+  under_determined: number;
+  unmatched: number;
+  reachable: number;
+}
+
+export interface ThreeSourceResult {
+  seed: number;
+  n_settlements: number;
+  n_bank_rows: number;
+  held_out_phrasing: boolean;
+  columns: ThreeSourceColumn[];
+  mcnemar_vs_regex: Record<string, { wins: number; losses: number; p: number; p_conceding_two: number }>;
+  note: string;
+}
+
+export const evaluateThreeSource = (heldOut: boolean) =>
+  request<ThreeSourceResult>("/api/three-source/evaluate", {
+    method: "POST",
+    body: JSON.stringify({ seed: 42, n: 120, held_out_phrasing: heldOut }),
+  });
+
 export const getCalibration = (threshold: number) =>
   request<CalibrationReport>(`/api/calibration?threshold=${threshold}`);
 

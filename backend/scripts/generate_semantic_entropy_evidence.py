@@ -61,7 +61,7 @@ def _verdict_signature(raw: str) -> str | None:
     return "|".join(f"{k}={_re.sub(r'[^a-z_]', '', str(v).lower())}" for k, v in sorted(parsed.items()))
 
 
-from app.resolver.semantic_entropy import (  # noqa: E402
+from experiments.semantic_entropy import (  # noqa: E402
     DEFAULT_SAMPLES,
     DEFAULT_TEMPERATURE,
     auroc,

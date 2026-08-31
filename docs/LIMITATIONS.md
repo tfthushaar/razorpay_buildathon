@@ -78,12 +78,20 @@ stopping time, and under it no category in the committed history auto-resolves: 
 Per-cause autonomy is a mechanism with real numbers behind it, and not a system that has earned
 autonomy here.
 
-## Three-source matching sits beside the product, not inside it
+## Three-source matching is reachable but not part of the batch loop
 
-`app/resolver/entity_resolution.py` and its generator run from their own evidence script and tests. No
-batch run, dashboard panel or calibration gate consumes them. `compound_delta` and the residual stage
-are off behind `enable_compound_delta`, so every evidence file measured before this architecture stays
-valid. The cost is that the quickstart does not show the residual pipeline unless you tick the box.
+`POST /api/three-source/evaluate` runs it and the dashboard's evidence page renders it, so the result
+is checkable without a checkout. It is still not part of the batch loop: no run, no calibration gate
+and no escalation consumes a three-source match, and the shipped matcher uses my hand-chosen weights
+rather than the estimated ones the fourth column measures.
+
+The model column is left to the evidence script rather than the route, because it costs one model call
+per candidate pair and a synchronous request is the wrong place for two hundred of them.
+
+`enable_compound_delta` defaults to False in the API and True in the dashboard. The API default is
+what every committed evidence file and reproduce command replays, so flipping it would change
+published numbers; the dashboard default is what a reader sees on the first click, and the residual
+architecture is the centre of the argument.
 
 ## Four of five causal-chain hops are real Razorpay API objects
 

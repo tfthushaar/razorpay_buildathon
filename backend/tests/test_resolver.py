@@ -393,7 +393,7 @@ def test_cascade_tier0_absorbs_only_when_the_advice_actually_discriminated():
     This is the measurement that made a cascade worth building: the rule is not uniformly weak, it is
     specifically weak where the advice does not discriminate -- and that is detectable in advance,
     from the tie count, without asking a model anything."""
-    from app.resolver.cascade import route
+    from experiments.cascade import route
 
     _, chains, ctx, _ = compound_batch(n=25)
     handed_up_with_ties = 0
@@ -412,7 +412,7 @@ def test_cascade_tier0_absorbs_only_when_the_advice_actually_discriminated():
 
 
 def test_cascade_records_cost_for_every_tier_it_tried():
-    from app.resolver.cascade import route
+    from experiments.cascade import route
 
     _, chains, ctx, _ = compound_batch(n=15)
     tid = next(t for t in chains if resolve(chains[t], ctx).status == "UNDER_DETERMINED")

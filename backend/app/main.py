@@ -28,6 +28,10 @@ from app.calibration.calibrator import CalibrationReport
 from app.calibration.history import CalibrationHistory
 from app.calibration.regret import RegretReport, compute_regret
 from app.calibration.risk_coverage import RiskCoverageCurve, risk_coverage_curve
+from app.calibration.significance import exact_mcnemar_p, robustness_p
+from app.data_gen.three_source import generate_three_source_batch
+from app.resolver.entity_resolution import match_all
+from app.resolver.fellegi_sunter import fit_weights, match_all_weighted
 from app.calibration.revocation_drill import RevocationDrillReport, run_revocation_drill
 from app.chain.builder import build_all_chains
 from app.data_gen.generate import generate, generate_pending_batch
@@ -223,6 +227,152 @@ def api_calibration(threshold: float = Query(0.90, ge=0.0, le=1.0)) -> Calibrati
     """The live threshold dial: a cheap re-aggregation over the accumulated history, not a
     pipeline re-run."""
     return calibration_history.report(threshold=threshold)
+
+
+class ThreeSourceRequest(BaseModel):
+    """A settlement report, a bank statement and an ERP ledger that never agreed."""
+
+    seed: int = Field(42, ge=1, le=10_000)
+    n: int = Field(120, ge=20, le=400)
+    held_out_phrasing: bool = True  # defaults to the honest condition, not the flattering one
+    use_cycle_reader: bool = False  # the model column. Default OFF: it is one model call per
+    # candidate pair, around 250 for a default batch, and a synchronous HTTP request is the wrong
+    # place for that. The structured columns are instant and carry the comparison that matters.
+
+
+class ThreeSourceColumn(BaseModel):
+    column: str
+    correct: int
+    total: int
+    accuracy: float
+    under_determined: int
+    unmatched: int
+    reachable: int  # cases where the true row survived filtering; caps every column equally
+
+
+class ThreeSourceResponse(BaseModel):
+    seed: int
+    n_settlements: int
+    n_bank_rows: int
+    held_out_phrasing: bool
+    columns: list[ThreeSourceColumn]
+    mcnemar_vs_regex: dict
+    note: str
+
+
+def _score_three_source(batch, results) -> dict:
+    correct = under = unmatched = reachable = 0
+    per_case: dict[str, bool] = {}
+    for settlement_id, result in results.items():
+        want = batch.truth[settlement_id]
+        if result.status == "UNMATCHED":
+            unmatched += 1
+        elif result.status == "UNDER_DETERMINED":
+            under += 1
+        if any(c.bank_row_id == want for c in result.candidates):
+            reachable += 1
+        hit = bool(result.best() and result.best().bank_row_id == want)
+        per_case[settlement_id] = hit
+        correct += hit
+    return {"correct": correct, "under": under, "unmatched": unmatched, "reachable": reachable, "per_case": per_case}
+
+
+@app.post("/api/three-source/evaluate")
+def api_three_source_evaluate(req: ThreeSourceRequest) -> ThreeSourceResponse:
+    """Run the three-source matcher and return every column, paired.
+
+    This is the strongest technical result in the project and it was reachable only by running an
+    evidence script, which meant a reader could not check it without a checkout. Same code the script
+    uses, so the numbers agree with docs/RESULTS.md.
+
+    Held-out phrasing defaults to True because that is the condition the result rests on. On seen
+    phrasing the regex wins, and shipping the flattering default would be choosing the demo over the
+    finding.
+
+    The model column is opt-in and absent unless a real provider is configured, because it costs one
+    call per candidate pair. The three structured columns answer on their own and are what the
+    dashboard shows by default.
+    """
+    try:
+        batch = generate_three_source_batch(
+            seed=req.seed, n=req.n, held_out_cycle_phrasing=req.held_out_phrasing
+        )
+        scored: dict[str, dict] = {}
+        scored["no_cycle_parsing"] = _score_three_source(
+            batch, match_all(batch.settlements, batch.bank_rows, use_cycle_ref=False)
+        )
+
+        fit_batch = generate_three_source_batch(
+            seed=req.seed + 100, n=req.n, held_out_cycle_phrasing=req.held_out_phrasing
+        )
+        weights = fit_weights(fit_batch.settlements, fit_batch.bank_rows, fit_batch.truth)
+        scored["estimated_weights_no_cycle"] = _score_three_source(
+            batch, match_all_weighted(batch.settlements, batch.bank_rows, weights)
+        )
+
+        scored["regex_cycle_parser"] = _score_three_source(
+            batch, match_all(batch.settlements, batch.bank_rows, use_cycle_ref=True)
+        )
+
+        if req.use_cycle_reader:
+            from app.resolver.cycle_reader import model_cycle_agrees
+
+            provider = os.environ.get("LLM_PROVIDER", "mock")
+            if provider != "mock":
+                scored["model_cycle_reader"] = _score_three_source(
+                    batch,
+                    match_all(
+                        batch.settlements,
+                        batch.bank_rows,
+                        use_cycle_ref=True,
+                        cycle_reader=lambda ref, desc: model_cycle_agrees(ref, desc, provider=provider),
+                    ),
+                )
+
+        total = len(batch.settlements)
+        columns = [
+            ThreeSourceColumn(
+                column=name,
+                correct=v["correct"],
+                total=total,
+                accuracy=round(v["correct"] / total, 4) if total else 0.0,
+                under_determined=v["under"],
+                unmatched=v["unmatched"],
+                reachable=v["reachable"],
+            )
+            for name, v in scored.items()
+        ]
+
+        # Paired, because every column scored the identical settlements. Comparing their independent
+        # intervals ignores that and is badly conservative -- see app/calibration/significance.py.
+        base = scored["regex_cycle_parser"]["per_case"]
+        mcnemar = {}
+        for name, v in scored.items():
+            if name == "regex_cycle_parser":
+                continue
+            wins = sum(1 for sid, hit in v["per_case"].items() if hit and not base[sid])
+            losses = sum(1 for sid, hit in v["per_case"].items() if not hit and base[sid])
+            mcnemar[name] = {
+                "wins": wins,
+                "losses": losses,
+                "p": round(exact_mcnemar_p(wins, losses), 4),
+                "p_conceding_two": round(robustness_p(wins, losses), 4),
+            }
+
+        return ThreeSourceResponse(
+            seed=req.seed,
+            n_settlements=total,
+            n_bank_rows=len(batch.bank_rows),
+            held_out_phrasing=req.held_out_phrasing,
+            columns=columns,
+            mcnemar_vs_regex=mcnemar,
+            note=(
+                "Every column scored the identical settlements, so the tests are paired. `reachable` "
+                "is how often the true bank row survived filtering, which caps every column equally."
+            ),
+        )
+    except Exception as e:  # noqa: BLE001
+        raise HTTPException(422, f"Could not run the three-source evaluation ({type(e).__name__}: {e}).")
 
 
 @app.get("/api/risk-coverage")
