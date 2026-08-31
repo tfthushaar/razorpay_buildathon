@@ -1,6 +1,6 @@
 # What this can't do
 
-Twelve limits, ordered by how much they constrain the claims here.
+Thirteen limits, ordered by how much they constrain the claims here.
 
 ## The second model family is one run, and the rest are still qwen
 
@@ -17,6 +17,18 @@ a 7,500 tokens-per-minute ceiling, and falls back on exponential backoff, so a r
 budget without finishing. Pacing the calls would fix it and would change which judgements come back
 unparseable, so it needs its own re-run rather than a quiet edit to the script that produced these
 numbers.
+
+## Every published held-out figure was measured more than once
+
+The reading experiment, three-source and the Q&A benchmark were each re-run across many passes while
+the system around them changed, and the figures that survived are the ones I kept. Scoring a holdout
+repeatedly and publishing the run you kept is multiple testing: those intervals are narrower than
+they should be.
+
+An untouched set has since been scored exactly once. Everything reproduced within 1.3 points and
+every finding held its direction, which bounds the inflation rather than removing the concern -- one
+seed is not a new distribution. `app/final_holdout.py` refuses to overwrite a scored holdout so the
+rule survives my memory of it.
 
 ## The held-out phrasing is held out from the parser, not from me
 

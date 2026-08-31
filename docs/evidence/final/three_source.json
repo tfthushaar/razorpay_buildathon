@@ -1,0 +1,32 @@
+{
+  "scored_on": "2026-09-01",
+  "seed": 20260902,
+  "seen": {
+    "no_cycle_parsing": {
+      "correct": 138,
+      "total": 150
+    },
+    "estimated_weights_no_cycle": {
+      "correct": 137,
+      "total": 150
+    },
+    "regex_cycle_parser": {
+      "correct": 149,
+      "total": 150
+    }
+  },
+  "held_out": {
+    "no_cycle_parsing": {
+      "correct": 133,
+      "total": 150
+    },
+    "estimated_weights_no_cycle": {
+      "correct": 135,
+      "total": 150
+    },
+    "regex_cycle_parser": {
+      "correct": 133,
+      "total": 150
+    }
+  }
+}

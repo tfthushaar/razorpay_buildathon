@@ -1,0 +1,16 @@
+{
+  "scored_on": "2026-09-01",
+  "seed": 20260901,
+  "seen": {
+    "correct": 405,
+    "total": 420,
+    "accuracy": 0.9643,
+    "dangerous_errors": 5
+  },
+  "held_out": {
+    "correct": 262,
+    "total": 420,
+    "accuracy": 0.6238,
+    "dangerous_errors": 158
+  }
+}

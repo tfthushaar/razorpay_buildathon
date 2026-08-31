@@ -286,6 +286,39 @@ Fabricated transaction ids: 0 of 45 in all four conditions.
 Reproduce: `python scripts/generate_qa_evidence.py`. Raw:
 [`qa-2026-08-30.json`](evidence/qa-2026-08-30.json).
 
+## Scored once, on seeds nothing had touched
+
+Every held-out figure above was re-measured across passes. The reading experiment, three-source and
+the Q&A benchmark were each run many times while the system around them changed, and the numbers that
+survived are the ones I kept. That is multiple testing on a held-out set: the intervals are narrower
+than they should be and the point estimates are optimistic by an amount nobody had measured.
+
+So a set was scored exactly once, on seeds no experiment in this repository has ever used, with
+whatever came out being what ships.
+
+| | Published | Single-shot | Delta |
+|---|---|---|---|
+| keyword rule, seen phrasing | 95.2% | 96.4% | +1.2 |
+| keyword rule, held-out | 61.7% | 62.4% | +0.7 |
+| its gap | -33.5 | **-34.1** | -0.6 |
+| denial read as confirmation, held-out | 161 (38.3%) | **158 (37.6%)** | -3 |
+| three-source, no cycle parsing | 88.0% | 88.7% | +0.7 |
+| three-source, estimated weights | 91.3% | 90.0% | -1.3 |
+| three-source, regex parser | 88.0% | 88.7% | +0.7 |
+
+**Everything reproduced.** The rule still collapses on phrasing its author never saw, still reads a
+denial as a confirmation in roughly 38% of judgements, and estimated weights still beat the regex on
+held-out phrasing. Nothing moved by more than 1.3 points and the direction of every finding held.
+
+That validates the published figures rather than replacing them, and it is one seed rather than a
+new distribution, so it bounds the inflation from repeated measurement rather than eliminating the
+concern. The mechanism is enforced in code: `app/final_holdout.py` refuses to overwrite a scored
+holdout, so a second run raises instead of quietly producing a nicer number.
+
+Reproduce: `python scripts/score_final_holdout.py`, which will refuse. Raw:
+[`final/reading.json`](evidence/final/reading.json),
+[`final/three_source.json`](evidence/final/three_source.json).
+
 ## Core reconciliation
 
 | Claim | Number |
