@@ -216,6 +216,27 @@ is exercised at n=120. Every rupee figure is generated; the mechanism is the cla
 with zero LLM calls scores 519/519 on the three categories, which is why the model's value there is
 reliability under failure.
 
+### Resolved is not the same question as handled correctly
+
+The match rate above counts every escalation as a transaction the system failed to close. Six of the
+eighteen escalations on seed 42 are `genuine_error`, a category the policy forbids closing at any
+accuracy, so escalating them is the right answer and the strict rate scores the system down against
+its own rule.
+
+| | Strict resolution | Correct disposition | Wrongly resolved |
+|---|---|---|---|
+| mock, seed 42 | 85.0% | **90.0%** | **0** (0.0% of the batch) |
+
+Three things stop this being a softer number to hide behind. The strict rate is printed beside it
+always. Auto-resolving a forbidden category counts as **wrongly resolved**, never as a correct
+disposition, so the figure cannot be reached by closing exactly what the policy exists to stop
+(`test_disposition_cannot_be_gamed_by_resolving_everything`: ten forbidden cases resolved scores 0%,
+the same ten escalated scores 100%). And wrongly-resolved is a share of the whole batch rather than
+of the resolved subset, so resolving less while being wrong about more of it buys nothing.
+
+Escalating something the system could safely have closed is still a miss, not a win. Refusing is
+only correct where the policy forbids resolving.
+
 **Nothing currently clears the gate.** Both were reported as having cleared 90% after 8 batches,
 measured with a Wilson bound recomputed after every batch, which is optional stopping. Under a bound
 valid at every stopping time they are 88.4% and 85.6%. What the system can safely automate is 59.3%
