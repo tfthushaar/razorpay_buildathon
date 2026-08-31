@@ -1,0 +1,63 @@
+{
+  "generated_on": "2026-09-01",
+  "seed": 909,
+  "pass_criterion": "no wrong resolution outside a declared blind spot, nothing dropped, controls still resolve",
+  "passed": true,
+  "novel_transactions": 32,
+  "novel_resolved_wrongly": 0,
+  "blind_spots": {
+    "stale_utr_reuse": {
+      "reason": "the causal chain carries no UTR; this belongs to three-source matching",
+      "resolved_wrongly": 8
+    }
+  },
+  "controls_resolved": 12,
+  "controls_total": 12,
+  "silently_dropped": 0,
+  "per_shape": {
+    "clean_match": {
+      "n": 12,
+      "resolved": 12,
+      "resolved_wrongly": 0,
+      "escalated": 0,
+      "flagged_by_control": 0,
+      "categories": {
+        "clean_match": 12
+      }
+    },
+    "bank_fee_deduction": {
+      "n": 8,
+      "resolved": 0,
+      "resolved_wrongly": 0,
+      "escalated": 8,
+      "flagged_by_control": 0,
+      "categories": {}
+    },
+    "stale_utr_reuse": {
+      "n": 8,
+      "resolved": 8,
+      "resolved_wrongly": 8,
+      "escalated": 0,
+      "flagged_by_control": 0,
+      "categories": {
+        "clean_match": 8
+      }
+    },
+    "post_dated_settlement": {
+      "n": 8,
+      "resolved": 0,
+      "resolved_wrongly": 0,
+      "escalated": 0,
+      "flagged_by_control": 8,
+      "categories": {}
+    },
+    "double_settlement": {
+      "n": 8,
+      "resolved": 0,
+      "resolved_wrongly": 0,
+      "escalated": 0,
+      "flagged_by_control": 8,
+      "categories": {}
+    }
+  }
+}

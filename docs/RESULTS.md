@@ -101,6 +101,41 @@ under-determined ([METHODS.md](METHODS.md#where-the-ambiguity-comes-from)).
 Reproduce: `python scripts/generate_residual_evidence.py`. Raw:
 [`residual-architecture-2026-08-29.json`](evidence/residual-architecture-2026-08-29.json).
 
+## Shapes the matcher was never designed for
+
+Every accuracy figure above is scored against categories the matching engine's rules were written
+knowing, which measures implementation rather than generalisation: the same author wrote the exam and
+the student. Four shapes absent from the taxonomy entirely, each breaking an assumption the engine
+relies on. **The pass criterion is not accuracy.** Escalating all of them passes; what fails is one
+wrong resolution, or a transaction in neither the resolved set nor the queue.
+
+| Shape | n | Resolved wrongly | Escalated | Flagged by a control |
+|---|---|---|---|---|
+| controls (`clean_match`) | 12 | 0 | 0 | 0 |
+| `bank_fee_deduction` | 8 | 0 | **8** | 0 |
+| `post_dated_settlement` | 8 | 0 | 0 | **8** |
+| `double_settlement` | 8 | 0 | 0 | **8** |
+| `stale_utr_reuse` | 8 | **8** | 0 | 0 |
+
+**It failed on its first run**, and two of the failures were real. `build_all_chains` keys
+settlements by `payment_id` in a dict comprehension, so a payment settled inside two batches lost one
+silently and the chain tied perfectly against the survivor: a transaction paid twice, reported clean.
+And nothing read `settled_at`, so a settlement dated two days before its own capture also tied.
+
+Both are now caught by `app/chain/controls.py` as data-integrity controls, which flag rather than
+resolve, and are silent on ordinary batches across three seeds. They are controls and not matching
+rules deliberately: tuning the matcher against shapes this suite invented would stop it measuring
+generalisation and start it measuring how fast a special case can be written.
+
+`stale_utr_reuse` is a **declared blind spot** rather than a fixed one. A causal chain carries no UTR
+at all, so a recycled reference naming an already-paid batch is undetectable here; it belongs to
+three-source matching, which does read UTRs. Adding a UTR check to the batch matcher to turn that row
+green would be special-casing the test. The gate fails on a wrong resolution anywhere else, so the
+blind spot cannot quietly grow.
+
+Reproduce: `python scripts/generate_generalization_evidence.py`. Raw:
+[`generalization-2026-09-01.json`](evidence/generalization-2026-09-01.json).
+
 ## Fee leakage and GST on fees
 
 A transaction can reconcile perfectly and still have been charged wrongly, because reconciliation

@@ -17,6 +17,7 @@ from app.calibration.disposition import DispositionReport, score_dispositions
 from app.calibration.calibrator import CalibrationReport, ScoredDecision, calibrate
 from app.calibration.history import CalibrationHistory
 from app.chain.builder import CausalChain, build_all_chains
+from app.chain.controls import ControlFinding, run_data_integrity_controls
 from app.data_gen.generate import generate, generate_fee_leak_batch
 from app.data_gen.schemas import SyntheticBatch
 from app.erp.journal import generate_journal_entries
@@ -62,6 +63,9 @@ class BatchRunResult(BaseModel):
     # good deterministic engineering, rather than only comparing against a naive strawman. Added
     # 2026-08-24 after an external audit noted this data was already computed internally but never
     # surfaced as its own number.
+    control_findings: list[ControlFinding] = []  # data-integrity defects the matching engine has
+    # no input to see: a payment settled twice, a settlement dated before its own capture. Found by
+    # the generalisation suite; see app/chain/controls.py.
     disposition: DispositionReport | None = None  # was each transaction handled correctly, which
     # is not the same question as whether it was resolved -- see app/calibration/disposition.py
     deterministic_only_resolved_count: int
@@ -363,6 +367,7 @@ def run_batch(
         amount_reconciled=amount_reconciled,
         escalated_count=escalated_count,
         disposition=disposition,
+        control_findings=run_data_integrity_controls(main_batch),
         calibration=calibration_report,
         escalations=triage(escalations),
         baseline_clean_count=baseline_clean_count,
