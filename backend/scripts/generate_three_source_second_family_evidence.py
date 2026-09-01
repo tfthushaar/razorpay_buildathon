@@ -38,7 +38,12 @@ from app.resolver.entity_resolution import match_all  # noqa: E402
 
 # What the committed n=120 held-out run reports. The deterministic columns must reproduce these or
 # the model column scored a different case set and is not comparable.
-PUBLISHED_HELD_OUT = {"no_cycle_parsing": 132, "regex_cycle_parser": 132}
+# The deterministic held-out columns for this seed. Was 132/132 before Razorpay's documented
+# narration format joined the generator's house styles and the cosmetic bank-name draw was moved off
+# the main RNG stream; both changed which batch seed 42 produces. If a model column is scored against
+# a case set where these do not reproduce, it is not comparable to the others in the table, and the
+# run aborts rather than publishing a number that looks like the others but is not.
+PUBLISHED_HELD_OUT = {"no_cycle_parsing": 128, "regex_cycle_parser": 128}
 
 
 def score(batch, results) -> dict:
@@ -58,17 +63,21 @@ def score(batch, results) -> dict:
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--model", default="openai/gpt-oss-20b")
+    ap.add_argument("--provider", default=None, help="groq or ollama; inferred from the model name if omitted")
     ap.add_argument("--n", type=int, default=120)
     ap.add_argument("--seed", type=int, default=42)
     ap.add_argument("--out", default=None)
     args = ap.parse_args()
 
+    provider = args.provider or ("groq" if "/" in args.model else "ollama")
     batch = generate_three_source_batch(seed=args.seed, n=args.n, held_out_cycle_phrasing=True)
     estimated_calls = len(batch.settlements) * 2
-    budget = check_groq_budget(estimated_calls=estimated_calls, model=args.model)
-    print(f"preflight ok: ~{budget['estimated_tokens']:,} tokens for ~{estimated_calls} calls")
-    print(f"paced at {60 / _pacer().min_interval:.1f} calls/min, so roughly "
-          f"{_pacer().estimate_seconds(estimated_calls) / 60:.0f} minutes\n")
+
+    if provider == "groq":
+        budget = check_groq_budget(estimated_calls=estimated_calls, model=args.model)
+        print(f"preflight ok: ~{budget['estimated_tokens']:,} tokens for ~{estimated_calls} calls")
+        print(f"paced at {60 / _pacer().min_interval:.1f} calls/min, so roughly "
+              f"{_pacer().estimate_seconds(estimated_calls) / 60:.0f} minutes")
 
     columns = {}
     columns["no_cycle_parsing"] = score(batch, match_all(batch.settlements, batch.bank_rows, use_cycle_ref=False))
@@ -90,7 +99,7 @@ def main() -> None:
         calls["n"] += 1
         if calls["n"] % 25 == 0:
             print(f"  {calls['n']} calls", flush=True)
-        return model_cycle_agrees(cycle_ref, description, model=args.model, provider="groq")
+        return model_cycle_agrees(cycle_ref, description, model=args.model, provider=provider)
 
     columns[args.model] = score(batch, match_all(batch.settlements, batch.bank_rows, use_cycle_ref=True, cycle_reader=reader))
 
@@ -122,6 +131,7 @@ def main() -> None:
     payload = {
         "generated_on": date.today().isoformat(),
         "model": args.model,
+        "provider": provider,
         "seed": args.seed,
         "condition": "held_out_phrasing",
         "why_one_condition": "Groq's free tier allows 200,000 tokens a day; both conditions need ~250,000",

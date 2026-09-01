@@ -50,13 +50,26 @@ _NAME_STYLES = (
 )
 
 _SCHEME_PREFIXES = ("NEFT/", "IMPS-", "UTR:", "RTGS/", "")
+
+# The first template is Razorpay's OWN documented settlement narration, from their settlements
+# documentation: "NEFT CR: [bank name] [UTR] RAZORPAY SETTLEMENT". It is the only one of these that
+# is not my invention. The other five are plausible bank house styles I wrote, and LIMITATIONS says
+# what that costs.
 _BANK_DESC_TEMPLATES = (
+    "NEFT CR: {bank} {utr} RAZORPAY SETTLEMENT",
     "{scheme}{utr} {name} SETTLEMENT",
     "{name}/{scheme}{utr}",
     "CR-{scheme}{utr}-{name}",
     "{scheme}{utr}//{name}//PG PAYOUT",
     "NET STL {name} REF {utr}",
 )
+
+# Slot letters a gateway's daily cycles are labelled with. Two payouts in the same slot on the same
+# day, to the same merchant, for the same amount, are the one case nothing can separate.
+_CYCLE_SLOTS = "ABCD"
+
+# Real Indian bank identifiers, as they appear inside a narration.
+_BANKS = ("HDFC", "ICIC", "SBIN", "UTIB", "KKBK", "YESB")
 
 
 class SettlementRow(BaseModel):
@@ -108,6 +121,11 @@ class ThreeSourceBatch(BaseModel):
 class ThreeSourceGenerator:
     def __init__(self, seed: int = 42) -> None:
         self.rng = random.Random(seed)
+        # Which bank appears inside a narration is cosmetic -- it is never matched on. It gets its
+        # own stream so that adding it did not shift every downstream draw and silently re-roll the
+        # whole batch, which would have made "before the format was added" and "after" two different
+        # random draws rather than a controlled comparison.
+        self._cosmetic_rng = random.Random(seed + 7919)
         self.base_date = datetime(2026, 3, 1)
 
     def _utr(self) -> str:
@@ -206,7 +224,7 @@ class ThreeSourceGenerator:
                 shift = self.rng.randint(1, 3)
                 applied.append("date_shift")
             description = self.rng.choice(_BANK_DESC_TEMPLATES).format(
-                scheme="", utr=bank_utr, name=bank_name
+                scheme="", utr=bank_utr, name=bank_name, bank=self._cosmetic_rng.choice(_BANKS)
             )
             # The cycle reference, when the bank carries it at all: appended, prefixed, or embedded,
             # in one of several house formats. Around a third of banks drop it entirely, which is why
@@ -254,7 +272,10 @@ class ThreeSourceGenerator:
                 BankRow(
                     bank_row_id=f"bnk_twin_{self.rng.randrange(16**8):08x}",
                     description=self.rng.choice(_BANK_DESC_TEMPLATES).format(
-                        scheme="", utr=twin_utr[-self.rng.choice([6, 7, 8]) :], name=style(settlement.merchant_id)
+                        scheme="",
+                        utr=twin_utr[-self.rng.choice([6, 7, 8]) :],
+                        name=style(settlement.merchant_id),
+                        bank=self._cosmetic_rng.choice(_BANKS),
                     ),
                     credit_amount=twin_amount,
                     value_date=twin_date,
@@ -271,9 +292,24 @@ class ThreeSourceGenerator:
         n_identical = int(len(settlements) * identical_twin_rate)
         for original in self.rng.sample(settlements, k=min(n_identical, len(settlements))):
             twin_utr = "".join(self.rng.choices(string.digits, k=6)) + original.utr[-6:]
-            twin_cycle = f"C{original.value_date.date().isoformat()}-{self.rng.choice('ABCD')}"
-            while twin_cycle == original.cycle_ref:
-                twin_cycle = f"C{original.value_date.date().isoformat()}-{self.rng.choice('ABCD')}"
+            # The twin must differ on cycle from EVERY settlement it is otherwise identical to, not
+            # merely from the one it was cloned from. Guarding only against the original let two
+            # twins of the same group draw the same slot letter, producing settlements that agree on
+            # merchant, amount, date AND cycle -- indistinguishable by any method, so no reader could
+            # ever be scored fairly on them. The generalisation suite caught it; it was 30 rows across
+            # ten seeds and 2% of all errors, small enough to have gone unnoticed and still wrong.
+            day = original.value_date.date().isoformat()
+            taken = {
+                s.cycle_ref for s in settlements
+                if (s.merchant_id, s.amount, s.value_date) == (original.merchant_id, original.amount, original.value_date)
+            }
+            free = [c for c in _CYCLE_SLOTS if f"C{day}-{c}" not in taken]
+            if not free:
+                # More same-day payouts to one merchant for one amount than there are cycles to put
+                # them in. Skipping is right: inventing a slot the gateway does not run would make
+                # the case separable by something that does not exist.
+                continue
+            twin_cycle = f"C{day}-{self.rng.choice(free)}"
             twin = SettlementRow(
                 settlement_id=f"stl_tw_{self.rng.randrange(16**8):08x}",
                 utr=twin_utr,
@@ -287,7 +323,10 @@ class ThreeSourceGenerator:
             applied = ["identical_twin"]
             bank_utr = self._corrupt_utr(twin_utr, applied)
             desc = self.rng.choice(_BANK_DESC_TEMPLATES).format(
-                scheme="", utr=bank_utr, name=self.rng.choice(_NAME_STYLES)(twin.merchant_id)
+                scheme="",
+                utr=bank_utr,
+                name=self.rng.choice(_NAME_STYLES)(twin.merchant_id),
+                bank=self._cosmetic_rng.choice(_BANKS),
             )
             if self.rng.random() < 0.65:
                 desc = self._attach_cycle(desc, twin.cycle_ref, held_out=held_out_cycle_phrasing)
