@@ -25,8 +25,8 @@ only, because both conditions need about 250,000 tokens against a 200,000 daily 
 The client was the reason the reading column took three attempts: it fired as fast as it could,
 saturated the token ceiling, and fell back on exponential backoff, which is a collision detector
 rather than a rate limiter. `app/narrator/pacing.py` now holds calls to 13.6 a minute against limits
-read from Groq's own headers, and the three-source run above completed 248 calls with no rate-limit
-failure at all.
+read from Groq's own headers, and both hosted three-source runs above completed 247 calls each with no
+rate-limit failure at all.
 
 It is not applied to `generate_reading_evidence.py`. Pacing changes which calls come back
 unparseable, and that script's committed column reports 7 unparseable judgements of 420; applying it

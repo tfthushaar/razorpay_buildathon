@@ -126,6 +126,10 @@ Only the model columns need more: Ollama, or a Groq key for the hosted ones. Eve
 is committed under [`docs/evidence/`](docs/evidence/), checkable against the raw runs without
 reproducing them.
 
+[CI](.github/workflows/ci.yml) gates on correctness rather than only on tests: the residual boundary
+must hold, nothing may be wrongly auto-resolved, the novel-shape suite must show no wrong match, and
+two identical runs must produce identical reports. No API key needed for any of it.
+
 ## Further reading
 
 [RESULTS.md](docs/RESULTS.md) for the numbers · [LIMITATIONS.md](docs/LIMITATIONS.md) for what they do

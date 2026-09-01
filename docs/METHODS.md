@@ -210,9 +210,11 @@ Every comparison in RESULTS runs over identical cases, so the tests are paired. 
 confidence intervals ignore that pairing and are badly conservative: the three-source intervals
 overlap while the exact McNemar test on the same cases is decisive.
 
-Each paired result also reports what happens if two cases were mis-scored. The three-source reading
-result is p = 0.049 and moves to p = 0.33 under that concession, so it is significant and not robust
-to a couple of judgement calls. Reporting only the first number would overstate it.
+Each paired result also reports what happens if two cases were mis-scored. `qwen2.5:7b-instruct` on
+three-source is p = 0.019 and moves to p = 0.12 under that concession: significant, and not robust to
+a couple of judgement calls. The same test on `gpt-oss-20b` is p < 0.000001 and still p = 0.0002 after
+conceding two, which is what a result that does not depend on judgement calls looks like. Reporting
+only the first number in either case would overstate it.
 
 See `app/calibration/significance.py`.
 

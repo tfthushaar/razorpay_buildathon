@@ -351,16 +351,21 @@ whatever came out being what ships.
 |---|---|---|---|
 | keyword rule, seen phrasing | 95.2% | 96.4% | +1.2 |
 | keyword rule, held-out | 61.7% | 62.4% | +0.7 |
-| its gap | -33.5 | **-34.1** | -0.6 |
+| its gap | -33.6 | **-34.1** | -0.5 |
 | denial read as confirmation, held-out | 161 (38.3%) | **158 (37.6%)** | -3 |
 | three-source, no cycle parsing | 88.0% | 88.7% | +0.7 |
 | three-source, estimated weights | 91.3% | 90.0% | -1.3 |
 | three-source, regex parser | 88.0% | 88.7% | +0.7 |
 
-The three rows above compare against the three-source figures **as published on 2026-08-30**, not the
-ones in the table higher up this page. The generator changed afterwards: Razorpay's documented
+The three rows above compare against the three-source figures **as published on 2026-08-30**
+([`three-source-2026-08-30.json`](evidence/three-source-2026-08-30.json)), not the ones in the table
+higher up this page. The generator changed afterwards: Razorpay's documented
 narration format was added, a cosmetic draw was moved off the main RNG stream, and a defect that let
 two identical twins share a cycle slot was fixed. That moved the deterministic columns to 85.3%.
+
+One row of it is worth pulling out. On that untouched seed the regex parser scored **133/150 and so
+did not parsing the cycle at all** — the same zero-difference result the ten-seed sweep finds, arrived
+at independently, on a seed no experiment had touched.
 
 The holdout is not re-scored against the new generator, and that is the rule working rather than an
 oversight — scoring a held-out set a second time because the first answer became inconvenient is
