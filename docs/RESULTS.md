@@ -54,39 +54,69 @@ at once, and only the free-text cycle reference remains.
 
 | Cycle reader | Seen phrasing | Held-out phrasing | Gap |
 |---|---|---|---|
-| none | 91.3% [85.7, 94.9] | 88.0% [81.8, 92.3] | -3.3 |
-| none, weights estimated not chosen | 90.0% [84.2, 93.8] | 91.3% [85.7, 94.9] | +1.3 |
-| best regex parser | 98.7% [95.3, 99.6] | 88.0% [81.8, 92.3] | -10.7 |
+| none | 91.3% [85.7, 94.9] | 85.3% [78.8, 90.1] | -6.0 |
+| none, weights estimated not chosen | 91.3% [85.7, 94.9] | 92.0% [86.5, 95.4] | +0.7 |
+| best regex parser | 98.7% [95.3, 99.6] | 85.3% [78.8, 90.1] | -13.3 |
 | `qwen2.5:7b-instruct` | 98.0% [94.3, 99.3] | 94.0% [89.0, 96.8] | -4.0 |
-| `openai/gpt-oss-20b` | not run | **97.3% [93.3, 98.9]** | n/a |
+| `qwen2.5:14b-instruct` | 98.0% [94.3, 99.3] | 91.3% [85.7, 94.9] | -6.7 |
+| `openai/gpt-oss-20b` | not run | **99.3% [96.3, 99.9]** | n/a |
+| `openai/gpt-oss-120b` | not run | **99.3% [96.3, 99.9]** | n/a |
 
-150 settlements against 180 bank rows, the true row reachable in 150/150 for every column.
+150 settlements against 180 bank rows, the true row reachable in 150/150 for every column. All four
+model runs reproduce the deterministic columns exactly, so the readers are scored on one case set.
 
-The regex wins on seen phrasing. On held-out it scores 88.0%, identical to not parsing the cycle at
-all, because its patterns match zero descriptions; the model wins 13 paired cases and loses 4, exact
-McNemar **p = 0.049**, moving to p = 0.33 if two cases are conceded. Row two replaces my hand-chosen
-match weights with log-odds estimated from data, lifting the structured-only baseline to 91.3%, so
-the model's real margin is 2.7 points and not 6
-([METHODS.md](METHODS.md#match-weights-estimated-instead-of-chosen)).
+Paired against the regex on held-out phrasing, exact McNemar, with the value after conceding two cases:
 
-A second model family reaches 97.3%, beating the regex on 14 paired cases and losing none: exact
-McNemar **p = 0.0001**, still p = 0.013 if two cases are conceded. That is a sharper result than
-qwen's 13 wins against 4 losses at p = 0.049, which collapsed to p = 0.33 under the same concession.
-It also leaves only 2 settlements under-determined against the regex's 10.
+| Reader | Wins | Losses | p | Conceding 2 |
+|---|---|---|---|---|
+| no cycle parsing | 0 | 0 | 1.0000 | 1.0000 |
+| weights estimated | 14 | 4 | 0.0309 | 0.2379 |
+| `qwen2.5:7b-instruct` | 20 | 7 | 0.0192 | 0.1221 |
+| `qwen2.5:14b-instruct` | 16 | 7 | 0.0931 | 0.4049 |
+| `openai/gpt-oss-20b` | **21** | **0** | **<0.000001** | 0.0002 |
+| `openai/gpt-oss-120b` | **21** | **0** | **<0.000001** | 0.0002 |
 
-Held-out phrasing only, and that is a budget decision rather than a preference: Groq's free tier
-allows 200,000 tokens a day and both conditions need about 250,000, so scoring both could not finish.
-The run re-scores the deterministic columns first and refuses to proceed unless they reproduce their
-published 132/150, so the model column is known to have scored the identical case set rather than
-assumed to have.
+The regex wins on seen phrasing and buys **exactly nothing** on held-out: 0 wins, 0 losses, scoring
+case-for-case what not parsing the cycle at all scores. That is not a single-seed artifact — swept
+across ten seeds it is 0W/0L every time, on two versions of the generator. Its patterns match zero
+descriptions it was not written against, so it degrades to its own fallback.
 
-The reading result now holds across two families and so does this one. The compound residual and the
-Q&A agent are still qwen-only.
+Row two replaces my hand-chosen match weights with log-odds estimated from data, lifting the
+structured-only baseline to 92.0%
+([METHODS.md](METHODS.md#match-weights-estimated-instead-of-chosen)). Both hosted models still beat
+that stronger baseline outright.
 
-Reproduce: `python scripts/generate_three_source_evidence.py --n 120`, and for the second family
-`python scripts/generate_three_source_second_family_evidence.py`. Raw:
-[`three-source-2026-08-30.json`](evidence/three-source-2026-08-30.json),
-[`three-source-second-family-2026-09-01.json`](evidence/three-source-second-family-2026-09-01.json).
+**Two scaling nulls, in opposite families.** `gpt-oss-120b` has six times the parameters of
+`gpt-oss-20b` and scores identically, 149/150 with the same 21 wins and 0 losses, differing only in
+leaving 0 settlements under-determined against 1. Within qwen it runs the wrong way: the 14b reads
+held-out phrasing *worse* than the 7b, 137/150 against 141, dropping below significance at p = 0.093.
+Reading a settlement cycle out of a bank narration is not a capability more parameters buy, which is
+worth knowing before paying for them.
+
+**The single-seed caveat, measured rather than waved at.** An earlier version of this result was one
+batch at one seed at p = 0.049. Across five independent draws the direction holds every time, 0 losses
+and 0 ties, but only 1 of 5 seeds is significant alone; pooled over 750 settlements it is 56 wins to
+23 at p = 0.0003, surviving the two-case concession at p = 0.0015. The effect is real and one seed was
+never adequate evidence for it ([METHODS.md](METHODS.md#one-seed-is-not-a-measurement)). The hosted
+columns above are still single-seed, because five seeds is roughly 617,000 tokens against a free tier
+capped at 200,000 a day per model.
+
+Held-out only for the hosted columns is the same budget limit. Each run re-scores the deterministic
+columns first and refuses to proceed unless they reproduce 128/150, so a model column is known to have
+scored the identical case set rather than assumed to have.
+
+The reading result holds across two families and so does this one, now across four models. The
+compound residual and the Q&A agent are still qwen-only.
+
+Reproduce: `python scripts/generate_three_source_evidence.py --n 120 --model qwen2.5:7b-instruct`,
+the hosted columns with
+`python scripts/generate_three_source_second_family_evidence.py --model openai/gpt-oss-20b`, and the
+seed sweep with `python scripts/generate_three_source_seed_stability_evidence.py`. Raw:
+[`three-source-qwen7b-2026-09-01.json`](evidence/three-source-qwen7b-2026-09-01.json),
+[`three-source-qwen14b-2026-09-01.json`](evidence/three-source-qwen14b-2026-09-01.json),
+[`three-source-gptoss20b-2026-09-01.json`](evidence/three-source-gptoss20b-2026-09-01.json),
+[`three-source-gptoss120b-2026-09-01.json`](evidence/three-source-gptoss120b-2026-09-01.json),
+[`three-source-seed-stability-2026-09-01.json`](evidence/three-source-seed-stability-2026-09-01.json).
 
 ## End to end on the residual
 
@@ -327,6 +357,18 @@ whatever came out being what ships.
 | three-source, estimated weights | 91.3% | 90.0% | -1.3 |
 | three-source, regex parser | 88.0% | 88.7% | +0.7 |
 
+The three rows above compare against the three-source figures **as published on 2026-08-30**, not the
+ones in the table higher up this page. The generator changed afterwards: Razorpay's documented
+narration format was added, a cosmetic draw was moved off the main RNG stream, and a defect that let
+two identical twins share a cycle slot was fixed. That moved the deterministic columns to 85.3%.
+
+The holdout is not re-scored against the new generator, and that is the rule working rather than an
+oversight — scoring a held-out set a second time because the first answer became inconvenient is
+exactly the multiple testing this section exists to prevent. What it establishes is therefore narrow
+and still worth having: the findings reproduced on an untouched seed against the code as it stood that
+day. It does not independently validate the current three-source numbers. The seed sweep above does
+that job for them, across five draws rather than one.
+
 **Everything reproduced.** The rule still collapses on phrasing its author never saw, still reads a
 denial as a confirmation in roughly 38% of judgements, and estimated weights still beat the regex on
 held-out phrasing. Nothing moved by more than 1.3 points and the direction of every finding held.
@@ -401,7 +443,7 @@ Reproduce: `python scripts/audit_calibration.py --db ../docs/evidence/verified_c
 ## Verify it yourself
 
 ```bash
-cd backend && python -m pytest tests/ -v                 # 543 tests
+cd backend && python -m pytest tests/ -v                 # 585 tests
 python scripts/generate_reading_evidence.py
 python scripts/generate_three_source_evidence.py --n 120
 python scripts/generate_forecast_evidence.py

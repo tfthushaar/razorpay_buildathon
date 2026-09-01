@@ -114,11 +114,17 @@ reader's 26.7%, and the paired test gives p = 0.55. Reading did not help where i
 structural prior.
 
 On three-source matching every structured field is exhausted by construction, leaving only the
-free-text settlement cycle. On held-out phrasing the regex scores 88.0%, identical to not parsing at
-all; the local model scores 94.0% and a second family reaches **97.3%**, beating the regex on 14
-paired cases and losing none (exact McNemar p = 0.0001). Re-weighting the structured fields by
-log-odds estimated from data rather than by constants I chose lifts the baseline to 91.3%, so the
-margin is measured against the strongest structured matcher rather than the weakest.
+free-text settlement cycle. On held-out phrasing the best regex I could write buys **exactly nothing**
+— 0 wins and 0 losses against not parsing the cycle at all, at seed 42 and at all ten seeds swept.
+Four models were run across two families: qwen 7b scores 94.0%, and both `gpt-oss-20b` and
+`gpt-oss-120b` reach **99.3%**, beating the regex on 21 paired cases and losing none. Re-weighting the
+structured fields by log-odds estimated from data rather than by constants I chose lifts the baseline
+to 92.0%, so the margin is measured against the strongest structured matcher rather than the weakest.
+
+Scale buys nothing here in either family. The 120b matches the 20b case for case, and qwen's 14b reads
+held-out phrasing *worse* than its 7b. Nor was one seed ever enough: across five draws the direction
+holds every time but only one draw is significant alone, so the result rests on the pooled 56 wins to
+23 at p = 0.0003 rather than on the single p = 0.049 published earlier.
 
 The settlement Q&A agent splits the same way. Across nine questions with ground truth computed from
 the batch, a keyword router scores 87.5% on my phrasing and **0.0%** on held-out phrasing; the model
@@ -153,7 +159,7 @@ machine with nothing installed but Python.
 
 ```bash
 cd backend && pip install -r requirements.txt
-python -m pytest tests/ -v                               # 580 tests, ~80s
+python -m pytest tests/ -v                               # 585 tests, ~50s
 python scripts/generate_generalization_evidence.py       # 0 wrong on shapes it was never built for
 python scripts/generate_ablation_evidence.py             # what each tier is worth
 python scripts/generate_sensitivity_evidence.py          # where the constants break
@@ -162,7 +168,8 @@ python scripts/audit_calibration.py --db ../docs/evidence/verified_calibration_h
 
 The model columns are the exception and they say so: `generate_reading_evidence.py` needs Ollama,
 `generate_three_source_evidence.py` needs Ollama or `--no-model`, and
-`generate_three_source_second_family_evidence.py` needs a Groq key. Every number they produce is
+`generate_three_source_second_family_evidence.py` needs a Groq key unless pointed at a local model
+with `--provider ollama`. Every number they produce is
 committed under [`docs/evidence/`](docs/evidence/), so you can check the claims against the raw runs
 without reproducing them.
 
@@ -185,7 +192,7 @@ available". Three hundred silent failures look exactly like a model that reads n
 edit from publishing "gpt-oss-20b buys nothing" as a fact about the model. The tell was the
 three-decimal match.
 
-Thirteen incidents with sourced attribution: [WHAT_BROKE.md](docs/WHAT_BROKE.md).
+Seventeen incidents with sourced attribution: [WHAT_BROKE.md](docs/WHAT_BROKE.md).
 
 ## Get it running
 
@@ -207,7 +214,7 @@ twenty minutes.
 
 Everything else is reference, opened when you want to argue with something specific:
 [METHODS.md](docs/METHODS.md) for the derivations behind the statistics,
-[WHAT_BROKE.md](docs/WHAT_BROKE.md) for fourteen incidents with sourced attribution,
+[WHAT_BROKE.md](docs/WHAT_BROKE.md) for seventeen incidents with sourced attribution,
 [ARCHITECTURE.md](docs/ARCHITECTURE.md) for how it fits together, and
 [CREDITS.md](docs/CREDITS.md) for every borrowed method with its licence.
 

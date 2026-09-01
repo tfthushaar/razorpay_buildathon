@@ -1,0 +1,80 @@
+{
+  "generated_on": "2026-09-01",
+  "model": "qwen2.5:7b-instruct",
+  "provider": "ollama",
+  "condition": "held_out_phrasing",
+  "n_per_seed": 120,
+  "seeds": [
+    42,
+    1,
+    7,
+    100,
+    202
+  ],
+  "per_seed": [
+    {
+      "seed": 42,
+      "n": 150,
+      "no_cycle_parsing": 128,
+      "regex_cycle_parser": 128,
+      "model_cycle_reader": 140,
+      "model_wins": 19,
+      "model_loses": 7,
+      "p_value": 0.028959274291992188,
+      "model_calls": 247
+    },
+    {
+      "seed": 1,
+      "n": 150,
+      "no_cycle_parsing": 133,
+      "regex_cycle_parser": 133,
+      "model_cycle_reader": 140,
+      "model_wins": 11,
+      "model_loses": 4,
+      "p_value": 0.11846923828125,
+      "model_calls": 250
+    },
+    {
+      "seed": 7,
+      "n": 150,
+      "no_cycle_parsing": 136,
+      "regex_cycle_parser": 136,
+      "model_cycle_reader": 139,
+      "model_wins": 9,
+      "model_loses": 6,
+      "p_value": 0.60723876953125,
+      "model_calls": 249
+    },
+    {
+      "seed": 100,
+      "n": 150,
+      "no_cycle_parsing": 138,
+      "regex_cycle_parser": 138,
+      "model_cycle_reader": 143,
+      "model_wins": 8,
+      "model_loses": 3,
+      "p_value": 0.2265625,
+      "model_calls": 248
+    },
+    {
+      "seed": 202,
+      "n": 150,
+      "no_cycle_parsing": 134,
+      "regex_cycle_parser": 134,
+      "model_cycle_reader": 140,
+      "model_wins": 9,
+      "model_loses": 3,
+      "p_value": 0.14599609375,
+      "model_calls": 247
+    }
+  ],
+  "pooled": {
+    "n": 750,
+    "model_wins": 56,
+    "model_loses": 23,
+    "p_value": 0.00026363677646526896,
+    "p_value_conceding_2": 0.001466071947342336
+  },
+  "seeds_not_won": 0,
+  "seeds_significant_alone": 1
+}

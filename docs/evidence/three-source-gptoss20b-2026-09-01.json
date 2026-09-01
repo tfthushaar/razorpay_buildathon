@@ -1,0 +1,51 @@
+{
+  "generated_on": "2026-09-01",
+  "model": "openai/gpt-oss-20b",
+  "provider": "groq",
+  "seed": 42,
+  "condition": "held_out_phrasing",
+  "why_one_condition": "Groq's free tier allows 200,000 tokens a day; both conditions need ~250,000",
+  "n_settlements": 150,
+  "model_calls": 247,
+  "columns": {
+    "no_cycle_parsing": {
+      "correct": 128,
+      "total": 150,
+      "accuracy": 0.8533,
+      "under_determined": 5
+    },
+    "regex_cycle_parser": {
+      "correct": 128,
+      "total": 150,
+      "accuracy": 0.8533,
+      "under_determined": 5
+    },
+    "openai/gpt-oss-20b": {
+      "correct": 149,
+      "total": 150,
+      "accuracy": 0.9933,
+      "under_determined": 1
+    }
+  },
+  "paired_vs_regex": {
+    "no_cycle_parsing": {
+      "wins": 0,
+      "losses": 0,
+      "p": 1.0,
+      "p_conceding_two": 1.0
+    },
+    "openai/gpt-oss-20b": {
+      "wins": 21,
+      "losses": 0,
+      "p": 0.0,
+      "p_conceding_two": 0.0002
+    }
+  },
+  "identical_to_baseline": false,
+  "pacing": {
+    "calls": 247,
+    "min_interval_seconds": 4.41,
+    "slept_seconds": 909.2,
+    "effective_calls_per_minute": 13.6
+  }
+}

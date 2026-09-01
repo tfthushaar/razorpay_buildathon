@@ -107,20 +107,21 @@ the evaluation seed, because estimating m and u from the pairs you then score is
 
 | Field | Hand-chosen | Estimated | m | u |
 |---|---|---|---|---|
-| exact UTR | 2.0 | **9.02** | 0.519 | 0.001 |
-| exact amount | 1.0 | 0.52 | 0.999 | 0.695 |
-| exact date | 0.5 | 0.46 | 0.674 | 0.492 |
-| merchant name | up to 1.0 | **0.01** | 0.770 | 0.763 |
+| exact UTR | 2.0 | **9.02** | 0.520 | 0.001 |
+| exact amount | 1.0 | 0.55 | 0.999 | 0.684 |
+| exact date | 0.5 | 0.34 | 0.653 | 0.516 |
+| merchant name | up to 1.0 | **0.19** | 0.687 | 0.600 |
 
-Merchant-name similarity agrees on 77% of true matches and 76% of false ones, so it separates almost
-nothing, and the hand-tuned scorer was adding up to a full point of it to every candidate. An exact
-UTR is worth nine, not two.
+Merchant-name similarity agrees on 69% of true matches and 60% of false ones, so it separates very
+little, and the hand-tuned scorer was adding up to a full point of it to every candidate. An exact UTR
+is worth nine, not two.
 
-The effect is one-directional rather than a clean win. On held-out phrasing the estimated weights
-take the structured-only baseline from 88.0% to 91.3%, beating the regex parser on 5 cases and losing
-none, though p = 0.0625 is not significant at this n. On seen phrasing they are **worse**, 90.0%
-against 91.3%, because the hand-chosen weights were tuned against phrasing I had seen. That is the
-same effect the reading experiment measures one layer up.
+The effect is one-directional rather than a clean win. On held-out phrasing the estimated weights take
+the structured-only baseline from 85.3% to 92.0%, beating the regex parser on 14 cases and losing 4,
+exact McNemar p = 0.0309 — though that falls to p = 0.24 if two cases are conceded, so it is
+significant and not robust. On seen phrasing they buy nothing at all, 91.3% against an identical
+91.3%, because the hand-chosen weights were tuned against phrasing I had seen. That is the same effect
+the reading experiment measures one layer up.
 
 What it buys is the argument, not the number. "Even with weights estimated from the data, the
 structured fields tie" is a claim about the problem; "with my weights, they tie" was a claim about me.
@@ -214,6 +215,43 @@ result is p = 0.049 and moves to p = 0.33 under that concession, so it is signif
 to a couple of judgement calls. Reporting only the first number would overstate it.
 
 See `app/calibration/significance.py`.
+
+## One seed is not a measurement
+
+Every model column in this project was scored on one batch at one seed, and the three-source headline
+was an exact McNemar p = 0.049 — significant, and one discordant case away from not being. Sweeping
+the deterministic columns across ten seeds showed the case set moving between 128 and 138 correct out
+of 150. A margin that thin resting on a draw that wide had not been shown to exist.
+
+Re-run across five independent draws, held-out phrasing, `qwen2.5:7b-instruct`:
+
+| Seed | Regex | Model | Wins | Losses | p |
+|---|---|---|---|---|---|
+| 42 | 128/150 | 140/150 | 19 | 7 | 0.0290 |
+| 1 | 133/150 | 140/150 | 11 | 4 | 0.1185 |
+| 7 | 136/150 | 139/150 | 9 | 6 | 0.6072 |
+| 100 | 138/150 | 143/150 | 8 | 3 | 0.2266 |
+| 202 | 134/150 | 140/150 | 9 | 3 | 0.1460 |
+
+The direction holds at every seed, with no losses and no ties, and **only one of the five is
+significant on its own**. Pooled over 750 settlements the result is 56 wins to 23, p = 0.0003,
+surviving the two-case concession at p = 0.0015.
+
+Both halves matter. Four of five draws, published alone, would have read as no result; the one that
+was published read as a result at p = 0.049. The effect is real, and the evidence originally offered
+for it was a lucky draw from a distribution nobody had looked at.
+
+Pooling is legitimate here only because the seeds are independent draws from one generator and the
+readers are fixed across them, so the discordant pairs are exchangeable. It would not be legitimate
+to pool after choosing which seeds to include, which is why the seed list is a script default rather
+than an argument I tuned.
+
+The hosted columns stay single-seed, and that is a budget limit rather than a judgement: five seeds is
+roughly 617,000 tokens against a free tier capped at 200,000 a day per model. Their p-values carry the
+same fragility this section measures, and no pooled figure is claimed for them.
+
+Reproduce: `python scripts/generate_three_source_seed_stability_evidence.py`. Raw:
+[`three-source-seed-stability-2026-09-01.json`](evidence/three-source-seed-stability-2026-09-01.json).
 
 ## Data-integrity controls
 

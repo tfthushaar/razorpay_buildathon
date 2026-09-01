@@ -2,20 +2,25 @@
 
 Fourteen limits, ordered by how much they constrain the claims here.
 
-## Two results hold across model families; the rest are still qwen
+## Two results hold across model families; the rest are still qwen alone
 
 `openai/gpt-oss-20b` now has a reading column: 92.1% on seen phrasing and 96.2% on held-out, against
 the rule's 61.7%. Its `keyword_rule` column reproduces the committed one exactly, so both runs scored
 the identical case set, and 7 of its 420 seen judgements came back unparseable and count as wrong.
 
-Three-source matching now has the same column: 97.3% on held-out phrasing against the regex's 88.0%,
-beating it on 14 paired cases and losing none. So the two strongest results in the project each hold
-across two families.
+Three-source matching now carries four model columns across both families: qwen at 7b and 14b, and
+`gpt-oss` at 20b and 120b, the latter two at 99.3% on held-out phrasing against the regex's 85.3%,
+beating it on 21 paired cases and losing none. So the two strongest results in the project each hold
+across two families, and the stronger of them across four models.
 
-The compound residual, cascade routing and the Q&A agent are still measured on qwen alone. Each
-second-family column is also one run rather than a repeated measurement, and the three-source column
-covers held-out phrasing only, because both conditions need about 250,000 tokens against a 200,000
-daily cap.
+Scale is not what carries it, in either direction. The 120b matches the 20b case for case despite six
+times the parameters, and qwen's 14b reads held-out phrasing worse than its 7b and falls below
+significance doing it. Anyone reading this as "a bigger model reads better" is reading something the
+evidence does not say.
+
+The compound residual, cascade routing and the Q&A agent are still measured on qwen alone. Every
+hosted column is one run at one seed rather than a repeated measurement, and covers held-out phrasing
+only, because both conditions need about 250,000 tokens against a 200,000 daily cap.
 
 The client was the reason the reading column took three attempts: it fired as fast as it could,
 saturated the token ceiling, and fell back on exponential backoff, which is a collision detector
@@ -39,26 +44,69 @@ every finding held its direction, which bounds the inflation rather than removin
 seed is not a new distribution. `app/final_holdout.py` refuses to overwrite a scored holdout so the
 rule survives my memory of it.
 
-## The bank narrations do not match Razorpay's own documented format
+## Most single-seed p-values here would not have replicated
+
+The three-source headline was published as exact McNemar p = 0.049 from one batch at one seed. Run
+across five independent draws, the direction holds every time — no losses, no ties — but **only one of
+the five is significant on its own**, and the published seed was that one. Pooled over 750 settlements
+it is 56 wins to 23 at p = 0.0003, so the effect is real; the original evidence for it was a lucky
+draw from a distribution I had not looked at.
+
+This concern is not confined to the result that was checked. Every other model column here is also one
+batch at one seed, and none has been swept. The hosted columns cannot be, at least not today: five
+seeds is roughly 617,000 tokens against a free tier capped at 200,000 a day per model. Their p-values
+should be read as carrying the same fragility, because nothing here shows they do not.
+
+There is a smaller source of movement underneath it. Model calls are not deterministic, and the same
+seed scored `qwen2.5:7b-instruct` at 141/150 in one run and 140/150 in another. One case, and worth
+knowing before treating any single figure here as exact.
+
+## The narrations are mine, and one of them is now Razorpay's
 
 Razorpay's settlements documentation gives the real narration a merchant sees:
 
     NEFT CR: [bank name] [UTR] RAZORPAY SETTLEMENT
 
-None of the six house styles this generator produces is that one. They are plausible bank formats I
-wrote — `PG PAYOUT`, `NET STL ... REF`, `CR-{utr}-{name}` — and the corruption mix applied to them,
-truncated UTRs and house-style names and date slip, is also mine.
+That is now the first of six house styles the generator produces, drawn with a real Indian bank
+identifier. The other five are plausible formats I wrote, and the corruption mix applied to all of
+them — truncated UTRs, house-style names, date slip — is also mine.
 
-I implemented the documented format and then reverted it. Adding one template changes the generated
-data, and the three-source deterministic columns moved from 132/150 to 135/150, which would have
-invalidated a result measured across two model families at the cost of a day's Groq quota. Trading a
-validated number for a marginally more realistic format string is the wrong trade the day before a
-deadline, and doing it silently would have been worse.
+I implemented it, reverted it, and put it back. The revert was wrong. Adding a template changes the
+generated data, and re-running two model families costs quota, so I protected a published number
+instead of improving the input. The distinction I had collapsed is that the changes worth refusing are
+silent ones; this one is disclosed and re-run in full, which is the legitimate way to move a published
+figure. Everything downstream was re-run against it.
 
-The gap it points at is real and is not closed by a format string anyway: every narration here is
-still one I generated. What would close it is a settlement report and a bank statement from an actual
-Razorpay account, joined on their real UTRs. That is obtainable — a merchant can export both — and it
-is not in this repository.
+Measured across ten seeds rather than asserted, the documented format makes matching **harder**:
+-1.4 of 150 on average, worse on 6 of 10 seeds. The baseline it produces is less flattering than the
+one it replaced.
+
+## What a real corpus could and could not check
+
+The one public source of genuine bank descriptions I could obtain is a Mendeley corpus of 6,567
+anonymised UK retail transaction descriptions (CC BY 4.0, DOI 10.17632/dnxtg6n4rv.1). It is real text
+written by banks rather than by me, and it settles less than I hoped.
+
+It cannot validate settlement matching at all. Only 62 of 6,567 descriptions carry any reference
+number, none carries a UTR, and transfer entries are bare payee names. There are no settlement
+narrations in it to mine, so the house styles here could not be derived from real ones. Publishing a
+format claiming that provenance would have been worse than having none.
+
+What it does check is name similarity, which is the one component that consumes text a bank actually
+wrote. Against real renderings — `SAINSBURYS S/MKTS`, `LIDL GB  NOTTINGHA`, `CAPEWELL WINDOW CL` —
+`_name_similarity` matched 8 of 8 at the shipped threshold with 0 false positives against 200
+unrelated real descriptions.
+
+It also nearly made this generator worse. Real descriptions truncate hard at 18 characters, with 2,297
+rows sitting exactly there against ours averaging 40. Matching that ceiling is the obvious move and it
+would have been wrong: Razorpay's own documented settlement narration is about 45 characters, so 18 is
+that bank's retail feed and not a universal constraint. Two real reference classes disagree, and this
+generator follows the settlement one. A test asserts the gap exists rather than quietly closing it
+against the wrong reference.
+
+The gap that remains is the one a format string never closes: every narration here is still generated.
+What would close it is a settlement report and a bank statement from an actual Razorpay account,
+joined on their real UTRs. A merchant can export both. It is not in this repository.
 
 ## The held-out phrasing is held out from the parser, not from me
 

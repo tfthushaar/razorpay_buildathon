@@ -249,3 +249,63 @@ Fix. `timeout=60.0` explicitly. Evidence scripts skip Groq by default, so a quot
 recorded as a capability finding.
 
 Found by: the user's Groq dashboard, after I had misdiagnosed it from network state.
+
+---
+
+## A controlled comparison that was two different random batches
+
+Symptom. Adding Razorpay's documented narration format to the bank-description generator moved the
+three-source baseline from 132/150 to 135/150. I reported that as the format making matching easier
+and was one step from publishing it.
+
+Cause. The new template carries a bank name, and I drew it with `self.rng.choice(_BANKS)` — the same
+stream every other decision in the generator draws from. One extra draw per row shifted everything
+downstream, so which settlements collided, which got twins, and which carried a cycle reference at
+all were all re-rolled. Before and after were not the same batch under one change; they were two
+different random batches.
+
+Fix. Cosmetic draws take their own stream, seeded separately, so adding one cannot perturb the rest.
+Re-run as a distributional A/B across ten seeds, the documented format moves the baseline the other
+way: -1.4 of 150 on average, harder on 6 of 10 seeds. The number I had was not just imprecise, it
+pointed the wrong way.
+
+Found by: checking why a change I expected to be neutral had moved a number at all.
+
+---
+
+## Twins that nothing could tell apart, in a benchmark about telling twins apart
+
+Symptom. Isolating the RNG stream broke a generator test that had passed for weeks: a group of four
+identical twins held only three distinct cycle references.
+
+Cause. The whole point of an identical twin is that merchant, amount and date stop discriminating and
+only the free-text cycle separates the pair. The generator drew the twin's cycle slot and re-drew it
+while it matched *the settlement it was cloned from* — and checked nothing else. Two twins of the same
+group could take the same slot, producing settlements identical on every field including the one that
+exists to separate them. No reader could be scored fairly on those, because nothing could read them.
+
+Fix. A twin now takes a slot no same-key settlement already holds, and skips rather than inventing one
+when the day's cycles are full. It was 30 rows across ten seeds and 2% of all errors — small enough to
+have survived this long, and wrong regardless of size.
+
+Found by: a test I had not changed, failing on a change I thought was cosmetic.
+
+---
+
+## A published p-value that was a lucky draw
+
+Symptom. The three-source headline was exact McNemar **p = 0.049**: the model reader beating the best
+regex I could write on 13 paired cases against 4. Significant, and one discordant case from not being.
+
+Cause. One batch at one seed. A sweep of the deterministic columns across ten seeds showed the case
+set moving between 128 and 138 correct out of 150 — a spread of ten, far wider than the margin the
+p-value rested on. Nothing in the published evidence said whether that result was a property of the
+readers or of the draw.
+
+Fix. `scripts/generate_three_source_seed_stability_evidence.py` re-runs the comparison across five
+independent draws and publishes all of them. The direction holds at every seed, 0 losses and 0 ties,
+but **only 1 of 5 seeds is significant on its own**. Pooled over 750 settlements the result is 56 wins
+to 23, p = 0.0003, and survives conceding two cases at p = 0.0015. The effect is real and the
+single-seed evidence for it was not adequate: four of five draws would have read as no result.
+
+Found by: distrusting a p-value that sat that close to its own threshold.
