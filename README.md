@@ -84,9 +84,6 @@ flowchart TD
 Full version, with the layer boundaries and where each guarantee comes from:
 [ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
-![Escalation queue with tool-call trace expanded](docs/screenshots/04-escalation-tool-trace.png)
-*A real escalated case, with the tool calls and results behind it.*
-
 ## The gate says no
 
 Nothing has earned model autonomy, and that is a result. The gate recomputed a Wilson lower bound
