@@ -120,6 +120,12 @@ does to phrasing neither has seen. No absolute accuracy on production data follo
 to the three-source corruption mix and the Q&A question bank. Truncated UTRs, house-style names, date
 slip and free-text cycle references are real patterns, but the mix is mine.
 
+It applies hardest to the generalisation suite, because that is the table that most looks like
+independent validation. Its four shapes are held out from the matching engine and not from me, and a
+defect shape I never thought of is precisely the one I could not have put in it. Zero wrong
+resolutions there means the engine stayed safe on assumptions it was not built against. It does not
+mean the engine is safe on defects nobody in this repository imagined.
+
 ## On familiar phrasing, the best rule I could write wins
 
 Choosing among Layer 0's valid decompositions, the keyword baseline scores 42.4% against the local

@@ -3,11 +3,26 @@
 Razorpay AI Buildathon 2026, Track 04 · **Live:
 [razorpay-buildathon-five.vercel.app](https://razorpay-buildathon-five.vercel.app)**
 
-A merchant's finance analyst on the Tuesday after a settlement cycle. They have a Razorpay settlement
-report, a bank statement and their own ERP ledger, and the three disagree. This does that triage: it
-closes **98.9% of a realistic batch deterministically**, escalates the rest with the evidence
-attached, refuses to auto-resolve any category it has not measured itself accurate on, and audits the
-fee against the contract — because a wrongly-charged fee reconciles perfectly.
+A merchant's finance analyst on the Tuesday after a settlement cycle: a Razorpay settlement report, a
+bank statement and their own ERP ledger, and the three disagree. This does that triage, and separately
+audits the fee against the contract — because a wrongly-charged fee reconciles perfectly.
+
+**What you get by cloning this and pressing Run**, on the demo's default batch:
+
+| On the demo default — 60% clean, deliberately dirtier than production | |
+|---|---|
+| Closed automatically, strict count | **85.0%** |
+| Closed, or escalated when escalating was the right answer | **90.0%** |
+| Wrongly auto-resolved | **0** |
+| Same pipeline on a realistic 97%-clean batch | **98.9%** closed |
+
+All of that closes by arithmetic, with no model in the path. The gap between 85.0% and 98.9% is batch
+density and nothing else, and the demo ships the harder one so every defect category is exercised.
+
+No category has earned permission for a *model* to close a case unsupervised — the gate refuses all of
+them. For a finance tool that is the feature: a gate that has never once refused has never been
+tested, and the same evidence still automates 59.3% of escalations at a 1.0% error rate if you set the
+bar at 0.85.
 
 ## Money the merchant is already losing
 
@@ -45,6 +60,29 @@ explanations, blind choice scores exactly 1/k — the baseline is computed, not 
 The economics follow. Matching runs at 20,513 tx/sec against a model's 2.58, about 8,000x slower. At
 100,000 transactions a day, 98,880 resolve in about 5 seconds and the 1,120 reaching a model take 7
 minutes. Everything through the model would take 10.8 hours.
+
+```mermaid
+flowchart TD
+    S1[Settlement report] --> L0
+    S2[Bank statement] --> L0
+    S3[ERP ledger] --> L0
+    S4[Razorpay API chains] --> L0
+
+    L0["<b>Layer 0 — deterministic resolver</b><br/>20,513 tx/sec"]
+
+    L0 -->|explained by arithmetic alone| DONE["<b>Auto-resolved</b>"]
+    L0 --> FEE["<b>Fee audit vs contract</b><br/>0 false positives / 51,000"]
+    L0 -->|"2+ valid explanations, or none"| RES["<b>The residual</b> — ~1.1%<br/>chance scores exactly 1/k"]
+
+    RES --> M["<b>Model</b> reads the free text<br/>2.58 tx/sec"]
+    M --> GATE{"<b>Autonomy gate</b><br/>vs a 90% bar"}
+    GATE -->|clears| DONE
+    GATE -->|"refuses — today, always"| HUMAN["<b>Human queue</b><br/>evidence attached"]
+    FEE --> HUMAN
+```
+
+Full version, with the layer boundaries and where each guarantee comes from:
+[ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ![Escalation queue with tool-call trace expanded](docs/screenshots/04-escalation-tool-trace.png)
 *A real escalated case, with the tool calls and results behind it.*

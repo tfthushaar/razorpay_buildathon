@@ -1,5 +1,30 @@
 # Architecture
 
+```mermaid
+flowchart TD
+    S1[Razorpay settlement report] --> L0
+    S2[Bank statement] --> L0
+    S3[ERP ledger] --> L0
+    S4[Razorpay API causal chains] --> L0
+
+    L0["<b>Layer 0 — deterministic resolver</b><br/>arithmetic, matching, integrity controls<br/>20,513 tx/sec"]
+
+    L0 -->|explained by arithmetic alone| DONE["<b>Auto-resolved</b><br/>98.9% of a realistic batch"]
+    L0 --> FEE["<b>Fee audit vs contract</b><br/>0 false positives / 51,000 · 0.06s"]
+    L0 -->|"2+ equally valid explanations,<br/>or none"| RES["<b>The residual</b> — ~1.1%<br/>blind choice scores exactly 1/k"]
+
+    RES --> M["<b>Model</b> reads the free text<br/>2.58 tx/sec, ~8,000x slower"]
+    M --> GATE{"<b>Autonomy gate</b><br/>anytime-valid lower bound<br/>vs a 90% bar"}
+    GATE -->|clears the bar| DONE
+    GATE -->|"refuses — today, always"| HUMAN["<b>Human queue</b><br/>evidence and tool trace attached"]
+    FEE --> HUMAN
+```
+
+The shape is the argument. A case a rule can close is closed by the rule, so it never enters a model's
+accuracy figure, and the model is measured only on cases where the deterministic layer genuinely could
+not decide. That makes the baseline computed rather than assumed: with k valid explanations remaining,
+blind choice scores exactly 1/k.
+
 ## The inversion
 
 Every category I built for the model to handle fell to a rule I wrote afterwards. Settlement records

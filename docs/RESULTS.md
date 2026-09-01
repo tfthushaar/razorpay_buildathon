@@ -184,6 +184,17 @@ heuristic to check. The declaration was also propping up a badly built shape, wh
 those settlements a fresh random UTR and so contained no reuse to detect. There are no declared blind
 spots now.
 
+**The same caveat that governs the phrasing experiments governs this one, and it belongs on this table
+rather than only in LIMITATIONS.** I chose the four shapes, so they are held out from the matching
+engine and not from their author. A shape I never thought of is exactly the shape I could not have
+put here. What this measures is that the engine stays safe on assumptions it was not built against,
+which is worth having; it is not independent validation, and a table of zeros should not be read as
+one.
+
+The pass criterion is what keeps it from being circular in the other direction: escalating everything
+passes, so the suite cannot be gamed by tuning the matcher, and it caught three real defects on its
+first run precisely because nothing was tuned to it.
+
 Reproduce: `python scripts/generate_generalization_evidence.py`. Raw:
 [`generalization-2026-09-01.json`](evidence/generalization-2026-09-01.json).
 
