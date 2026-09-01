@@ -18,31 +18,48 @@ Live: [razorpay-buildathon-five.vercel.app](https://razorpay-buildathon-five.ver
 
 ## The gate says no
 
-Nothing in this system currently has autonomy, and that is the result rather than a gap in it.
+**98.9% of a realistic batch closes deterministically, by arithmetic, with no model and no gate
+involved.** That is the product, and it needs no trust at all.
 
-The trust gate recomputed a Wilson lower bound after every batch and granted autonomy the first time
-it cleared 90%. Wilson's coverage holds at a fixed n; re-checking and stopping at the first crossing
-is optional stopping, and the guarantee does not survive it. Tested against what the bound actually
-promises, P(bound > true accuracy) at most 5%, it came out at 9.72%, 10.12% and 8.77% across true
-accuracies of 88%, 90% and 92%. About twice its stated level, in the direction that hands out
-autonomy nothing earned.
+Separately, nothing has earned *model* autonomy — permission for a model to close a case without a
+human — and that is a result rather than a gap.
 
-The gate now uses a confidence sequence, valid at every stopping time by construction. Under it
-`netting_trap` scores 88.4% and `duplicate_refund` 85.6% against a 90% bar, and both escalate. Forty
-perfect decisions were worth 91.2% under the old bound and are worth 86.6% under this one.
+The trust gate recomputed a Wilson lower bound after every batch and granted autonomy on the first
+crossing. Wilson holds at a fixed n; re-checking and stopping when you like is optional stopping.
+Tested against what the bound promises, P(bound > true accuracy) at most 5%, it delivered 9.72%,
+10.12% and 8.77% at true accuracies of 88%, 90% and 92% — about twice its stated level, in the
+direction that hands out autonomy nothing earned.
 
-Two different things are being counted, and the difference matters. **Deterministic closure** is the
-resolver settling a case by arithmetic, and it needs no trust at all: 98.9% of a realistic batch
-closes that way, today, with no model involved and no gate consulted. **Model autonomy** is letting
-the model close a case without a human, and that is what nothing has earned. The product an analyst
-opens still clears the overwhelming majority of the work; what it will not do is let a model sign off
-unsupervised on the strength of 37 samples.
+It now uses a confidence sequence, valid at every stopping time. Under it `netting_trap` scores 88.4%
+and `duplicate_refund` 85.6% against a 90% bar, and both escalate. A payments company should want a
+gate that refuses on 37 samples; a gate that has never refused has never been tested. At an 0.85 bar
+the same evidence automates 59.3% of escalations at a 1.0% error rate, and that curve is in the
+product rather than argued for in a document.
 
-A payments company should want a gate that refuses at that n. The mechanism, the measurement, and the
-fact that the corrected version says no are the contribution; a gate that has never refused has never
-been tested. If the bar were 0.85 rather than 0.90 the same evidence would automate 59.3% of
-escalations at a 1.0% error rate, and that number is available in the product rather than argued for
-in a document.
+## A check Razorpay's own stack does not run
+
+Reconciliation compares the settlement against the records. It never compares the fee against the
+merchant's contract, so **a fee charged at the wrong rate reconciles cleanly forever**. Neither
+Razorpay Recon nor Settlement Insights performs that check.
+
+Three patterns ship: a card-grade rate applied to UPI or netbanking, GST computed on the gross
+captured amount instead of on the fee, and a real GST slab applied instead of 18%.
+
+| | |
+|---|---|
+| False positives | **0 across 51,000** ordinary transactions |
+| Detection time | 0.06s |
+| Per-transaction state | none — a pure arithmetic pass |
+
+Zero false positives at that volume is what makes the check safe to run unattended, and the pass is
+stateless, so scanning two hundred times more data costs nothing.
+
+This is the one result here with no circularity in it. The amounts are synthetic; `FEE_PCT` and
+`GST_RATE` are Razorpay's published contracted rates, and the same comparison runs unchanged against
+a merchant's own. Separately, GST on the gateway fee is Input Tax Credit the merchant can claim, and
+it is normally buried inside a single "gateway charges" ledger line where no accountant finds it —
+the ERP export splits it onto its own ITC-eligible line. That is money already lost on transactions
+that reconciled correctly.
 
 ## Where AI belongs
 
@@ -79,6 +96,11 @@ phrasing, with the domain vocabulary intact so the rule could not fail on a miss
 
 420 judgements per cell, and the intervals do not overlap on held-out phrasing. Most of the rule's
 advantage was authorship, not reading. Two model families, so the finding is not about qwen.
+
+**The honest limit of this one:** I wrote the rule and both phrase banks. So it shows that a rule
+tuned to phrasing its author saw generalises worse than a model does to phrasing neither has seen. It
+is not a claim about real bank text, and no absolute accuracy on production data follows from it. The
+three-source and fee-leak results do not depend on it.
 
 The accuracy gap understates it. On unfamiliar phrasing the rule reads a denial as a confirmation in
 **38.3%** of judgements, asserting charges the text says were not applied. The models sit between 0.2%
@@ -123,29 +145,26 @@ Date intervals are fitted on one batch and verified on twelve others. A calibrat
 window states no confidence level, so no coverage figure can falsify it. The calibrated one can be
 checked, and it is conservative at every level from 50% to 99%.
 
-## Money the merchant is already losing
-
-Reconciliation compares the settlement against the records. It never compares the fee against the
-merchant's contract, so a fee charged at the wrong rate reconciles cleanly forever. Neither Razorpay
-Recon nor Settlement Insights performs that check.
-
-Three patterns ship: a card-grade rate applied to UPI, GST computed on the gross amount instead of the
-fee, and a wrong GST slab. False positive rate is **0 across 51,000** ordinary transactions, in 0.06s,
-which is what makes it safe to run unattended. GST on the gateway fee is Input Tax Credit, normally
-buried in one "gateway charges" ledger line; the ERP export splits it onto its own line.
-
-Full numbers with reproduce commands: [RESULTS.md](docs/RESULTS.md).
-
 ## Verify it yourself
 
-Every gate below runs without an API key. The mock provider is a real keyword rule, not a stub, so
-the deterministic half is fully exercised on a machine with no model available.
+Nothing here needs an API key or a model. The mock provider is a real keyword rule rather than a
+stub, so the deterministic half — which is 98.9% of a realistic batch — is fully exercised on a
+machine with nothing installed but Python.
 
 ```bash
-cd backend && python -m pytest tests/ -v                 # 567 tests — needs nothing but Python
-python scripts/generate_reading_evidence.py              # the table above  (needs Ollama)
-python scripts/generate_three_source_evidence.py         # the McNemar result (needs Ollama)
+cd backend && pip install -r requirements.txt
+python -m pytest tests/ -v                               # 580 tests, ~80s
+python scripts/generate_generalization_evidence.py       # 0 wrong on shapes it was never built for
+python scripts/generate_ablation_evidence.py             # what each tier is worth
+python scripts/generate_sensitivity_evidence.py          # where the constants break
+python scripts/audit_calibration.py --db ../docs/evidence/verified_calibration_history.db
 ```
+
+The model columns are the exception and they say so: `generate_reading_evidence.py` needs Ollama,
+`generate_three_source_evidence.py` needs Ollama or `--no-model`, and
+`generate_three_source_second_family_evidence.py` needs a Groq key. Every number they produce is
+committed under [`docs/evidence/`](docs/evidence/), so you can check the claims against the raw runs
+without reproducing them.
 
 ## What this can't do
 
@@ -197,4 +216,9 @@ Everything else is reference, opened when you want to argue with something speci
 [Architecture](docs/ARCHITECTURE.md) · [Results](docs/RESULTS.md) · [Credit](docs/CREDITS.md) ·
 [Superseded experiments](docs/RESULTS_SUPERSEDED.md) · [What broke](docs/WHAT_BROKE.md) ·
 [Limitations](docs/LIMITATIONS.md) · [Positioning](docs/positioning.md) ·
-[Screenshots](docs/screenshots.md) · [Evidence](docs/evidence/) · [Build log](BUILD_LOG.md)
+[Screenshots](docs/screenshots.md) · [Evidence](docs/evidence/)
+
+This was built with heavy use of an AI coding assistant across nine days, which is how one person
+produced this much of it; every number in these docs is generated by a committed script and checkable
+without taking my word for any of it. [BUILD_LOG.md](BUILD_LOG.md) is the unedited working journal,
+4,357 lines of it, kept for provenance rather than offered as reading.
