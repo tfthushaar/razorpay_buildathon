@@ -1,6 +1,6 @@
 # What this can't do
 
-Thirteen limits, ordered by how much they constrain the claims here.
+Fourteen limits, ordered by how much they constrain the claims here.
 
 ## Two results hold across model families; the rest are still qwen
 
@@ -38,6 +38,27 @@ An untouched set has since been scored exactly once. Everything reproduced withi
 every finding held its direction, which bounds the inflation rather than removing the concern -- one
 seed is not a new distribution. `app/final_holdout.py` refuses to overwrite a scored holdout so the
 rule survives my memory of it.
+
+## The bank narrations do not match Razorpay's own documented format
+
+Razorpay's settlements documentation gives the real narration a merchant sees:
+
+    NEFT CR: [bank name] [UTR] RAZORPAY SETTLEMENT
+
+None of the six house styles this generator produces is that one. They are plausible bank formats I
+wrote — `PG PAYOUT`, `NET STL ... REF`, `CR-{utr}-{name}` — and the corruption mix applied to them,
+truncated UTRs and house-style names and date slip, is also mine.
+
+I implemented the documented format and then reverted it. Adding one template changes the generated
+data, and the three-source deterministic columns moved from 132/150 to 135/150, which would have
+invalidated a result measured across two model families at the cost of a day's Groq quota. Trading a
+validated number for a marginally more realistic format string is the wrong trade the day before a
+deadline, and doing it silently would have been worse.
+
+The gap it points at is real and is not closed by a format string anyway: every narration here is
+still one I generated. What would close it is a settlement report and a bank statement from an actual
+Razorpay account, joined on their real UTRs. That is obtainable — a merchant can export both — and it
+is not in this repository.
 
 ## The held-out phrasing is held out from the parser, not from me
 
