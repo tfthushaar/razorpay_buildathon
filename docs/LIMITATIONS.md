@@ -2,21 +2,30 @@
 
 Thirteen limits, ordered by how much they constrain the claims here.
 
-## The second model family is one run, and the rest are still qwen
+## Two results hold across model families; the rest are still qwen
 
 `openai/gpt-oss-20b` now has a reading column: 92.1% on seen phrasing and 96.2% on held-out, against
 the rule's 61.7%. Its `keyword_rule` column reproduces the committed one exactly, so both runs scored
 the identical case set, and 7 of its 420 seen judgements came back unparseable and count as wrong.
 
-That closes the reading headline as a claim about models. It does not close the rest. Three-source
-matching, the compound residual, cascade routing and the Q&A agent are all still measured on qwen
-alone, and the second family has one run behind it at 60 cases rather than a repeated measurement.
+Three-source matching now has the same column: 97.3% on held-out phrasing against the regex's 88.0%,
+beating it on 14 paired cases and losing none. So the two strongest results in the project each hold
+across two families.
 
-The client is also the reason this took three attempts. `groq_read` fires as fast as it can, saturates
-a 7,500 tokens-per-minute ceiling, and falls back on exponential backoff, so a run can consume a day's
-budget without finishing. Pacing the calls would fix it and would change which judgements come back
-unparseable, so it needs its own re-run rather than a quiet edit to the script that produced these
-numbers.
+The compound residual, cascade routing and the Q&A agent are still measured on qwen alone. Each
+second-family column is also one run rather than a repeated measurement, and the three-source column
+covers held-out phrasing only, because both conditions need about 250,000 tokens against a 200,000
+daily cap.
+
+The client was the reason the reading column took three attempts: it fired as fast as it could,
+saturated the token ceiling, and fell back on exponential backoff, which is a collision detector
+rather than a rate limiter. `app/narrator/pacing.py` now holds calls to 13.6 a minute against limits
+read from Groq's own headers, and the three-source run above completed 248 calls with no rate-limit
+failure at all.
+
+It is not applied to `generate_reading_evidence.py`. Pacing changes which calls come back
+unparseable, and that script's committed column reports 7 unparseable judgements of 420; applying it
+without re-running would leave a published number describing a client that no longer exists.
 
 ## Every published held-out figure was measured more than once
 

@@ -58,6 +58,7 @@ at once, and only the free-text cycle reference remains.
 | none, weights estimated not chosen | 90.0% [84.2, 93.8] | 91.3% [85.7, 94.9] | +1.3 |
 | best regex parser | 98.7% [95.3, 99.6] | 88.0% [81.8, 92.3] | -10.7 |
 | `qwen2.5:7b-instruct` | 98.0% [94.3, 99.3] | 94.0% [89.0, 96.8] | -4.0 |
+| `openai/gpt-oss-20b` | not run | **97.3% [93.3, 98.9]** | n/a |
 
 150 settlements against 180 bank rows, the true row reachable in 150/150 for every column.
 
@@ -68,9 +69,24 @@ match weights with log-odds estimated from data, lifting the structured-only bas
 the model's real margin is 2.7 points and not 6
 ([METHODS.md](METHODS.md#match-weights-estimated-instead-of-chosen)).
 
-Reproduce: `python scripts/generate_three_source_evidence.py --n 120`. The three original columns
-reproduce their published values exactly at that n, which is what makes the fourth comparable. Raw:
-[`three-source-2026-08-30.json`](evidence/three-source-2026-08-30.json).
+A second model family reaches 97.3%, beating the regex on 14 paired cases and losing none: exact
+McNemar **p = 0.0001**, still p = 0.013 if two cases are conceded. That is a sharper result than
+qwen's 13 wins against 4 losses at p = 0.049, which collapsed to p = 0.33 under the same concession.
+It also leaves only 2 settlements under-determined against the regex's 10.
+
+Held-out phrasing only, and that is a budget decision rather than a preference: Groq's free tier
+allows 200,000 tokens a day and both conditions need about 250,000, so scoring both could not finish.
+The run re-scores the deterministic columns first and refuses to proceed unless they reproduce their
+published 132/150, so the model column is known to have scored the identical case set rather than
+assumed to have.
+
+The reading result now holds across two families and so does this one. The compound residual and the
+Q&A agent are still qwen-only.
+
+Reproduce: `python scripts/generate_three_source_evidence.py --n 120`, and for the second family
+`python scripts/generate_three_source_second_family_evidence.py`. Raw:
+[`three-source-2026-08-30.json`](evidence/three-source-2026-08-30.json),
+[`three-source-second-family-2026-09-01.json`](evidence/three-source-second-family-2026-09-01.json).
 
 ## End to end on the residual
 

@@ -93,9 +93,10 @@ structural prior.
 
 On three-source matching every structured field is exhausted by construction, leaving only the
 free-text settlement cycle. On held-out phrasing the regex scores 88.0%, identical to not parsing at
-all, and the local model scores 94.0% (exact McNemar p = 0.049). Re-weighting the structured fields by
-log-odds estimated from data rather than by constants I chose lifts that baseline to 91.3%, so the
-model's margin is 2.7 points and not 6.
+all; the local model scores 94.0% and a second family reaches **97.3%**, beating the regex on 14
+paired cases and losing none (exact McNemar p = 0.0001). Re-weighting the structured fields by
+log-odds estimated from data rather than by constants I chose lifts the baseline to 91.3%, so the
+margin is measured against the strongest structured matcher rather than the weakest.
 
 The settlement Q&A agent splits the same way. Across nine questions with ground truth computed from
 the batch, a keyword router scores 87.5% on my phrasing and **0.0%** on held-out phrasing; the model

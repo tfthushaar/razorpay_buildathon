@@ -53,11 +53,31 @@ def _ask_ollama(model: str, description: str, cycle_ref: str) -> str:
     )
 
 
+# One pacer per process, shared by every call, because the rate limit is per key rather than per
+# call site. Created lazily so importing this module costs nothing.
+_PACER = None
+
+
+def _pacer():
+    global _PACER
+    if _PACER is None:
+        from app.narrator.pacing import Pacer
+
+        _PACER = Pacer()
+    return _PACER
+
+
 def _ask_groq(model: str, description: str, cycle_ref: str, max_retries: int = 5) -> str:
     """Groq's free tier rate-limits by tokens-per-minute, and a sweep of a few hundred calls hits it
-    reliably. Backing off and retrying is the difference between measuring the model and measuring
-    the quota -- this project has already once mistaken a 429 for a capability finding, so a
-    rate-limit failure here waits rather than being recorded as an unreadable description."""
+    reliably.
+
+    Paced rather than only backed off. Backoff decides what to do after the ceiling is hit; the
+    pacer decides not to hit it, at roughly 14 calls a minute against a 7,500 token ceiling. Two
+    days of quota were spent discovering that a retry loop is a collision detector and not a rate
+    limiter. The backoff stays as the fallback for a limit the pacer did not anticipate, and a
+    rate-limit failure still waits rather than being recorded as an unreadable description --
+    this project has already once mistaken a 429 for a capability finding.
+    """
     import time
 
     from groq import Groq
@@ -70,6 +90,7 @@ def _ask_groq(model: str, description: str, cycle_ref: str, max_retries: int = 5
     delay = 4.0
     last: Exception | None = None
     for _ in range(max_retries):
+        _pacer().wait()
         try:
             return (
                 client.chat.completions.create(
