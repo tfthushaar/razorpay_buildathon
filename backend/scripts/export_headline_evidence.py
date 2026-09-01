@@ -18,6 +18,7 @@ Usage:
 """
 
 import json
+import re
 import sys
 from datetime import date
 from pathlib import Path
@@ -32,11 +33,44 @@ EVIDENCE = ROOT / "docs" / "evidence"
 OUT = ROOT / "frontend" / "src" / "evidence" / "headline.json"
 
 
+_DATED = re.compile(r"^(?P<stem>.+)-(?P<date>\d{4}-\d{2}-\d{2})\.json$")
+
+
 def _latest(pattern: str) -> Path:
+    """The newest evidence file matching `pattern`, resolved by the date IN the filename.
+
+    Both guards below exist because the naive version -- sorted(glob)[-1] -- got this wrong twice
+    in one day, and only one of the two failures was loud.
+
+    Sorting whole filenames compares the experiment name before the date, so
+    `three-source-qwen14b-...` against `three-source-qwen7b-...` sorts on "14b" versus "7b" and
+    returns whichever happens to lose that string comparison. Parsing the date fixes that.
+
+    The second guard matters more. `three-source-*.json` silently began matching
+    `three-source-seed-stability-...`, a file with a completely different schema, and surfaced as a
+    KeyError three functions away. `advice-reading-*.json` was quietly resolving to a two-column
+    second-family run and would have dropped two readers off the front page without failing at all.
+    A pattern that spans more than one experiment is a bug in the pattern, so it now says so here
+    rather than somewhere downstream, or nowhere.
+    """
     matches = sorted(EVIDENCE.glob(pattern))
     if not matches:
         raise SystemExit(f"no committed evidence matching {pattern}")
-    return matches[-1]
+
+    parsed = []
+    for path in matches:
+        m = _DATED.match(path.name)
+        if not m:
+            raise SystemExit(f"{path.name} does not end in -YYYY-MM-DD.json, so {pattern} cannot be resolved by date")
+        parsed.append((m.group("stem"), m.group("date"), path))
+
+    stems = sorted({stem for stem, _, _ in parsed})
+    if len(stems) > 1:
+        raise SystemExit(
+            f"{pattern} matches {len(stems)} different experiments: {', '.join(stems)}. "
+            "These do not share a schema -- tighten the pattern to name the one you mean."
+        )
+    return max(parsed, key=lambda row: row[1])[2]
 
 
 def _pct(correct: int, total: int) -> dict:
@@ -50,12 +84,31 @@ def _pct(correct: int, total: int) -> dict:
 
 
 def main() -> None:
-    reading = json.loads(_latest("advice-reading-*.json").read_text(encoding="utf-8"))
-    three = json.loads(_latest("three-source-*.json").read_text(encoding="utf-8"))
+    # Named exactly, because "the newest three-source file" is no longer a well-formed question:
+    # four models were run on it, plus a seed-stability sweep with its own schema.
+    reading = json.loads(_latest("advice-reading-2026-*.json").read_text(encoding="utf-8"))
+    reading_second = json.loads(_latest("advice-reading-gpt-oss-20b-*.json").read_text(encoding="utf-8"))
+    three = json.loads(_latest("three-source-qwen7b-*.json").read_text(encoding="utf-8"))
     residual = json.loads(_latest("residual-architecture-14b-*.json").read_text(encoding="utf-8"))
     throughput = json.loads(_latest("throughput-*.json").read_text(encoding="utf-8"))
 
     # --- card 1: where AI belongs -------------------------------------------------------------
+    # The second family ran as its own file with its own two columns. Merge it in rather than
+    # picking one file, so the front page carries the same four readers RESULTS does.
+    for cond in ("seen", "held_out"):
+        primary, second = reading["conditions"][cond], reading_second["conditions"][cond]
+        # Both runs scored the identical case set, so their shared rule column must agree exactly.
+        # If it ever does not, one of them scored something else and neither belongs on a hero.
+        if primary["keyword_rule"]["correct"] != second["keyword_rule"]["correct"]:
+            raise SystemExit(
+                f"keyword_rule disagrees between reading runs on {cond}: "
+                f"{primary['keyword_rule']['correct']} vs {second['keyword_rule']['correct']}. "
+                "The two runs did not score the same cases, so they cannot share a table."
+            )
+        for key, col in second.items():
+            if key != "keyword_rule":
+                primary[key] = col
+
     seen, held = reading["conditions"]["seen"], reading["conditions"]["held_out"]
     # Derived from the evidence rather than hardcoded, so adding a model to the experiment shows up
     # on the front page without anyone remembering to edit this list. The rule always leads, since
