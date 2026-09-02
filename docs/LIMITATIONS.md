@@ -1,6 +1,6 @@
 # What this can't do
 
-Fourteen limits, ordered by how much they constrain the claims here.
+Sixteen limits, ordered by how much they constrain the claims here.
 
 ## Two results hold across model families; the rest are still qwen alone
 

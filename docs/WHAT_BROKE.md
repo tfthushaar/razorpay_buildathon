@@ -1,6 +1,6 @@
 # What broke
 
-Fourteen incidents that changed how the system works, newest first. Longer journal:
+Seventeen incidents that changed how the system works, newest first. Longer journal:
 [`BUILD_LOG.md`](../BUILD_LOG.md).
 
 ---
