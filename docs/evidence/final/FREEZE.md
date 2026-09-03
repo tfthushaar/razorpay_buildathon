@@ -20,29 +20,25 @@ rewrites a published figure -- it compares against it.
 ## reading
 
 - **Seed** `20260901` — scored 2026-09-01 at commit `356b298`
-- **Result** `699adba21f86e375d348c6d965dafea7651c4ac38cb13d22e2736b1b81a14e16`
+- **Result** `87887e6032d394d3d8932d9fd2bb5dfb8c6ec37e9c93bb4b8fc33dadad95831e`
   — intact
 - **Sources, as they stood at that commit:**
 
 | File | SHA256 at scoring | Now |
 |---|---|---|
-| `backend/scripts/generate_reading_evidence.py` | `c45fd6553a7f2082…` | **changed** |
-
-> The code underneath changed, and this holdout **still produces the number**
-> above, case for case. A changed hash is a reason to check, not a verdict --
-> here the change turned out not to touch the result.
+| `backend/scripts/generate_reading_evidence.py` | `c45fd6553a7f2082…` | unchanged |
 
 ## three_source
 
 - **Seed** `20260902` — scored 2026-09-01 at commit `356b298`
-- **Result** `49f87fcecc4bc0464da43835fdd188f1ce31faa3ef49ffc699fa584d6a6fd35a`
+- **Result** `09c104724d397ea7e393a6d2be0b495054d90a57745016bc9939a5178cda93b8`
   — intact
 - **Sources, as they stood at that commit:**
 
 | File | SHA256 at scoring | Now |
 |---|---|---|
 | `backend/app/data_gen/three_source.py` | `6fbe920222b4f7ff…` | **changed** |
-| `backend/app/resolver/entity_resolution.py` | `d2f629e2cc3a5a9d…` | **changed** |
+| `backend/app/resolver/entity_resolution.py` | `d2f629e2cc3a5a9d…` | unchanged |
 | `backend/app/resolver/fellegi_sunter.py` | `fab52eac0f7b4f54…` | unchanged |
 
 > The code underneath changed and this holdout **no longer reproduces**. The

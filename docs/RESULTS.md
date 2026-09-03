@@ -435,14 +435,18 @@ at the commit that scored it**. Those historical hashes are read out of git rath
 
 | Holdout | Seed | Answer file | Code underneath | Number today |
 |---|---|---|---|---|
-| reading | 20260901 | intact | changed | **reproduces exactly**, 405/420 and 262/420 |
-| three_source | 20260902 | intact | changed | **no longer reproduces** |
+| reading | 20260901 | intact | unchanged | **reproduces exactly**, 405/420 and 262/420 |
+| three_source | 20260902 | intact | `three_source.py` changed | **no longer reproduces** |
 
-The two rows disagreeing is the useful part. A changed hash is a reason to look, not a verdict: the
-reading holdout's script moved without touching its result, while three-source moved by -3, -2, +2
-and +2 across its four deterministic columns. Nothing but re-running distinguishes those two cases,
-and re-running to *compare* is not re-scoring — the published figure is never replaced by what comes
-back, which is the only part the single-shot rule actually forbids.
+Three-source moved by -3, -2, +2 and +2 across its four deterministic columns; reading is untouched
+in both senses. Re-running to *compare* is not re-scoring — the published figure is never replaced by
+what comes back, which is the only part the single-shot rule actually forbids.
+
+The first version of this table said both holdouts had drifted sources, which was wrong and is worth
+saying rather than quietly fixing. It hashed raw working-tree bytes on a machine with
+`core.autocrlf=true`, so every file I had touched hashed as CRLF against an LF blob and reported drift
+that had not happened. It passed locally and failed in CI on the first push. The hash is now taken
+over LF-normalised content, which is what git actually stores.
 
 Neither is repaired. A held-out answer that became inconvenient and then got re-scored is worth
 nothing, so three-source stands as a record of what happened on 2026-09-01 and is marked as no longer
@@ -516,7 +520,7 @@ Reproduce: `python scripts/audit_calibration.py --db ../docs/evidence/verified_c
 ## Verify it yourself
 
 ```bash
-cd backend && python -m pytest tests/ -v                 # 614 tests
+cd backend && python -m pytest tests/ -v                 # 615 tests
 python scripts/generate_reading_evidence.py
 python scripts/generate_three_source_evidence.py --n 120
 python scripts/generate_forecast_evidence.py

@@ -2,7 +2,7 @@
   "generated_on": "2026-09-04",
   "holdouts": {
     "reading": {
-      "result_sha256": "699adba21f86e375d348c6d965dafea7651c4ac38cb13d22e2736b1b81a14e16",
+      "result_sha256": "87887e6032d394d3d8932d9fd2bb5dfb8c6ec37e9c93bb4b8fc33dadad95831e",
       "scored_at_commit": "356b298",
       "scored_on": "2026-09-01",
       "seed": 20260901,
@@ -11,7 +11,7 @@
       }
     },
     "three_source": {
-      "result_sha256": "49f87fcecc4bc0464da43835fdd188f1ce31faa3ef49ffc699fa584d6a6fd35a",
+      "result_sha256": "09c104724d397ea7e393a6d2be0b495054d90a57745016bc9939a5178cda93b8",
       "scored_at_commit": "356b298",
       "scored_on": "2026-09-01",
       "seed": 20260902,

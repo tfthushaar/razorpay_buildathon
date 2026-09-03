@@ -1,6 +1,6 @@
 # Build Log
 
-Raw chronological journal, kept as an appendix. Curated version: [docs/WHAT_BROKE.md](docs/WHAT_BROKE.md).
+Raw chronological journal, kept as an appendix. Curated version: [WHAT_BROKE.md](../WHAT_BROKE.md).
 
 ## What changed when
 
@@ -407,7 +407,7 @@ not live pointers to a file that still exists.
 
 First full run against the live API after the retry/fallback hardening above. Seed 42, main_n=120,
 stress_n=40, threshold=0.90, model `openai/gpt-oss-20b`. Raw result saved at
-[docs/evidence/real-groq-run-2026-08-24.json](docs/evidence/real-groq-run-2026-08-24.json).
+[docs/evidence/real-groq-run-2026-08-24.json](evidence/real-groq-run-2026-08-24.json).
 
 - **Elapsed: 665s (~11 minutes)** for 120 + 40 transactions, the large majority of that time spent
   in rate-limit backoff sleeps, not model inference — worth stating plainly rather than implying
@@ -617,7 +617,7 @@ test exercised the resolve-loop-at-volume scenario I'd had to construct ad hoc f
 Seed 99 (new seed, not a replay), main_n=120, stress_n=40, threshold=0.90, `openai/gpt-oss-20b`,
 this time with `calibration_history=`/`audit_logger=` explicitly pointed at the real
 `backend/data/*.db` paths. Raw output:
-[docs/evidence/real-groq-run-2026-08-24b-persisted.json](docs/evidence/real-groq-run-2026-08-24b-persisted.json).
+[docs/evidence/real-groq-run-2026-08-24b-persisted.json](evidence/real-groq-run-2026-08-24b-persisted.json).
 
 - **Wall-clock time: 4,174s (~70 minutes) for the full run; the measured `elapsed_seconds` field
   (main batch only, by design) came out to 179.1s.** The gap is almost entirely the stress batch's
@@ -1086,7 +1086,7 @@ to `docs/evidence/` — the 94.4%/~150s claim rested on log prose alone. Fixed b
 `provider="ollama"` batch wired to the live DB objects (`app.main`'s actual `audit_logger`/
 `calibration_history`, not fresh ones — the exact mistake round 2 caught and fixed), same seed=42
 as every other documented Ollama number:
-[`docs/evidence/real-ollama-run-2026-08-24.json`](docs/evidence/real-ollama-run-2026-08-24.json).
+[`docs/evidence/real-ollama-run-2026-08-24.json`](evidence/real-ollama-run-2026-08-24.json).
 
 **Real numbers from this run, cross-checked against ground truth directly, not just trusted from
 the dashboard:** 17/18 (94.4%) on the main narration queue, 50.75s for that queue (~2.8s/txn) —

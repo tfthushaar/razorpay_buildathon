@@ -1,7 +1,7 @@
 # What broke
 
-Seventeen incidents that changed how the system works, newest first. Longer journal:
-[`BUILD_LOG.md`](../BUILD_LOG.md).
+Eighteen incidents that changed how the system works, newest first. Longer journal:
+[`BUILD_LOG.md`](docs/BUILD_LOG.md).
 
 ---
 
@@ -148,7 +148,7 @@ Cause. Five seeds. 10/10 has a 95% Wilson lower bound of 72.2%.
 
 Fix. Raised to 30 seeds: 175/209 = 83.7%, interval [78.1, 88.1]. Raising n moved the estimate down
 16.3 points. The original figure was not imprecise, it was unrepresentative. Every accuracy figure in
-[RESULTS.md](RESULTS.md) now carries an interval.
+[RESULTS.md](docs/RESULTS.md) now carries an interval.
 
 Found by: an external reviewer pointing at the lower bound.
 
@@ -309,3 +309,29 @@ to 23, p = 0.0003, and survives conceding two cases at p = 0.0015. The effect is
 single-seed evidence for it was not adequate: four of five draws would have read as no result.
 
 Found by: distrusting a p-value that sat that close to its own threshold.
+
+---
+
+## A tamper-detector that reported tampering nobody had done
+
+Symptom. The first run of the holdout freeze reported that the source files behind *both* scored
+holdouts had changed since they were scored. One of those was real. The other was not: the reading
+holdout's script had not been edited at all.
+
+Cause. The hash was taken over raw working-tree bytes, with a docstring arguing that line endings are
+part of a file and normalising them would make the hash "agree with itself across platforms while
+disagreeing with what is actually committed". That is backwards. With `core.autocrlf=true` a Windows
+working tree holds CRLF while git stores LF, so hashing the working tree hashes a checkout artifact
+and it is the *unnormalised* hash that disagrees with what is committed. Every file I had touched
+looked modified.
+
+Fix. Hash LF-normalised content, which is what git stores. The tell was CI: it passed on my machine
+and failed on Linux within ninety seconds of the first push, on the two tests asserting the published
+holdouts still match their recorded hashes.
+
+Worth keeping for the shape rather than the bug. A verifier whose failure mode is crying wolf is more
+dangerous than one that is simply absent, because the first few false alarms teach you to skim past
+the real one. It also briefly made it into the published docs as a finding about the repo's history,
+which it was not.
+
+Found by: CI, on the first push, disagreeing with a green local run.

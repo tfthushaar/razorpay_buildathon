@@ -45,8 +45,8 @@ def _sections(path: Path) -> int:
 
 
 def test_every_stated_incident_count_matches_what_what_broke_carries():
-    actual = _sections(ROOT / "docs" / "WHAT_BROKE.md")
-    for name in ("README.md", "docs/WHAT_BROKE.md"):
+    actual = _sections(ROOT / "WHAT_BROKE.md")
+    for name in ("README.md", "WHAT_BROKE.md"):
         text = (ROOT / name).read_text(encoding="utf-8")
         for stated in _stated(text, "incidents"):
             assert stated == actual, f"{name} says {stated} incidents; WHAT_BROKE.md carries {actual}"

@@ -89,10 +89,21 @@ def already_scored(name: str) -> bool:
     return (FINAL_DIR / f"{name}.json").exists()
 
 
+CRLF = bytes([13, 10])
+LF = bytes([10])
+
+
 def sha256_of(path: Path) -> str:
-    """Hashed on raw bytes. Line endings are part of the file, and pretending otherwise would make
-    the hash agree with itself across platforms while disagreeing with what is actually committed."""
-    return hashlib.sha256(path.read_bytes()).hexdigest()
+    """Hash the content as git stores it: line endings normalised to LF.
+
+    The first version hashed raw working-tree bytes, on the argument that line endings are part of
+    the file and normalising them would make the hash agree across platforms while disagreeing with
+    what is actually committed. That had it exactly backwards. With `core.autocrlf=true` the CRLFs in
+    a Windows working tree are a checkout artifact; the committed content is LF, and hashing the
+    artifact is what disagrees with what is committed. It passed locally and failed in CI on the
+    first push, which is the cheapest possible way to be told.
+    """
+    return hashlib.sha256(path.read_bytes().replace(CRLF, LF)).hexdigest()
 
 
 class HoldoutTampered(RuntimeError):

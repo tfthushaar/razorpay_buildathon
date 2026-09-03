@@ -56,7 +56,7 @@ larger the true group the sooner that happens. At a four-member group and n=5,00
 30 seeds.
 
 An earlier version of this table reported `2-sum-hash` on every row and a frontier of n=1,500. See
-[WHAT_BROKE.md](WHAT_BROKE.md).
+[WHAT_BROKE.md](../WHAT_BROKE.md).
 
 Reproduce: `python scripts/generate_multiway_netting_optimal_solver_evidence.py`. Raw:
 [`multiway-netting-optimal-solver-2026-08-29.json`](evidence/multiway-netting-optimal-solver-2026-08-29.json).

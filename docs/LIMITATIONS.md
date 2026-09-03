@@ -51,9 +51,9 @@ Two things about that holdout are worth stating plainly rather than leaving to t
 holdout, which stops it being re-scored and does nothing about the code underneath it changing. The
 three-source generator changed hours after the holdout was scored -- Razorpay's documented narration
 format, a cosmetic draw moved off the main RNG stream, a twin-collision defect -- and its four
-deterministic columns now come out -3, -2, +2 and +2 from what was published. The reading holdout's
-script also changed and still produces its number exactly. Both are recorded, with hashes taken from
-git, in [`evidence/final/FREEZE.md`](evidence/final/FREEZE.md).
+deterministic columns now come out -3, -2, +2 and +2 from what was published. The reading holdout is
+untouched and still produces its number exactly. Both are recorded, with hashes taken from git, in
+[`evidence/final/FREEZE.md`](evidence/final/FREEZE.md).
 
 Neither is re-scored. That is the rule working, and it costs something: the three-source holdout is
 now a record of a system that no longer exists, so it validates the figures as published on

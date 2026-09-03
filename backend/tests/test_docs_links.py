@@ -31,10 +31,18 @@ WELL_FORMED = re.compile(r"\[[^\]]*\]\((?P<dest>[^)\s]+)\)")
 LINK_SHAPED = re.compile(r"\][ ]*\((?P<dest>[^)]*)\)", re.DOTALL)
 
 
+# Named files go stale the moment one is moved, and the failure is silent: the checker keeps passing
+# on a smaller set. WHAT_BROKE.md moved to the repo root and BUILD_LOG.md moved into docs/, and the
+# old hard-coded list would simply have stopped checking one of them. Globbing both locations cannot
+# drift that way, and `test_the_important_docs_are_actually_being_checked` fails loudly if a move
+# ever takes one out of range entirely.
 def _markdown_files() -> list[Path]:
-    files = sorted(DOCS_ROOT.joinpath("docs").glob("*.md"))
-    files += [DOCS_ROOT / "README.md", DOCS_ROOT / "BUILD_LOG.md"]
-    return [f for f in files if f.exists()]
+    seen, files = set(), []
+    for path in sorted(DOCS_ROOT.joinpath("docs").glob("*.md")) + sorted(DOCS_ROOT.glob("*.md")):
+        if path.exists() and path.resolve() not in seen:
+            seen.add(path.resolve())
+            files.append(path)
+    return files
 
 
 def _headings(path: Path) -> set[str]:
@@ -102,3 +110,10 @@ def test_the_checker_would_catch_the_bug_it_was_written_for():
     wrapped = "see ([METHODS.md](METHODS.md#the-autonomy-gate-and-\nwhy-wilson-was-the-wrong-bound))"
     assert re.findall(r"\][ ]*\([^)]*\n[^)]*\)", wrapped), "the newline guard no longer fires"
     assert not WELL_FORMED.search(wrapped), "a wrapped destination must not read as well formed"
+
+
+def test_the_important_docs_are_actually_being_checked():
+    """A link checker that quietly stops seeing a file is worse than not having one."""
+    names = {f.name for f in _markdown_files()}
+    for required in ("README.md", "WHAT_BROKE.md", "RESULTS.md", "LIMITATIONS.md", "BUILD_LOG.md"):
+        assert required in names, f"{required} is not being link-checked -- did it move?"

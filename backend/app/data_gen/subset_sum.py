@@ -25,7 +25,7 @@ app/narrator/multiway_netting_optimal_solver.py.
 So this is a faster version of something that was never slow, written before checking who calls it.
 It is kept rather than reverted because it is equivalence-tested against the original and removes a
 cliff if a caller ever does pass a real batch, but it earns no speed claim, and the honest summary is
-that the profiling should have come first. Recorded in docs/WHAT_BROKE.md.
+that the profiling should have come first. Recorded in WHAT_BROKE.md.
 
 Results are identical to the brute-force version, which is not an assumption:
 `test_meet_in_the_middle_matches_brute_force_exactly` cross-checks the two implementations over
