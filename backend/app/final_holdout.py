@@ -17,12 +17,34 @@ that leaves a trace in git history.
 
 from __future__ import annotations
 
+import hashlib
 import json
 from datetime import date
 from pathlib import Path
 from typing import Any
 
-FINAL_DIR = Path(__file__).resolve().parents[2] / "docs" / "evidence" / "final"
+REPO = Path(__file__).resolve().parents[2]
+FINAL_DIR = REPO / "docs" / "evidence" / "final"
+MANIFEST = FINAL_DIR / "freeze.json"
+FREEZE_DOC = FINAL_DIR / "FREEZE.md"
+
+# The files that decide what each holdout's number comes out as: the ones that build its input and
+# the ones that score it. "Has this result been invalidated?" is not answerable from the result file
+# alone -- the answer lives in whether these changed underneath it, which is exactly what happened to
+# three_source and was caught by reading prose rather than by anything mechanical.
+HOLDOUT_SOURCES = {
+    "reading": [
+        "backend/scripts/generate_reading_evidence.py",
+    ],
+    "three_source": [
+        "backend/app/data_gen/three_source.py",
+        "backend/app/resolver/entity_resolution.py",
+        "backend/app/resolver/fellegi_sunter.py",
+    ],
+    "qa": [
+        "backend/app/qa/agent.py",
+    ],
+}
 
 # Seeds no experiment in this repository has ever been run against. The existing scripts use 1-12,
 # 42, 100-111, 777, 909 and 1337; these are outside all of them.
@@ -65,3 +87,73 @@ def claim(name: str, payload: dict[str, Any]) -> Path:
 
 def already_scored(name: str) -> bool:
     return (FINAL_DIR / f"{name}.json").exists()
+
+
+def sha256_of(path: Path) -> str:
+    """Hashed on raw bytes. Line endings are part of the file, and pretending otherwise would make
+    the hash agree with itself across platforms while disagreeing with what is actually committed."""
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+class HoldoutTampered(RuntimeError):
+    """Raised when a scored holdout file no longer hashes to what the manifest recorded.
+
+    Refusing to overwrite stops a holdout being re-SCORED. It does nothing about a holdout being
+    re-WRITTEN, and a rule that only guards one of those is not guarding much.
+    """
+
+
+def verify() -> list[dict[str, Any]]:
+    """Re-hash every frozen holdout and report what has moved since it was scored.
+
+    Two independent questions, and the second is the one that has already caught something:
+
+        result_ok    does the answer file still hash to what was recorded? If not, the published
+                     number was edited after the single shot was taken.
+        sources_ok   do the files that produce and score it still hash to what they did at the
+                     scoring commit? If not, the number stands as a record of what happened that
+                     day and no longer describes what this code would do now.
+
+    A drifted source is not tampering and is not an error. It is a fact about the result's shelf
+    life, and it is reported rather than hidden, because the alternative is a holdout that looks
+    authoritative long after the thing it measured stopped existing.
+    """
+    if not MANIFEST.exists():
+        return []
+    manifest = json.loads(MANIFEST.read_text(encoding="utf-8"))
+    rows = []
+    for name, entry in sorted(manifest["holdouts"].items()):
+        path = FINAL_DIR / f"{name}.json"
+        result_now = sha256_of(path) if path.exists() else None
+        drifted = []
+        for rel, recorded in sorted(entry["sources"].items()):
+            current = REPO / rel
+            now = sha256_of(current) if current.exists() else None
+            if now != recorded:
+                drifted.append(rel)
+        rows.append(
+            {
+                "name": name,
+                "seed": entry["seed"],
+                "scored_on": entry["scored_on"],
+                "scored_at_commit": entry["scored_at_commit"],
+                "result_ok": result_now == entry["result_sha256"],
+                "result_sha256": entry["result_sha256"],
+                "result_sha256_now": result_now,
+                "sources_ok": not drifted,
+                "drifted_sources": drifted,
+            }
+        )
+    return rows
+
+
+def assert_results_intact() -> None:
+    """The half that is a hard rule. Source drift is reported; an edited answer file is an error."""
+    broken = [r for r in verify() if not r["result_ok"]]
+    if broken:
+        raise HoldoutTampered(
+            "a scored holdout no longer matches its recorded hash: "
+            + ", ".join(r["name"] for r in broken)
+            + ". The single-shot number is whatever was written that day; if the file needed to "
+            "change, the change belongs in git history with a reason, not in a silent edit."
+        )

@@ -420,10 +420,38 @@ held-out phrasing. Nothing moved by more than 1.3 points and the direction of ev
 
 That validates the published figures rather than replacing them, and it is one seed rather than a
 new distribution, so it bounds the inflation from repeated measurement rather than eliminating the
-concern. The mechanism is enforced in code: `app/final_holdout.py` refuses to overwrite a scored
-holdout, so a second run raises instead of quietly producing a nicer number.
+concern.
 
-Reproduce: `python scripts/score_final_holdout.py`, which will refuse. Raw:
+### The receipt, and what it caught
+
+Refusing to overwrite a scored holdout stops it being re-**scored**. It does nothing about it being
+re-**written**, and nothing about the code underneath it changing — which is exactly what happened
+here, and was caught by remembering to write the paragraph above rather than by anything that would
+have failed.
+
+So each holdout now carries hashes in [`final/FREEZE.md`](evidence/final/FREEZE.md): the SHA256 of
+its answer file, and the SHA256 of every file that builds or scores its input **as those files stood
+at the commit that scored it**. Those historical hashes are read out of git rather than typed.
+
+| Holdout | Seed | Answer file | Code underneath | Number today |
+|---|---|---|---|---|
+| reading | 20260901 | intact | changed | **reproduces exactly**, 405/420 and 262/420 |
+| three_source | 20260902 | intact | changed | **no longer reproduces** |
+
+The two rows disagreeing is the useful part. A changed hash is a reason to look, not a verdict: the
+reading holdout's script moved without touching its result, while three-source moved by -3, -2, +2
+and +2 across its four deterministic columns. Nothing but re-running distinguishes those two cases,
+and re-running to *compare* is not re-scoring — the published figure is never replaced by what comes
+back, which is the only part the single-shot rule actually forbids.
+
+Neither is repaired. A held-out answer that became inconvenient and then got re-scored is worth
+nothing, so three-source stands as a record of what happened on 2026-09-01 and is marked as no longer
+describing this code.
+
+Reproduce: `python scripts/freeze_holdout.py --check --reproduce`, and
+`python scripts/score_final_holdout.py`, which will refuse. Raw:
+[`final/FREEZE.md`](evidence/final/FREEZE.md),
+[`final/freeze.json`](evidence/final/freeze.json),
 [`final/reading.json`](evidence/final/reading.json),
 [`final/three_source.json`](evidence/final/three_source.json).
 
@@ -488,7 +516,7 @@ Reproduce: `python scripts/audit_calibration.py --db ../docs/evidence/verified_c
 ## Verify it yourself
 
 ```bash
-cd backend && python -m pytest tests/ -v                 # 608 tests
+cd backend && python -m pytest tests/ -v                 # 614 tests
 python scripts/generate_reading_evidence.py
 python scripts/generate_three_source_evidence.py --n 120
 python scripts/generate_forecast_evidence.py

@@ -32,6 +32,10 @@ jobs:
       - name: The residual boundary holds
         run: python -m pytest tests/test_residual_boundary.py -q
 
+      # A published single-shot figure must still hash to what was written on the day it was scored.
+      - name: The frozen holdouts have not been edited
+        run: python -m pytest tests/test_freeze_holdout.py -q
+
       # A zero is only evidence if it could have come out otherwise. These seed a fault on purpose
       # -- disable a control, inject a known number of overcharges, hand the loop a hostile reply --
       # and assert the measurement notices. Without this, "0 wrongly auto-resolved" is unfalsifiable.

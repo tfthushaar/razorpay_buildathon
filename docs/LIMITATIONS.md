@@ -39,10 +39,29 @@ the system around them changed, and the figures that survived are the ones I kep
 repeatedly and publishing the run you kept is multiple testing: those intervals are narrower than
 they should be.
 
-An untouched set has since been scored exactly once. Everything reproduced within 1.3 points and
-every finding held its direction, which bounds the inflation rather than removing the concern -- one
-seed is not a new distribution. `app/final_holdout.py` refuses to overwrite a scored holdout so the
-rule survives my memory of it.
+An untouched set has since been scored exactly once. On the day it was scored, everything reproduced
+within 1.3 points of the published figures and every finding held its direction, which bounds the
+inflation rather than removing the concern -- one seed is not a new distribution. Whether those
+holdouts still reproduce against today's code is a separate question, and the answer below is not the
+same for both.
+
+Two things about that holdout are worth stating plainly rather than leaving to the reader.
+
+**One of the two no longer reproduces.** `app/final_holdout.py` refuses to overwrite a scored
+holdout, which stops it being re-scored and does nothing about the code underneath it changing. The
+three-source generator changed hours after the holdout was scored -- Razorpay's documented narration
+format, a cosmetic draw moved off the main RNG stream, a twin-collision defect -- and its four
+deterministic columns now come out -3, -2, +2 and +2 from what was published. The reading holdout's
+script also changed and still produces its number exactly. Both are recorded, with hashes taken from
+git, in [`evidence/final/FREEZE.md`](evidence/final/FREEZE.md).
+
+Neither is re-scored. That is the rule working, and it costs something: the three-source holdout is
+now a record of a system that no longer exists, so it validates the figures as published on
+2026-08-30 and not the ones at the top of RESULTS. The five-seed sweep does that job instead.
+
+**The Q&A holdout was never scored at all.** Two of the three seeds set aside were used. The third
+is still unclaimed, so the Q&A benchmark has no single-shot figure and its published numbers carry
+the full repeated-measurement concern with nothing bounding it.
 
 ## Most single-seed p-values here would not have replicated
 

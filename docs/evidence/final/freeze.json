@@ -1,0 +1,25 @@
+{
+  "generated_on": "2026-09-04",
+  "holdouts": {
+    "reading": {
+      "result_sha256": "699adba21f86e375d348c6d965dafea7651c4ac38cb13d22e2736b1b81a14e16",
+      "scored_at_commit": "356b298",
+      "scored_on": "2026-09-01",
+      "seed": 20260901,
+      "sources": {
+        "backend/scripts/generate_reading_evidence.py": "c45fd6553a7f2082575bffec9e82fd6b7152ab8f7b63c7eeab9f5df609586dba"
+      }
+    },
+    "three_source": {
+      "result_sha256": "49f87fcecc4bc0464da43835fdd188f1ce31faa3ef49ffc699fa584d6a6fd35a",
+      "scored_at_commit": "356b298",
+      "scored_on": "2026-09-01",
+      "seed": 20260902,
+      "sources": {
+        "backend/app/data_gen/three_source.py": "6fbe920222b4f7ffe3f17abd0a4404935c1105f510de4d33afc8ab9a0d5c9dc5",
+        "backend/app/resolver/entity_resolution.py": "d2f629e2cc3a5a9d0103e7c5d078ab2332785f3e78b857b2e741f98232db065e",
+        "backend/app/resolver/fellegi_sunter.py": "fab52eac0f7b4f5481dd3b494d7f20c42abd8716c830acf3d1482df7e71823dd"
+      }
+    }
+  }
+}

@@ -150,7 +150,7 @@ No API key and no model needed. The mock provider is a real keyword rule, so the
 
 ```bash
 cd backend && pip install -r requirements.txt
-python -m pytest tests/ -v                            # 608 tests, ~85s
+python -m pytest tests/ -v                            # 614 tests, ~78s
 python scripts/generate_generalization_evidence.py    # 0 wrong on shapes it was never built for
 python scripts/generate_ablation_evidence.py          # what each tier is worth
 python scripts/generate_sensitivity_evidence.py       # where the constants break
