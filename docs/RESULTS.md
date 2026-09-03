@@ -195,6 +195,35 @@ The pass criterion is what keeps it from being circular in the other direction: 
 passes, so the suite cannot be gamed by tuning the matcher, and it caught three real defects on its
 first run precisely because nothing was tuned to it.
 
+### The zero is a measurement, not a property of the test
+
+A gate that reports 0 wrong resolutions and a gate that cannot see a wrong resolution produce the
+same number. So each one is broken on purpose and the measurement has to notice.
+
+| Mutation | Wrongly resolved |
+|---|---|
+| nothing — the shipped system | **0** of 32 |
+| all three data-integrity controls disabled | **24** |
+| `duplicate_settlement` alone disabled | 8 |
+| `impossible_timing` alone disabled | 8 |
+| `recycled_reference` alone disabled | 8 |
+
+Every control is individually load-bearing: disable any one and eight settlements that nothing else
+catches reconcile clean and get closed on no basis at all. A control that could be deleted without
+the number moving would be either redundant or dead, and the suite would be testing neither.
+
+The fee-leak false-positive rate gets the same treatment. Inject 1, 5 or 25 overcharges into a clean
+batch and the detector returns exactly that many — not fewer, which would mean it is blind to real
+leaks, and not more, which would mean the 51,000-transaction zero was luck. A leak exactly at the
+epsilon is deliberately not reported and one paisa past it is, so the tolerance is shown to hold
+rather than assumed.
+
+The same discipline is turned on the adversarial tests themselves. Every one of them asserts a
+hostile reply fails to verify, and all of them would pass against a loop that could never verify
+anything, so one legitimate choice is asserted to succeed. It does, with its components attached.
+
+`tests/test_harness_mutation.py`, `tests/test_adversarial_boundary.py`, both gated in CI.
+
 Reproduce: `python scripts/generate_generalization_evidence.py`. Raw:
 [`generalization-2026-09-01.json`](evidence/generalization-2026-09-01.json).
 
@@ -459,7 +488,7 @@ Reproduce: `python scripts/audit_calibration.py --db ../docs/evidence/verified_c
 ## Verify it yourself
 
 ```bash
-cd backend && python -m pytest tests/ -v                 # 593 tests
+cd backend && python -m pytest tests/ -v                 # 608 tests
 python scripts/generate_reading_evidence.py
 python scripts/generate_three_source_evidence.py --n 120
 python scripts/generate_forecast_evidence.py

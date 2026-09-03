@@ -32,6 +32,12 @@ jobs:
       - name: The residual boundary holds
         run: python -m pytest tests/test_residual_boundary.py -q
 
+      # A zero is only evidence if it could have come out otherwise. These seed a fault on purpose
+      # -- disable a control, inject a known number of overcharges, hand the loop a hostile reply --
+      # and assert the measurement notices. Without this, "0 wrongly auto-resolved" is unfalsifiable.
+      - name: The gates that report zero can still detect a defect
+        run: python -m pytest tests/test_harness_mutation.py tests/test_adversarial_boundary.py -q
+
       # Not an accuracy floor. Escalating every unfamiliar shape passes; one wrong resolution fails.
       - name: No wrong resolution on shapes the matcher was never designed for
         run: python scripts/generate_generalization_evidence.py
