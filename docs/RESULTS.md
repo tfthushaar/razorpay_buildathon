@@ -464,7 +464,7 @@ Reproduce: `python scripts/freeze_holdout.py --check --reproduce`, and
 | Claim | Number |
 |---|---|
 | Match rate, real provider, demo density | 99.3% of settlement value, 7 escalations of 120 |
-| Match rate, mock provider, demo density | 86.0%, 18 escalations of 120 |
+| Match rate, mock provider, demo density | 85.0% (102 of 120), 18 escalations |
 | `netting_trap` | 59 distinct real cases, 98.3% [91.0, 99.7] |
 | `duplicate_refund` | 37 distinct real cases, 100% [90.6, 100.0] |
 | `genuine_error` | 66 distinct real cases, 80.3% [69.2, 88.1], never auto-resolves by design |
@@ -520,7 +520,7 @@ Reproduce: `python scripts/audit_calibration.py --db ../docs/evidence/verified_c
 ## Verify it yourself
 
 ```bash
-cd backend && python -m pytest tests/ -v                 # 615 tests
+cd backend && python -m pytest tests/ -v                 # 616 tests
 python scripts/generate_reading_evidence.py
 python scripts/generate_three_source_evidence.py --n 120
 python scripts/generate_forecast_evidence.py

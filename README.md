@@ -3,26 +3,85 @@
 Razorpay AI Buildathon 2026, Track 04 · **Live:
 [razorpay-buildathon-five.vercel.app](https://razorpay-buildathon-five.vercel.app)**
 
+**148 commits · 616 tests · [18 sourced failures](WHAT_BROKE.md) · [MIT](LICENSE) · CI gates correctness, not
+just a green suite**
+
 A merchant's finance analyst on the Tuesday after a settlement cycle: a Razorpay settlement report, a
 bank statement and their own ERP ledger, and the three disagree. This does that triage, and separately
 audits the fee against the contract — because a wrongly-charged fee reconciles perfectly.
 
-**What you get by cloning this and pressing Run**, on the demo's default batch:
+The demo runs **160 records — a 120-transaction batch plus a 40-transaction adversarial stress
+batch** — against the track's 50+ requirement, and scales to 50,000 in the throughput benchmark.
 
-| On the demo default — 60% clean, deliberately dirtier than production | |
+## Why a model at all
+
+Every submission in this track will say deterministic-first, AI where it helps. Almost none will have
+tested it. I tried three times to prove the model was unnecessary and succeeded three times:
+`netting_trap` fell to a 20-line check, `multiway_netting_trap` to a hash table,
+`narration_explained` to a keyword scan. Settlement records come from deterministic processes, so
+their ground truth is arithmetically derivable and a rule wins.
+
+Then I went looking for where that stops being true, and wrote the strongest rule I could to find
+out — fragment splitting, cause keywords, a 29-entry negation-cue list, all assembled with full sight
+of the generator's phrasing. Both readers were then tested on phrasing neither had seen.
+
+| Reader | Phrasing its author saw | Held-out phrasing | Reads a denial as a **confirmation** |
+|---|---|---|---|
+| best rule I could write | 95.2% [92.8, 96.9] | 61.7% [56.9, 66.2] | **38.3%** |
+| `qwen2.5:7b-instruct` | 79.8% [75.7, 83.3] | 72.6% [68.2, 76.7] | 3.6% |
+| `openai/gpt-oss-20b` | 92.1% [89.2, 94.4] | 96.2% [93.9, 97.6] | **0.2%** |
+
+**On phrasing it was not tuned for, the best rule I could write asserts a charge the text explicitly
+denies in 38.3% of judgements.** Not "gets it wrong" — actively claims a fee was applied where the
+bank says it was not. The models sit between 0.2% and 3.6%, and they fail the other way: they miss
+the mention, so the case escalates. Wrong, but safe.
+
+That is the entire argument for a model being here, and it is a measurement rather than a slogan.
+420 judgements per cell, two model families, and the held-out intervals do not overlap. Razorpay's
+own track brief says verification capacity is the 2026 bottleneck; this tested that claim instead of
+quoting it.
+
+## A wrong match is worse than no match
+
+That is the axis a finance tool is judged on, so it is the number I lead with.
+
+| | |
 |---|---|
-| Closed automatically, strict count | **85.0%** |
-| Closed, or escalated when escalating was the right answer | **90.0%** |
-| Wrongly auto-resolved | **0** |
-| Same pipeline on a realistic 97%-clean batch | **98.9%** closed |
+| Wrongly auto-resolved, demo batch | **0** |
+| Wrongly auto-resolved on four defect shapes the matcher was never designed for | **0** of 32 |
+| Fee-audit false positives | **0** across 51,000 |
 
-All of that closes by arithmetic, with no model in the path. The gap between 85.0% and 98.9% is batch
-density and nothing else, and the demo ships the harder one so every defect category is exercised.
+A zero is only evidence if it could have come out otherwise, so CI breaks each gate on purpose and
+checks the number moves. Disable the three data-integrity controls and the novel-shape suite goes
+from 0 wrong to **24 of 32** — 8 per control, so each is individually load-bearing. Inject 1, 5 or 25
+overcharges into a clean batch and the fee detector returns exactly 1, 5 and 25.
 
-No category has earned permission for a *model* to close a case unsupervised — the gate refuses all of
-them. For a finance tool that is the feature: a gate that has never once refused has never been
-tested, and the same evidence still automates 59.3% of escalations at a 1.0% error rate if you set the
-bar at 0.85.
+Throughput sits underneath that, not above it:
+
+| Batch | Closes automatically |
+|---|---|
+| realistic, 97% clean | **98.9%** |
+| the shipped demo — 60% clean, deliberately harder so every defect category is exercised | 85.0%, or 90.0% counting escalations that were the correct answer |
+
+All of it closes by arithmetic, with no model in the path. The gap between the two rows is batch
+density and nothing else.
+
+## The exception list
+
+What a reconciliation tool actually hands a human. On the 120-transaction batch, 18 escalate,
+ranked by rupees at stake times how ambiguous the case is, each carrying the evidence and tool trace
+that produced it.
+
+| Category | n | Money in question | Why it is here |
+|---|---|---|---|
+| `netting_trap` | 8 | ₹1,26,569.57 | several payouts net to one credit; the gate has not proven it can close these |
+| `genuine_error` | 6 | ₹18,186.20 | **never auto-resolvable by policy** — a human decides, at any accuracy |
+| `duplicate_refund` | 4 | ₹10,247.06 | refund issued twice; gate refuses at its current bound |
+| **Total** | **18** | **₹1,55,002.83** | 0 of them wrongly auto-resolved |
+
+`genuine_error` sits in `NEVER_AUTO_RESOLVE`, so escalating those six is the correct outcome rather
+than a miss — which is why the strict 85.0% and the disposition-aware 90.0% differ by exactly that
+policy, and why both are printed side by side instead of only the flattering one.
 
 ## Money the merchant is already losing
 
@@ -37,6 +96,10 @@ captured amount instead of on the fee, and a real GST slab applied instead of 18
 |---|---|---|
 | **0 across 51,000** ordinary transactions | 0.06s | none — a pure arithmetic pass |
 
+This is a **contract audit, not a variance check**, and the difference is the whole point: a fee
+charged at a consistent but contractually wrong rate produces zero variance and reconciles perfectly
+forever. Comparing charged against expected cannot see it. Comparing charged against the contract can.
+
 Zero false positives at that volume is what makes it safe to run unattended, and a stateless pass
 scales to two hundred times the data for free. `FEE_PCT` and `GST_RATE` are Razorpay's published
 rates, so the same comparison runs unchanged against a merchant's own contract.
@@ -45,14 +108,9 @@ GST on the gateway fee is also Input Tax Credit the merchant can claim, normally
 "gateway charges" ledger line where no accountant finds it. The ERP export splits it onto its own
 ITC-eligible line — money already lost on transactions that reconciled correctly.
 
-## Where AI belongs
+## Where the model sits, and what that costs
 
-Every category I built for a model to handle fell to a rule I wrote afterwards: `netting_trap` to a
-20-line check, `multiway_netting_trap` to a hash table, `narration_explained` to a keyword scan. Three
-times is a pattern. Settlement records come from deterministic processes, so their ground truth is
-arithmetically derivable and a rule wins.
-
-So I inverted the pipeline. The deterministic resolver runs first and keeps everything it can explain
+Because three categories fell to rules, I inverted the pipeline. The deterministic resolver runs first and keeps everything it can explain
 alone. The model sees only the residual: two or more equally valid explanations, or none. A case a
 rule could solve is taken by the rule, so it never inflates a model's accuracy figure. With k valid
 explanations, blind choice scores exactly 1/k — the baseline is computed, not assumed.
@@ -99,21 +157,6 @@ automates 59.3% of escalations at a 1.0% error rate, and that curve ships in the
 
 ## What the evidence says
 
-**Reading bank remittance advice.** I wrote the strongest rule I could — fragment splitting, cause
-keywords, a 29-entry negation-cue list, all with full sight of the generator's phrasing — then tested
-both readers on phrasing neither had seen.
-
-| Reader | Phrasing its author saw | Held-out phrasing |
-|---|---|---|
-| best rule I could write | 95.2% [92.8, 96.9] | 61.7% [56.9, 66.2] |
-| `qwen2.5:7b-instruct` | 79.8% [75.7, 83.3] | 72.6% [68.2, 76.7] |
-| `openai/gpt-oss-20b` | 92.1% [89.2, 94.4] | 96.2% [93.9, 97.6] |
-
-420 judgements per cell; the held-out intervals do not overlap. Worse than the gap: on unfamiliar
-phrasing the rule reads a denial as a **confirmation in 38.3%** of judgements, asserting charges the
-text says were never applied. The models sit between 0.2% and 3.6%, and they fail the safe way — they
-miss the mention, so the case escalates.
-
 **Three-source matching**, where every structured field is exhausted by construction and only the
 free-text settlement cycle remains:
 
@@ -150,7 +193,7 @@ No API key and no model needed. The mock provider is a real keyword rule, so the
 
 ```bash
 cd backend && pip install -r requirements.txt
-python -m pytest tests/ -v                            # 615 tests, ~52s
+python -m pytest tests/ -v                            # 616 tests, ~1 min
 python scripts/generate_generalization_evidence.py    # 0 wrong on shapes it was never built for
 python scripts/generate_ablation_evidence.py          # what each tier is worth
 python scripts/generate_sensitivity_evidence.py       # where the constants break
