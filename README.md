@@ -3,8 +3,8 @@
 Razorpay AI Buildathon 2026, Track 04 · **Live:
 [razorpay-buildathon-five.vercel.app](https://razorpay-buildathon-five.vercel.app)**
 
-**148 commits · 616 tests · [18 sourced failures](WHAT_BROKE.md) · [MIT](LICENSE) · CI gates correctness, not
-just a green suite**
+**615 tests · [18 sourced failures](WHAT_BROKE.md) · [MIT](LICENSE) · CI gates correctness, not just a
+green suite**
 
 A merchant's finance analyst on the Tuesday after a settlement cycle: a Razorpay settlement report, a
 bank statement and their own ERP ledger, and the three disagree. This does that triage, and separately
@@ -193,7 +193,7 @@ No API key and no model needed. The mock provider is a real keyword rule, so the
 
 ```bash
 cd backend && pip install -r requirements.txt
-python -m pytest tests/ -v                            # 616 tests, ~1 min
+python -m pytest tests/ -v                            # 615 tests, ~1 min
 python scripts/generate_generalization_evidence.py    # 0 wrong on shapes it was never built for
 python scripts/generate_ablation_evidence.py          # what each tier is worth
 python scripts/generate_sensitivity_evidence.py       # where the constants break

@@ -17,8 +17,6 @@ import subprocess
 import sys
 from pathlib import Path
 
-import pytest
-
 BACKEND = Path(__file__).resolve().parents[1]
 ROOT = BACKEND.parent
 
@@ -80,33 +78,3 @@ def test_every_stated_test_count_matches_the_suite():
                 f"{name} says {stated} tests; the suite collects {actual}. "
                 "Update the prose, or explain why the two differ."
             )
-
-
-def test_the_stated_commit_count_never_overstates_the_repository():
-    """A commit count is stale the moment it is written, so this guards the half that matters.
-
-    Overstating is the credibility problem: a README claiming more work than the history contains is
-    the kind of thing a judge checks in one command. Understating is harmless, so the rule is that
-    the stated figure may lag reality but must never exceed it, and must not lag so far that it stops
-    being a fair description.
-
-    Skipped on a shallow clone, where the count is an artifact of the checkout rather than of the
-    repository. CI checks out with full history for exactly this reason.
-    """
-    shallow = subprocess.run(
-        ["git", "rev-parse", "--is-shallow-repository"],
-        cwd=ROOT, capture_output=True, text=True,
-    ).stdout.strip()
-    if shallow != "false":
-        pytest.skip("shallow clone: commit count here would not mean anything")
-
-    actual = int(subprocess.run(
-        ["git", "rev-list", "--count", "HEAD"], cwd=ROOT, capture_output=True, text=True, check=True,
-    ).stdout.strip())
-
-    for stated in _stated((ROOT / "README.md").read_text(encoding="utf-8"), "commits"):
-        assert stated <= actual, f"README claims {stated} commits; the history has {actual}"
-        assert actual - stated <= 25, (
-            f"README says {stated} commits and the history has {actual}. Not wrong, but far enough "
-            "behind to be worth refreshing."
-        )

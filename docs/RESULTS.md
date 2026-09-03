@@ -520,7 +520,7 @@ Reproduce: `python scripts/audit_calibration.py --db ../docs/evidence/verified_c
 ## Verify it yourself
 
 ```bash
-cd backend && python -m pytest tests/ -v                 # 616 tests
+cd backend && python -m pytest tests/ -v                 # 615 tests
 python scripts/generate_reading_evidence.py
 python scripts/generate_three_source_evidence.py --n 120
 python scripts/generate_forecast_evidence.py

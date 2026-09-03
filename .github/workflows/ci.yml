@@ -12,11 +12,7 @@ jobs:
         working-directory: backend
 
     steps:
-      # Full history, so the commit-count guard actually runs instead of skipping. A guard that
-      # only ever skips in CI is a guard that only runs where nobody is watching.
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - uses: actions/setup-python@v5
         with:

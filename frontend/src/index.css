@@ -1,25 +1,38 @@
 :root {
-  --bg: #f5f6fb;
-  --surface: #ffffff;
-  --surface-2: #fafaff;
-  --border: #e4e5f0;
-  --border-strong: #d3d5e6;
-  --track: #edeef6;
-  --ink: #171a2e;
-  --ink-soft: #383c58;
-  --muted: #696d87;
-  --muted-2: #9498ad;
-  --accent: #4338ca;
-  --accent-hover: #362cad;
-  --accent-soft: #edebfb;
-  --accent-soft-strong: #ded9f7;
-  --good: #0f8a5f;
-  --good-soft: #e4f6ee;
-  --warn: #b45f06;
-  --warn-soft: #fdf1de;
-  --bad: #c8383d;
-  --bad-soft: #fceaea;
+  /* Dark palette. Every surface is a token, so the whole theme is these twenty lines and nothing
+     downstream needed to know. Backgrounds climb from --bg to --surface-2 rather than using opacity,
+     because stacked translucent panels drift in colour as they nest. */
+  --bg: #0d0f17;
+  --surface: #151824;
+  --surface-2: #1b1f2e;
+  --border: #272c3d;
+  --border-strong: #363c52;
+  --track: #222739;
+  --ink: #eef0f7;
+  --ink-soft: #c6cadb;
+  --muted: #9096ac;
+  --muted-2: #6c7288;
+  --accent: #8b83f5;
+  --accent-hover: #a49dff;
+  --accent-soft: #221f3d;
+  --accent-soft-strong: #2e2a52;
+  --good: #4ade9a;
+  --good-soft: #10281f;
+  --warn: #f0b355;
+  --warn-soft: #2c2113;
+  --bad: #f77c81;
+  --bad-soft: #2e1719;
 
+  /* Older rules reference these with light-coloured fallbacks. They were never defined, so the
+     fallback was what actually rendered -- three panels stayed white through the whole theme. */
+  --panel: var(--surface);
+  --panel-alt: var(--surface-2);
+  --border-soft: var(--border);
+
+  /* Text drawn ON a light fill (accent buttons, success chips, the inverted pill).
+     On a dark theme those fills are the light thing, so white text on them is the
+     low-contrast pairing and near-black is the readable one. */
+  --on-accent: #0d0f17;
   /* spacing scale -- one ladder, used everywhere instead of one-off px values */
   --space-1: 4px;
   --space-2: 8px;
@@ -33,15 +46,15 @@
   --radius-md: 14px;
   --radius-lg: 20px;
 
-  --shadow-sm: 0 1px 2px rgba(23, 26, 46, 0.05), 0 1px 1px rgba(23, 26, 46, 0.04);
-  --shadow-md: 0 8px 24px rgba(23, 26, 46, 0.07), 0 2px 6px rgba(23, 26, 46, 0.05);
-  --shadow-lg: 0 16px 40px rgba(23, 26, 46, 0.12), 0 4px 10px rgba(23, 26, 46, 0.06);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4), 0 1px 1px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.45), 0 2px 6px rgba(0, 0, 0, 0.35);
+  --shadow-lg: 0 16px 40px rgba(0, 0, 0, 0.55), 0 4px 10px rgba(0, 0, 0, 0.4);
 
   --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
 
   font: 16px/1.55 "Inter", system-ui, "Segoe UI", Roboto, sans-serif;
   font-feature-settings: "tnum" 1, "cv11" 1;
-  color-scheme: light;
+  color-scheme: dark;
   color: var(--ink);
   background: var(--bg);
   font-synthesis: none;
@@ -160,8 +173,8 @@ table {
   background: var(--panel-alt, #fafafa);
 }
 .residual-step-model {
-  border-color: #3b6fd4;
-  background: #f2f6ff;
+  border-color: var(--accent);
+  background: var(--accent-soft);
 }
 .residual-step-n {
   font-size: 1.6rem;
@@ -199,17 +212,17 @@ table {
   white-space: nowrap;
 }
 .residual-status-resolved {
-  background: #e6f4ea;
-  color: #1a6c34;
+  background: var(--good-soft);
+  color: var(--good);
 }
 .residual-status-under_determined,
 .residual-status-under-determined {
-  background: #fff4e5;
-  color: #8a5300;
+  background: var(--warn-soft);
+  color: var(--warn);
 }
 .residual-status-unmatched {
-  background: #fdecea;
-  color: #a4262c;
+  background: var(--bad-soft);
+  color: var(--bad);
 }
 
 /* --- Section headings and control grouping ---------------------------------------------------
@@ -249,7 +262,7 @@ table {
   list-style: revert;
 }
 .advanced-options > summary:hover {
-  color: #3b3bd4;
+  color: var(--accent);
 }
 .advanced-options .panel-sub {
   margin: 0.4rem 0 0.85rem;
@@ -372,8 +385,8 @@ table {
 }
 .hero-table .num { text-align: right; font-variant-numeric: tabular-nums; }
 .hero-table .strong { font-weight: 650; font-size: 1.02rem; }
-.hero-table tr.is-model .hero-row-label { color: #3b3bd4; font-weight: 600; }
-.hero-table tr.is-model .strong { color: #3b3bd4; }
+.hero-table tr.is-model .hero-row-label { color: var(--accent); font-weight: 600; }
+.hero-table tr.is-model .strong { color: var(--accent); }
 .hero-table tr.is-rule .hero-row-label { opacity: 0.95; }
 
 .hero-delta { font-size: 0.78rem; opacity: 0.6; }
@@ -386,7 +399,7 @@ table {
   font-weight: 500;
 }
 .hero-danger {
-  color: #a4262c;
+  color: var(--bad);
   font-weight: 700;
   font-size: 1.35rem;
   font-variant-numeric: tabular-nums;
@@ -426,7 +439,7 @@ table {
   border-top: 2px solid var(--border, #e2e2e8);
   user-select: none;
 }
-.also-built > summary:hover { color: #3b3bd4; }
+.also-built > summary:hover { color: var(--accent); }
 .also-built-note {
   margin: 0.2rem 0 0.6rem;
   font-size: 0.84rem;
@@ -439,9 +452,9 @@ table {
 .sample-banner {
   margin: 0 0 0.9rem;
   padding: 0.55rem 0.85rem;
-  border: 1px solid #d8c88a;
-  border-left: 3px solid #b7942e;
-  background: #fdf9ec;
+  border: 1px solid var(--warn-soft);
+  border-left: 3px solid var(--warn);
+  background: var(--warn-soft);
   border-radius: 4px;
   font-size: 0.82rem;
   line-height: 1.5;
@@ -473,9 +486,9 @@ table {
   transition: background 0.12s ease;
 }
 .app-nav-tab:hover { background: var(--panel-alt, #f6f6fa); }
-.app-nav-tab.is-active { border-bottom-color: #3b3bd4; }
+.app-nav-tab.is-active { border-bottom-color: var(--accent); }
 .app-nav-label { font-size: 0.94rem; font-weight: 600; letter-spacing: -0.005em; }
-.app-nav-tab.is-active .app-nav-label { color: #3b3bd4; }
+.app-nav-tab.is-active .app-nav-label { color: var(--accent); }
 .app-nav-hint { font-size: 0.72rem; opacity: 0.55; }
 
 /* Which run the numbers on this page belong to, for pages that do not own the controls. */
@@ -493,13 +506,13 @@ table {
   font-size: 0.8rem;
   font-variant-numeric: tabular-nums;
 }
-.run-context.is-sample { border-color: #d8c88a; background: #fdf9ec; }
+.run-context.is-sample { border-color: #d8c88a; background: var(--warn-soft); }
 .run-context-facts { opacity: 0.8; }
 .run-context-sep { opacity: 0.35; margin: 0 0.5rem; }
 .run-context-change {
   background: none;
   border: none;
-  color: #3b3bd4;
+  color: var(--accent);
   font-weight: 600;
   font-size: 0.8rem;
   cursor: pointer;

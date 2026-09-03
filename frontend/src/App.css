@@ -204,7 +204,7 @@ button {
   border-radius: var(--radius-sm);
   border: none;
   background: var(--accent);
-  color: white;
+  color: var(--on-accent);
   font-weight: 600;
   font-size: 0.9rem;
   cursor: pointer;
@@ -628,7 +628,7 @@ button:disabled {
   height: 28px;
   border-radius: 50%;
   background: var(--good);
-  color: white;
+  color: var(--on-accent);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1010,7 +1010,7 @@ button:disabled {
 
 .tour-entry-dismiss {
   background: var(--ink);
-  color: white;
+  color: var(--bg);
   border: none;
   border-radius: 999px;
   width: 30px;
@@ -1027,7 +1027,7 @@ button:disabled {
 
 .tour-entry-pill {
   background: var(--ink);
-  color: white;
+  color: var(--bg);
   border: none;
   border-radius: 999px;
   padding: 10px 18px;
@@ -1264,7 +1264,7 @@ button:disabled {
   align-items: center;
   gap: var(--space-2);
   background: var(--ink);
-  color: white;
+  color: var(--bg);
   font-size: 0.8rem;
   font-weight: 600;
   padding: 8px 14px;
@@ -1278,7 +1278,7 @@ button:disabled {
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: #6ecf8e;
+  background: var(--good);
   animation: pulse-ring 1.2s ease-in-out infinite;
 }
 
